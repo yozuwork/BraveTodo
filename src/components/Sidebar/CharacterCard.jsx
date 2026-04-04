@@ -1,13 +1,15 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import Chip from '@mui/material/Chip'
 import EditIcon from '@mui/icons-material/Edit'
+import OpenWithIcon from '@mui/icons-material/OpenWith'
+import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 
-export default function CharacterCard({ level, avatar, isEditMode, onAvatarChange }) {
+export default function CharacterCard({ level, avatar, isEditMode, onAvatarChange, imagePosition, onImagePositionChange }) {
   const fileInputRef = useRef(null)
-
-  const handleAvatarClick = () => {
-    if (isEditMode) fileInputRef.current?.click()
-  }
+  const containerRef = useRef(null)
+  const dragState = useRef(null)
+  const resizeState = useRef(null)
+  const [cardSize, setCardSize] = useState({ width: 380, height: 600 })
 
   const handleFileChange = (e) => {
     if (e.target.files?.[0]) {
@@ -15,8 +17,111 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
     }
   }
 
+  // --- 圖片拖曳位置 ---
+  const handlePointerDown = (e) => {
+    if (!isEditMode || !avatar) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    dragState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startPosX: imagePosition.x,
+      startPosY: imagePosition.y,
+      moved: false,
+    }
+  }
+
+  const handlePointerMove = (e) => {
+    if (!dragState.current) return
+    const dx = e.clientX - dragState.current.startX
+    const dy = e.clientY - dragState.current.startY
+    if (!dragState.current.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+    dragState.current.moved = true
+    const rect = containerRef.current.getBoundingClientRect()
+    const newX = Math.min(100, Math.max(0, dragState.current.startPosX - (dx / rect.width) * 100))
+    const newY = Math.min(100, Math.max(0, dragState.current.startPosY - (dy / rect.height) * 100))
+    onImagePositionChange({ x: newX, y: newY })
+  }
+
+  const handlePointerUp = () => {
+    if (!dragState.current) return
+    if (!dragState.current.moved) fileInputRef.current?.click()
+    dragState.current = null
+  }
+
+  // --- 調整卡片大小 ---
+  const handleResizeDown = (e) => {
+    e.stopPropagation()
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    resizeState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startW: cardSize.width,
+      startH: cardSize.height,
+    }
+  }
+
+  const handleResizeMove = (e) => {
+    if (!resizeState.current) return
+    const dx = e.clientX - resizeState.current.startX
+    const dy = e.clientY - resizeState.current.startY
+    setCardSize({
+      width: Math.max(200, resizeState.current.startW + dx),
+      height: Math.max(100, resizeState.current.startH + dy),
+    })
+  }
+
+  const handleResizeUp = () => {
+    resizeState.current = null
+  }
+
   return (
-    <div className="bg-black rounded-2xl p-8 border border-green-border shadow-[0_0_15px_rgba(0,255,0,0.3)] flex flex-col items-center gap-5 relative">
+    <div
+      ref={containerRef}
+      className="bg-black rounded-2xl border border-green-border shadow-[0_0_15px_rgba(0,255,0,0.3)] relative overflow-hidden"
+      style={{ width: cardSize.width, height: cardSize.height, maxWidth: '100%' }}
+      onPointerMove={handleResizeMove}
+      onPointerUp={handleResizeUp}
+    >
+      <div
+        className={`w-full h-full relative ${isEditMode && avatar ? 'cursor-grab active:cursor-grabbing' : isEditMode ? 'cursor-pointer' : ''}`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+      >
+        {avatar ? (
+          <img
+            src={avatar}
+            alt="Avatar"
+            className="w-full h-full object-cover select-none"
+            style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }}
+            draggable={false}
+          />
+        ) : (
+          <div
+            className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-900 flex items-center justify-center cursor-pointer"
+            onClick={() => isEditMode && fileInputRef.current?.click()}
+          >
+            <span className="text-4xl font-extrabold text-white/80">V</span>
+          </div>
+        )}
+
+        {isEditMode && avatar && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/60 text-white text-xs px-3 py-1 rounded-full pointer-events-none select-none">
+            <OpenWithIcon sx={{ fontSize: 14 }} />
+            <span>拖曳調整位置・點擊換圖</span>
+          </div>
+        )}
+
+        {isEditMode && !avatar && (
+          <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center pointer-events-none">
+            <EditIcon sx={{ color: 'white', fontSize: 28 }} />
+            <span className="text-white text-xs mt-1 uppercase font-semibold">點擊上傳圖片</span>
+          </div>
+        )}
+      </div>
+
       <Chip
         label={`Level ${level}`}
         sx={{
@@ -31,25 +136,14 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
         }}
       />
 
-      <div
-        className="w-[120px] h-[120px] bg-zinc-900 rounded-full flex justify-center items-center overflow-hidden relative cursor-pointer group"
-        onClick={handleAvatarClick}
-      >
-        {avatar ? (
-          <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-900 flex items-center justify-center">
-            <span className="text-4xl font-extrabold text-white/80">V</span>
-          </div>
-        )}
-
-        {isEditMode && (
-          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <EditIcon sx={{ color: 'white', fontSize: 24 }} />
-            <span className="text-white text-xs mt-1 uppercase font-semibold">Change Avatar</span>
-          </div>
-        )}
-      </div>
+      {isEditMode && (
+        <div
+          className="absolute bottom-0 right-0 w-6 h-6 flex items-center justify-center cursor-se-resize z-10"
+          onPointerDown={handleResizeDown}
+        >
+          <OpenInFullIcon sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, transform: 'rotate(90deg)' }} />
+        </div>
+      )}
 
       <input
         ref={fileInputRef}
@@ -58,13 +152,6 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
         className="hidden"
         onChange={handleFileChange}
       />
-
-      <div className="text-center">
-        <h2 className="text-white text-2xl font-extrabold tracking-wide">VANGUARD ONE</h2>
-        <p className="text-green-text text-sm font-bold uppercase mt-1">
-          Shadow Stalker • Rank S
-        </p>
-      </div>
     </div>
   )
 }

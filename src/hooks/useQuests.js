@@ -1,27 +1,16 @@
 import { useState, useCallback } from 'react'
 
-const EXP_MAP = { common: 100, rare: 200, legendary: 500 }
-
-function getRandomRarity() {
-  const rand = Math.random()
-  if (rand < 0.15) return 'legendary'
-  if (rand < 0.45) return 'rare'
-  return 'common'
-}
-
 export default function useQuests() {
   const [quests, setQuests] = useState([])
 
   const addQuest = useCallback((text) => {
-    const rarity = getRandomRarity()
     setQuests((prev) => [
       ...prev,
       {
         id: Date.now(),
         text,
-        rarity,
-        exp: EXP_MAP[rarity],
         completed: false,
+        isCore: false,
       },
     ])
   }, [])
@@ -36,8 +25,22 @@ export default function useQuests() {
     setQuests((prev) => prev.filter((q) => q.id !== id))
   }, [])
 
-  const completedCount = quests.filter((q) => q.completed).length
-  const totalExp = quests.filter((q) => q.completed).reduce((sum, q) => sum + q.exp, 0)
+  const toggleCoreTask = useCallback((id) => {
+    setQuests((prev) =>
+      prev.map((q) => ({
+        ...q,
+        isCore: q.id === id ? !q.isCore : false,
+      }))
+    )
+  }, [])
 
-  return { quests, addQuest, toggleQuest, removeQuest, completedCount, totalExp }
+  const clearCompleted = useCallback(() => {
+    setQuests((prev) => prev.filter((q) => !q.completed))
+  }, [])
+
+  const completedCount = quests.filter((q) => q.completed).length
+  const coreQuest = quests.find((q) => q.isCore) ?? null
+  const coreTaskCompleted = coreQuest?.completed ?? false
+
+  return { quests, addQuest, toggleQuest, removeQuest, toggleCoreTask, clearCompleted, completedCount, coreTaskCompleted }
 }

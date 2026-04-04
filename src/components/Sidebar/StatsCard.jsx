@@ -11,12 +11,13 @@ function StatItem({ label, value, bonus }) {
   )
 }
 
-export default function StatsCard({ expProgress, stats }) {
+export default function StatsCard({ expProgress, coreTaskProgress, stats }) {
   return (
-    <div className="bg-white rounded-2xl p-8 flex flex-col gap-5">
+    <div className="bg-white rounded-2xl p-5 md:p-8 flex flex-col gap-5">
       <div>
+        <div className="text-black text-lg font-extrabold mb-3">初心者</div>
         <div className="text-gray-400 uppercase text-xs font-semibold tracking-wide mb-2">
-          Experience Point
+          經驗值
         </div>
         <LinearProgress
           variant="determinate"
@@ -35,17 +36,17 @@ export default function StatsCard({ expProgress, stats }) {
 
       <div>
         <div className="text-gray-400 uppercase text-xs font-semibold tracking-wide mb-2">
-          Health Status
+          核心任務經驗條
         </div>
         <LinearProgress
           variant="determinate"
-          value={92}
+          value={coreTaskProgress}
           sx={{
             height: 8,
             borderRadius: 99,
             bgcolor: '#e5e7eb',
             '& .MuiLinearProgress-bar': {
-              bgcolor: '#4ade80',
+              bgcolor: '#f472b6',
               borderRadius: 99,
             },
           }}
@@ -53,9 +54,9 @@ export default function StatsCard({ expProgress, stats }) {
       </div>
 
       <div className="grid grid-cols-3 gap-3 text-center">
-        <StatItem label="ATK" value={stats.atk.value} bonus={stats.atk.bonus} />
-        <StatItem label="DEF" value={stats.def.value} bonus={stats.def.bonus} />
-        <StatItem label="SPD" value={stats.spd.value} bonus={stats.spd.bonus} />
+        <StatItem label="攻擊" value={stats.atk.value} bonus={stats.atk.bonus} />
+        <StatItem label="防禦" value={stats.def.value} bonus={stats.def.bonus} />
+        <StatItem label="敏捷" value={stats.spd.value} bonus={stats.spd.bonus} />
       </div>
 
       <Button

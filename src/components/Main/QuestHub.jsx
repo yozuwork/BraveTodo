@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import AddIcon from '@mui/icons-material/Add'
+import Button from '@mui/material/Button'
 import TabNav from './TabNav'
 import QuestItem from './QuestItem'
 
-export default function QuestHub({ quests, onAdd, onToggle, onRemove }) {
+export default function QuestHub({ quests, onAdd, onToggle, onRemove, onToggleCore, onClearCompleted }) {
   const [inputValue, setInputValue] = useState('')
 
   const handleKeyDown = (e) => {
@@ -13,11 +14,13 @@ export default function QuestHub({ quests, onAdd, onToggle, onRemove }) {
     }
   }
 
+  const hasCompleted = quests.some((q) => q.completed)
+
   return (
     <div className="flex-1 flex flex-col gap-5">
       <div className="flex flex-col gap-4 mb-5">
-        <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight">
-          Vanguard Hub
+        <h1 className="text-black text-2xl md:text-4xl font-extrabold uppercase m-0 tracking-tight">
+          米莉亞
         </h1>
         <TabNav />
       </div>
@@ -40,6 +43,24 @@ export default function QuestHub({ quests, onAdd, onToggle, onRemove }) {
           </span>
         </div>
 
+        {hasCompleted && (
+          <div className="flex justify-end">
+            <Button
+              size="small"
+              onClick={onClearCompleted}
+              sx={{
+                color: '#ef4444',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                textTransform: 'none',
+                '&:hover': { bgcolor: '#fee2e2' },
+              }}
+            >
+              清除已完成任務
+            </Button>
+          </div>
+        )}
+
         <div className="flex flex-col gap-3">
           {quests.length === 0 ? (
             <div className="text-center py-16 text-gray-300">
@@ -53,6 +74,7 @@ export default function QuestHub({ quests, onAdd, onToggle, onRemove }) {
                 quest={quest}
                 onToggle={onToggle}
                 onRemove={onRemove}
+                onToggleCore={onToggleCore}
               />
             ))
           )}
