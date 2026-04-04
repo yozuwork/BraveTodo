@@ -1,0 +1,153 @@
+/* ── Overlay ──────────────────────────────────────── */
+.lue-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+/* dark radial backdrop – no blend mode so it truly darkens */
+.lue-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 90% 55% at 50% 100%,
+    rgba(0, 0, 0, 0.65) 0%,
+    transparent 100%
+  );
+  animation: lue-backdrop-fade 3.4s ease-in-out forwards;
+}
+
+@keyframes lue-backdrop-fade {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  72%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ── Scene (screen blend applied here) ───────────── */
+.lue-scene {
+  position: relative;
+  width: 380px;
+  height: 100vh;
+  mix-blend-mode: screen;
+}
+
+/* ── Light pillar ────────────────────────────────── */
+.lue-pillar {
+  position: absolute;
+  bottom: 150px; /* circle center */
+  left: 50%;
+  width: 72px;
+  height: calc(100vh - 150px);
+  background: linear-gradient(
+    to top,
+    #ffd700 0%,
+    #fffacd 35%,
+    rgba(255, 245, 180, 0.4) 70%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(to top, black 0%, black 65%, transparent 100%);
+  mask-image:         linear-gradient(to top, black 0%, black 65%, transparent 100%);
+  filter: blur(6px) drop-shadow(0 0 18px #ffd700);
+  transform-origin: bottom center;
+  animation: lue-pillar 3.4s ease-out forwards;
+}
+
+@keyframes lue-pillar {
+  0%   { transform: translateX(-50%) scaleX(0.15) scaleY(0);   opacity: 0; }
+  12%  { transform: translateX(-50%) scaleX(2.8)  scaleY(1);   opacity: 1; }
+  28%  { transform: translateX(-50%) scaleX(1)    scaleY(1);   opacity: 0.92; }
+  70%  { transform: translateX(-50%) scaleX(1.05) scaleY(1);   opacity: 0.85; }
+  100% { transform: translateX(-50%) scaleX(0.3)  scaleY(0.6); opacity: 0; }
+}
+
+/* ── Magic circle SVG ────────────────────────────── */
+.lue-circle {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  filter:
+    drop-shadow(0 0 10px #ffd700)
+    drop-shadow(0 0 24px #ff8c00)
+    drop-shadow(0 0 48px rgba(255, 200, 0, 0.5));
+  animation: lue-circle-fade 3.4s ease-in-out forwards;
+}
+
+@keyframes lue-circle-fade {
+  0%   { opacity: 0; }
+  12%  { opacity: 1; }
+  72%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ring rotation groups */
+.lue-ring-outer {
+  transform-origin: 150px 150px;
+  animation: lue-cw 3.5s linear infinite;
+}
+.lue-ring-mid {
+  transform-origin: 150px 150px;
+  animation: lue-ccw 5s linear infinite;
+}
+.lue-ring-inner {
+  transform-origin: 150px 150px;
+  animation: lue-cw 2.2s linear infinite;
+}
+
+@keyframes lue-cw  { to { transform: rotate( 360deg); } }
+@keyframes lue-ccw { to { transform: rotate(-360deg); } }
+
+.lue-center-glow {
+  animation: lue-center-pulse 0.7s ease-in-out infinite alternate;
+}
+@keyframes lue-center-pulse {
+  from { opacity: 0.45; }
+  to   { opacity: 1;    }
+}
+
+/* ── LEVEL UP text ───────────────────────────────── */
+.lue-text {
+  position: absolute;
+  bottom: 290px;
+  left: 50%;
+  white-space: nowrap;
+  color: #ffd700;
+  font-size: 2.4rem;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 12px #ffd700,
+    0 0 28px #ffa500,
+    0 0 55px rgba(255, 140, 0, 0.7);
+  animation: lue-text 3.4s ease-out forwards;
+}
+
+@keyframes lue-text {
+  0%   { opacity: 0; transform: translateX(-50%) scale(0.55) translateY(25px); }
+  18%  { opacity: 1; transform: translateX(-50%) scale(1.18) translateY(-6px);  }
+  32%  { transform: translateX(-50%) scale(1)    translateY(0);  }
+  72%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) scale(0.9)  translateY(-12px); }
+}
+
+/* ── Particles ───────────────────────────────────── */
+.lue-particle {
+  position: absolute;
+  bottom: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffffff 0%, #ffd700 100%);
+  filter: drop-shadow(0 0 3px #ffd700);
+  animation: lue-particle-float var(--dur) ease-out var(--delay) both;
+}
+
+@keyframes lue-particle-float {
+  0%   { transform: translateY(0)      translateX(0);             opacity: 0; }
+  18%  { opacity: 1; }
+  100% { transform: translateY(-420px) translateX(var(--drift));  opacity: 0; }
+}

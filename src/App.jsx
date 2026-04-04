@@ -1,18 +1,32 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Button from '@mui/material/Button'
 import PersonIcon from '@mui/icons-material/Person'
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted'
 import CharacterCard from './components/Sidebar/CharacterCard'
 import StatsCard from './components/Sidebar/StatsCard'
 import QuestHub from './components/Main/QuestHub'
+import LevelUpEffect from './components/LevelUpEffect/LevelUpEffect'
 import useQuests from './hooks/useQuests'
 import useCharacter from './hooks/useCharacter'
 
 export default function App() {
-  const { quests, addQuest, toggleQuest, removeQuest, toggleCoreTask, clearCompleted, completedCount, coreTaskCompleted } = useQuests()
+  const { quests, addQuest, toggleQuest, removeQuest, toggleCoreTask, clearCompleted, lifetimeCompletions, coreTaskCompleted } = useQuests()
   const { avatar, isEditMode, toggleEditMode, updateAvatar, imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
-    useCharacter(completedCount, coreTaskCompleted)
+    useCharacter(lifetimeCompletions, coreTaskCompleted)
   const [mobileTab, setMobileTab] = useState('character')
+
+  // Level-up effect
+  const [showLevelUp, setShowLevelUp] = useState(false)
+  const prevLevelRef = useRef(null)
+
+  useEffect(() => {
+    if (prevLevelRef.current !== null && level > prevLevelRef.current) {
+      setShowLevelUp(true)
+    }
+    prevLevelRef.current = level
+  }, [level])
+
+  const handleLevelUpComplete = useCallback(() => setShowLevelUp(false), [])
 
   return (
     <div className="min-h-screen bg-stone-50 relative overflow-x-hidden">
@@ -49,7 +63,7 @@ export default function App() {
               imagePosition={imagePosition}
               onImagePositionChange={updateImagePosition}
             />
-            <StatsCard expProgress={expProgress} coreTaskProgress={coreTaskProgress} stats={stats} />
+            <StatsCard expProgress={expProgress} coreTaskProgress={coreTaskProgress} stats={stats} level={level} />
           </aside>
 
           {/* Quest Hub */}
@@ -87,6 +101,9 @@ export default function App() {
           <span className="text-[0.65rem] font-semibold">任務</span>
         </button>
       </nav>
+
+      {/* Level up special effect */}
+      <LevelUpEffect visible={showLevelUp} onComplete={handleLevelUpComplete} />
     </div>
   )
 }

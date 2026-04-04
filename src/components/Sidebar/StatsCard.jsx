@@ -11,11 +11,14 @@ function StatItem({ label, value, bonus }) {
   )
 }
 
-export default function StatsCard({ expProgress, coreTaskProgress, stats }) {
+export default function StatsCard({ expProgress, coreTaskProgress, stats, level }) {
   return (
     <div className="bg-white rounded-2xl p-5 md:p-8 flex flex-col gap-5">
       <div>
-        <div className="text-black text-lg font-extrabold mb-3">初心者</div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-black text-lg font-extrabold">初心者</span>
+          <span className="text-gray-400 text-sm font-semibold">Lv.{level}</span>
+        </div>
         <div className="text-gray-400 uppercase text-xs font-semibold tracking-wide mb-2">
           經驗值
         </div>
