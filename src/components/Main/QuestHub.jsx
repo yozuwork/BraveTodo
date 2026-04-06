@@ -1,14 +1,26 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import AddIcon from '@mui/icons-material/Add'
 import Button from '@mui/material/Button'
 import TabNav from './TabNav'
 import QuestItem from './QuestItem'
+import StageSettings from './StageSettings'
 
-export default function QuestHub({ quests, onAdd, onToggle, onRemove, onToggleCore, onClearCompleted }) {
+export default function QuestHub({
+  quests, onAdd, onToggle, onUpdate, onRemove, onToggleCore, onClearCompleted,
+  isEditMode, stages, onStageName, onStageAvatar,
+}) {
   const [inputValue, setInputValue] = useState('')
+  const [activeTab, setActiveTab] = useState('Tasks')
+  const isComposingRef = useRef(false)
+
+  useEffect(() => {
+    if (!isEditMode && activeTab === 'Stages') {
+      setActiveTab('Tasks')
+    }
+  }, [isEditMode, activeTab])
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && inputValue.trim()) {
+    if (e.key === 'Enter' && !isComposingRef.current && inputValue.trim()) {
       onAdd(inputValue.trim())
       setInputValue('')
     }
@@ -22,64 +34,77 @@ export default function QuestHub({ quests, onAdd, onToggle, onRemove, onToggleCo
         <h1 className="text-black text-2xl md:text-4xl font-extrabold uppercase m-0 tracking-tight">
           米莉亞
         </h1>
-        <TabNav />
+        <TabNav activeTab={activeTab} onTabChange={setActiveTab} isEditMode={isEditMode} />
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="relative">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-btn pointer-events-none">
-            <AddIcon fontSize="small" />
-          </span>
-          <input
-            type="text"
-            className="w-full bg-white text-black border border-gray-200 rounded-xl py-4 pl-12 pr-20 text-sm focus:outline-none focus:border-purple-400 transition-colors"
-            placeholder="Add new quest..."
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono pointer-events-none">
-            ENTER ↵
-          </span>
-        </div>
-
-        {hasCompleted && (
-          <div className="flex justify-end">
-            <Button
-              size="small"
-              onClick={onClearCompleted}
-              sx={{
-                color: '#ef4444',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                textTransform: 'none',
-                '&:hover': { bgcolor: '#fee2e2' },
-              }}
-            >
-              清除已完成任務
-            </Button>
+      {activeTab === 'Tasks' && (
+        <div className="flex flex-col gap-4">
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-btn pointer-events-none">
+              <AddIcon fontSize="small" />
+            </span>
+            <input
+              type="text"
+              className="w-full bg-white text-black border border-gray-200 rounded-xl py-4 pl-12 pr-20 text-sm focus:outline-none focus:border-purple-400 transition-colors"
+              placeholder="Add new quest..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onCompositionStart={() => { isComposingRef.current = true }}
+              onCompositionEnd={() => { isComposingRef.current = false }}
+              onKeyDown={handleKeyDown}
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono pointer-events-none">
+              ENTER ↵
+            </span>
           </div>
-        )}
 
-        <div className="flex flex-col gap-3">
-          {quests.length === 0 ? (
-            <div className="text-center py-16 text-gray-300">
-              <p className="text-lg font-semibold">No quests yet</p>
-              <p className="text-sm mt-1">Add your first quest above to begin your adventure!</p>
+          {hasCompleted && (
+            <div className="flex justify-end">
+              <Button
+                size="small"
+                onClick={onClearCompleted}
+                sx={{
+                  color: '#ef4444',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  '&:hover': { bgcolor: '#fee2e2' },
+                }}
+              >
+                清除已完成任務
+              </Button>
             </div>
-          ) : (
-            quests.map((quest) => (
-              <QuestItem
-                key={quest.id}
-                quest={quest}
-                onToggle={onToggle}
-                onRemove={onRemove}
-                onToggleCore={onToggleCore}
-              />
-            ))
           )}
+
+          <div className="flex flex-col gap-3">
+            {quests.length === 0 ? (
+              <div className="text-center py-16 text-gray-300">
+                <p className="text-lg font-semibold">No quests yet</p>
+                <p className="text-sm mt-1">Add your first quest above to begin your adventure!</p>
+              </div>
+            ) : (
+              quests.map((quest) => (
+                <QuestItem
+                  key={quest.id}
+                  quest={quest}
+                  onToggle={onToggle}
+                  onUpdate={onUpdate}
+                  onRemove={onRemove}
+                  onToggleCore={onToggleCore}
+                />
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === 'Stages' && (
+        <StageSettings
+          stages={stages}
+          onNameChange={onStageName}
+          onAvatarChange={onStageAvatar}
+        />
+      )}
     </div>
   )
 }

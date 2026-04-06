@@ -1,27 +1,31 @@
-import { useState } from 'react'
+const ALL_TABS = [
+  { key: 'Tasks', label: '任務' },
+  { key: 'Stages', label: '階段設置', editOnly: true },
+  { key: 'Skills', label: 'Skills' },
+]
 
-const TABS = ['Tasks', 'Stages', 'Skills']
-
-export default function TabNav() {
-  const [active, setActive] = useState('Tasks')
+export default function TabNav({ activeTab, onTabChange, isEditMode }) {
+  const visibleTabs = isEditMode
+    ? ALL_TABS
+    : ALL_TABS.filter((t) => !t.editOnly)
 
   return (
     <nav className="flex gap-8 border-b-2 border-gray-200">
-      {TABS.map((tab) => (
+      {visibleTabs.map((tab) => (
         <button
-          key={tab}
-          onClick={() => setActive(tab)}
+          key={tab.key}
+          onClick={() => onTabChange(tab.key)}
           className={`pb-3 uppercase text-sm font-semibold cursor-pointer relative bg-transparent border-none transition-colors
-            ${active === tab
+            ${activeTab === tab.key
               ? 'text-black'
               : 'text-gray-400 hover:text-gray-600'
             }`}
-          style={active === tab ? {
+          style={activeTab === tab.key ? {
             borderBottom: '3px solid black',
             marginBottom: '-2px',
           } : undefined}
         >
-          {tab}
+          {tab.label}
         </button>
       ))}
     </nav>

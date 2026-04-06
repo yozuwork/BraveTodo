@@ -8,12 +8,19 @@ import QuestHub from './components/Main/QuestHub'
 import LevelUpEffect from './components/LevelUpEffect/LevelUpEffect'
 import useQuests from './hooks/useQuests'
 import useCharacter from './hooks/useCharacter'
+import useStages from './hooks/useStages'
 
 export default function App() {
-  const { quests, addQuest, toggleQuest, removeQuest, toggleCoreTask, clearCompleted, lifetimeCompletions, coreTaskCompleted } = useQuests()
+  const { quests, addQuest, toggleQuest, updateQuest, removeQuest, toggleCoreTask, clearCompleted, lifetimeCompletions, coreTaskCompleted } =
+    useQuests()
   const { avatar, isEditMode, toggleEditMode, updateAvatar, imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
     useCharacter(lifetimeCompletions, coreTaskCompleted)
+  const { stages, updateStageName, updateStageAvatar } = useStages()
   const [mobileTab, setMobileTab] = useState('character')
+
+  const currentStage = stages.find(
+    (s) => level >= s.minLevel && level < s.maxLevel
+  ) ?? stages[stages.length - 1]
 
   // Level-up effect
   const [showLevelUp, setShowLevelUp] = useState(false)
@@ -57,13 +64,13 @@ export default function App() {
           <aside className={`w-full md:w-[380px] md:shrink-0 flex flex-col gap-6 md:gap-8 ${mobileTab === 'quests' ? 'hidden md:flex' : 'flex'}`}>
             <CharacterCard
               level={level}
-              avatar={avatar}
+              avatar={currentStage.avatarSrc}
               isEditMode={isEditMode}
-              onAvatarChange={updateAvatar}
+              onAvatarChange={(file) => updateStageAvatar(currentStage.id, file)}
               imagePosition={imagePosition}
               onImagePositionChange={updateImagePosition}
             />
-            <StatsCard expProgress={expProgress} coreTaskProgress={coreTaskProgress} stats={stats} level={level} />
+            <StatsCard expProgress={expProgress} coreTaskProgress={coreTaskProgress} stats={stats} level={level} currentStage={currentStage} />
           </aside>
 
           {/* Quest Hub */}
@@ -72,9 +79,14 @@ export default function App() {
               quests={quests}
               onAdd={addQuest}
               onToggle={toggleQuest}
+              onUpdate={updateQuest}
               onRemove={removeQuest}
               onToggleCore={toggleCoreTask}
               onClearCompleted={clearCompleted}
+              isEditMode={isEditMode}
+              stages={stages}
+              onStageName={updateStageName}
+              onStageAvatar={updateStageAvatar}
             />
           </div>
         </div>

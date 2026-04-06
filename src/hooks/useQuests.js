@@ -1,5 +1,17 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import coinSfxUrl from '../assets/music/coin03.mp3'
+
+const STORAGE_KEY_QUESTS = 'brave-todo:quests'
+const STORAGE_KEY_COMPLETIONS = 'brave-todo:lifetimeCompletions'
+
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw !== null ? JSON.parse(raw) : fallback
+  } catch {
+    return fallback
+  }
+}
 
 function playQuestCompleteSound() {
   const audio = new Audio(coinSfxUrl)
@@ -8,18 +20,28 @@ function playQuestCompleteSound() {
 }
 
 export default function useQuests() {
-  const [quests, setQuests] = useState([])
-  const [lifetimeCompletions, setLifetimeCompletions] = useState(0)
+  const [quests, setQuests] = useState(() => loadJSON(STORAGE_KEY_QUESTS, []))
+  const [lifetimeCompletions, setLifetimeCompletions] = useState(
+    () => loadJSON(STORAGE_KEY_COMPLETIONS, 0)
+  )
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_QUESTS, JSON.stringify(quests))
+  }, [quests])
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_COMPLETIONS, JSON.stringify(lifetimeCompletions))
+  }, [lifetimeCompletions])
 
   const addQuest = useCallback((text) => {
     setQuests((prev) => [
-      ...prev,
       {
         id: Date.now(),
         text,
         completed: false,
         isCore: false,
       },
+      ...prev,
     ])
   }, [])
 
@@ -47,6 +69,12 @@ export default function useQuests() {
     setQuests((prev) => prev.filter((q) => q.id !== id))
   }, [])
 
+  const updateQuest = useCallback((id, text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, text: trimmed } : q)))
+  }, [])
+
   const toggleCoreTask = useCallback((id) => {
     setQuests((prev) =>
       prev.map((q) => ({
@@ -63,5 +91,15 @@ export default function useQuests() {
   const coreQuest = quests.find((q) => q.isCore) ?? null
   const coreTaskCompleted = coreQuest?.completed ?? false
 
-  return { quests, addQuest, toggleQuest, removeQuest, toggleCoreTask, clearCompleted, lifetimeCompletions, coreTaskCompleted }
+  return {
+    quests,
+    addQuest,
+    toggleQuest,
+    updateQuest,
+    removeQuest,
+    toggleCoreTask,
+    clearCompleted,
+    lifetimeCompletions,
+    coreTaskCompleted,
+  }
 }

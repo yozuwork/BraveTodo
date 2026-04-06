@@ -11,12 +11,19 @@ function StatItem({ label, value, bonus }) {
   )
 }
 
-export default function StatsCard({ expProgress, coreTaskProgress, stats, level }) {
+export default function StatsCard({ expProgress, coreTaskProgress, stats, level, currentStage }) {
   return (
     <div className="bg-white rounded-2xl p-5 md:p-8 flex flex-col gap-5">
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-black text-lg font-extrabold">初心者</span>
+          {currentStage?.avatar && (
+            <img
+              src={currentStage.avatar}
+              alt={currentStage.className}
+              className="w-8 h-8 rounded-full object-cover shrink-0"
+            />
+          )}
+          <span className="text-black text-lg font-extrabold">{currentStage?.className ?? '初心者'}</span>
           <span className="text-gray-400 text-sm font-semibold">Lv.{level}</span>
         </div>
         <div className="text-gray-400 uppercase text-xs font-semibold tracking-wide mb-2">
