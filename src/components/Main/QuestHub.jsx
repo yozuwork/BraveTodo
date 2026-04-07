@@ -3,15 +3,19 @@ import AddIcon from '@mui/icons-material/Add'
 import Button from '@mui/material/Button'
 import TabNav from './TabNav'
 import QuestItem from './QuestItem'
+import InboxItem from './InboxItem'
 import StageSettings from './StageSettings'
 
 export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onToggleCore, onClearCompleted,
   isEditMode, stages, onStageName, onStageAvatar,
+  inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
 }) {
   const [inputValue, setInputValue] = useState('')
+  const [inboxInput, setInboxInput] = useState('')
   const [activeTab, setActiveTab] = useState('Tasks')
   const isComposingRef = useRef(false)
+  const isInboxComposingRef = useRef(false)
 
   useEffect(() => {
     if (!isEditMode && activeTab === 'Stages') {
@@ -23,6 +27,13 @@ export default function QuestHub({
     if (e.key === 'Enter' && !isComposingRef.current && inputValue.trim()) {
       onAdd(inputValue.trim())
       setInputValue('')
+    }
+  }
+
+  const handleInboxKeyDown = (e) => {
+    if (e.key === 'Enter' && !isInboxComposingRef.current && inboxInput.trim()) {
+      onInboxAdd(inboxInput.trim())
+      setInboxInput('')
     }
   }
 
@@ -104,6 +115,48 @@ export default function QuestHub({
           onNameChange={onStageName}
           onAvatarChange={onStageAvatar}
         />
+      )}
+
+      {activeTab === 'Inbox' && (
+        <div className="flex flex-col gap-4">
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+              <AddIcon fontSize="small" />
+            </span>
+            <input
+              type="text"
+              className="w-full bg-white text-black border border-gray-200 rounded-xl py-4 pl-12 pr-20 text-sm focus:outline-none focus:border-gray-400 transition-colors"
+              placeholder="新增到收集箱..."
+              value={inboxInput}
+              onChange={(e) => setInboxInput(e.target.value)}
+              onCompositionStart={() => { isInboxComposingRef.current = true }}
+              onCompositionEnd={() => { isInboxComposingRef.current = false }}
+              onKeyDown={handleInboxKeyDown}
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono pointer-events-none">
+              ENTER ↵
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {inboxItems.length === 0 ? (
+              <div className="text-center py-16 text-gray-300">
+                <p className="text-lg font-semibold">收集箱是空的</p>
+                <p className="text-sm mt-1">把待釐清的事項放這裡，之後再轉成任務！</p>
+              </div>
+            ) : (
+              inboxItems.map((item) => (
+                <InboxItem
+                  key={item.id}
+                  item={item}
+                  onUpdate={onInboxUpdate}
+                  onRemove={onInboxRemove}
+                  onPromoteToQuest={onPromoteToQuest}
+                />
+              ))
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

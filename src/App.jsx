@@ -9,6 +9,7 @@ import LevelUpEffect from './components/LevelUpEffect/LevelUpEffect'
 import useQuests from './hooks/useQuests'
 import useCharacter from './hooks/useCharacter'
 import useStages from './hooks/useStages'
+import useInbox from './hooks/useInbox'
 
 export default function App() {
   const { quests, addQuest, toggleQuest, updateQuest, removeQuest, toggleCoreTask, clearCompleted, lifetimeCompletions, coreTaskCompleted } =
@@ -16,6 +17,12 @@ export default function App() {
   const { avatar, isEditMode, toggleEditMode, updateAvatar, imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
     useCharacter(lifetimeCompletions, coreTaskCompleted)
   const { stages, updateStageName, updateStageAvatar } = useStages()
+  const { inboxItems, addInboxItem, removeInboxItem, updateInboxItem } = useInbox()
+
+  const handlePromoteToQuest = useCallback((id, text) => {
+    addQuest(text)
+    removeInboxItem(id)
+  }, [addQuest, removeInboxItem])
   const [mobileTab, setMobileTab] = useState('character')
 
   const currentStage = stages.find(
@@ -87,6 +94,11 @@ export default function App() {
               stages={stages}
               onStageName={updateStageName}
               onStageAvatar={updateStageAvatar}
+              inboxItems={inboxItems}
+              onInboxAdd={addInboxItem}
+              onInboxRemove={removeInboxItem}
+              onInboxUpdate={updateInboxItem}
+              onPromoteToQuest={handlePromoteToQuest}
             />
           </div>
         </div>
