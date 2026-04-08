@@ -1,14 +1,17 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import Checkbox from '@mui/material/Checkbox'
 import IconButton from '@mui/material/IconButton'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import StarIcon from '@mui/icons-material/Star'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
+import SlashEffect from './SlashEffect'
 
 export default function QuestItem({ quest, onToggle, onUpdate, onRemove, onToggleCore }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(quest.text)
+  const [slashing, setSlashing] = useState(false)
+  const [shaking, setShaking] = useState(false)
   const inputRef = useRef(null)
 
   useEffect(() => {
@@ -21,6 +24,19 @@ export default function QuestItem({ quest, onToggle, onUpdate, onRemove, onToggl
   useEffect(() => {
     if (!editing) setDraft(quest.text)
   }, [quest.text, editing])
+
+  const handleToggle = useCallback(() => {
+    if (!quest.completed) {
+      setSlashing(true)
+      // shake is triggered by SlashEffect after hit stop (50ms delay)
+    }
+    onToggle(quest.id)
+  }, [quest.completed, quest.id, onToggle])
+
+  const handleShakeReady = useCallback(() => {
+    setShaking(true)
+    setTimeout(() => setShaking(false), 450)
+  }, [])
 
   const cancelEdit = () => {
     setDraft(quest.text)
@@ -39,13 +55,15 @@ export default function QuestItem({ quest, onToggle, onUpdate, onRemove, onToggl
 
   return (
     <div
-      className={`bg-white rounded-xl px-5 py-4 flex items-center gap-4 border border-transparent hover:border-gray-200 transition-colors group ${
+      className={`bg-white rounded-xl px-5 py-4 flex items-center gap-4 border border-transparent hover:border-gray-200 transition-colors group relative ${
         quest.completed ? 'opacity-50' : ''
-      }`}
+      } ${shaking ? 'quest-shake' : ''}`}
     >
+      <SlashEffect visible={slashing} onComplete={() => setSlashing(false)} onShakeReady={handleShakeReady} />
+
       <Checkbox
         checked={quest.completed}
-        onChange={() => onToggle(quest.id)}
+        onChange={handleToggle}
         sx={{
           color: '#d1d5db',
           '&.Mui-checked': { color: '#a855f7' },

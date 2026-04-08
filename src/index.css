@@ -15,6 +15,26 @@ body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* ============================================================
+   QUEST ITEM SHAKE (triggered by JS class toggle)
+   ============================================================ */
+
+.quest-shake {
+  animation: quest-shake 0.42s ease-out forwards;
+}
+
+@keyframes quest-shake {
+  0%   { transform: translate(0,    0)    rotate(0deg);    }
+  12%  { transform: translate(-6px, -2px) rotate(-0.6deg); }
+  26%  { transform: translate(6px,  2px)  rotate(0.6deg);  }
+  42%  { transform: translate(-4px, -1px) rotate(-0.3deg); }
+  58%  { transform: translate(4px,  1px)  rotate(0.3deg);  }
+  74%  { transform: translate(-2px, 0)    rotate(-0.1deg); }
+  100% { transform: translate(0,    0)    rotate(0deg);    }
+}
+
+/* ============================================================ */
+
 body::after {
   content: "41 HUB";
   position: fixed;
