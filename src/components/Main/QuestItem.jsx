@@ -12,7 +12,9 @@ export default function QuestItem({ quest, onToggle, onUpdate, onRemove, onToggl
   const [draft, setDraft] = useState(quest.text)
   const [slashing, setSlashing] = useState(false)
   const [shaking, setShaking] = useState(false)
+  const [animatingComplete, setAnimatingComplete] = useState(false)
   const inputRef = useRef(null)
+  const pendingToggleRef = useRef(false)
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -28,9 +30,12 @@ export default function QuestItem({ quest, onToggle, onUpdate, onRemove, onToggl
   const handleToggle = useCallback(() => {
     if (!quest.completed) {
       setSlashing(true)
-      // shake is triggered by SlashEffect after hit stop (50ms delay)
+      setAnimatingComplete(true)
+      pendingToggleRef.current = true
+      // onToggle will be called after animation finishes
+    } else {
+      onToggle(quest.id)
     }
-    onToggle(quest.id)
   }, [quest.completed, quest.id, onToggle])
 
   const handleShakeReady = useCallback(() => {
@@ -56,13 +61,24 @@ export default function QuestItem({ quest, onToggle, onUpdate, onRemove, onToggl
   return (
     <div
       className={`bg-white rounded-xl px-5 py-4 flex items-center gap-4 border border-transparent hover:border-gray-200 transition-colors group relative ${
-        quest.completed ? 'opacity-50' : ''
+        quest.completed || animatingComplete ? 'opacity-50' : ''
       } ${shaking ? 'quest-shake' : ''}`}
     >
-      <SlashEffect visible={slashing} onComplete={() => setSlashing(false)} onShakeReady={handleShakeReady} />
+      <SlashEffect
+        visible={slashing}
+        onComplete={() => {
+          setSlashing(false)
+          setAnimatingComplete(false)
+          if (pendingToggleRef.current) {
+            pendingToggleRef.current = false
+            onToggle(quest.id)
+          }
+        }}
+        onShakeReady={handleShakeReady}
+      />
 
       <Checkbox
-        checked={quest.completed}
+        checked={quest.completed || animatingComplete}
         onChange={handleToggle}
         sx={{
           color: '#d1d5db',
@@ -94,7 +110,7 @@ export default function QuestItem({ quest, onToggle, onUpdate, onRemove, onToggl
             role="button"
             tabIndex={0}
             className={`text-sm font-medium text-black m-0 text-left cursor-text rounded px-1 -mx-1 hover:bg-stone-100 ${
-              quest.completed ? 'line-through text-gray-400' : ''
+              quest.completed || animatingComplete ? 'line-through text-gray-400' : ''
             }`}
             onDoubleClick={() => setEditing(true)}
             onKeyDown={(e) => {

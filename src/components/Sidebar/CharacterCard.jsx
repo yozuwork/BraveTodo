@@ -3,6 +3,8 @@ import Chip from '@mui/material/Chip'
 import EditIcon from '@mui/icons-material/Edit'
 import OpenWithIcon from '@mui/icons-material/OpenWith'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 
 export default function CharacterCard({ level, avatar, isEditMode, onAvatarChange, imagePosition, onImagePositionChange }) {
   const fileInputRef = useRef(null)
@@ -10,6 +12,7 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
   const dragState = useRef(null)
   const resizeState = useRef(null)
   const [cardSize, setCardSize] = useState({ width: 380, height: 600 })
+  const [avatarVisible, setAvatarVisible] = useState(true)
 
   const handleFileChange = (e) => {
     if (e.target.files?.[0]) {
@@ -80,7 +83,7 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
     <div
       ref={containerRef}
       className="bg-black rounded-2xl border border-green-border shadow-[0_0_15px_rgba(0,255,0,0.3)] relative overflow-hidden"
-      style={{ width: cardSize.width, height: cardSize.height, maxWidth: '100%' }}
+      style={{ width: `min(${cardSize.width}px, 100%)`, height: cardSize.height }}
       onPointerMove={handleResizeMove}
       onPointerUp={handleResizeUp}
     >
@@ -94,7 +97,7 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
           <img
             src={avatar}
             alt="Avatar"
-            className="w-full h-full object-cover select-none"
+            className={`w-full h-full object-cover select-none transition-opacity duration-300 ${avatarVisible ? 'opacity-100' : 'opacity-0'}`}
             style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }}
             draggable={false}
           />
@@ -135,6 +138,17 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
           textTransform: 'uppercase',
         }}
       />
+
+      <button
+        className="absolute bottom-2 left-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/75 transition-colors z-10"
+        onClick={(e) => { e.stopPropagation(); setAvatarVisible((v) => !v) }}
+        title={avatarVisible ? '隱藏圖片' : '顯示圖片'}
+      >
+        {avatarVisible
+          ? <VisibilityIcon sx={{ color: 'rgba(255,255,255,0.75)', fontSize: 16 }} />
+          : <VisibilityOffIcon sx={{ color: 'rgba(255,255,255,0.75)', fontSize: 16 }} />
+        }
+      </button>
 
       {isEditMode && (
         <div

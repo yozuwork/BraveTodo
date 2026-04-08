@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Button from '@mui/material/Button'
 import PersonIcon from '@mui/icons-material/Person'
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted'
+import TuneIcon from '@mui/icons-material/Tune'
 import CharacterCard from './components/Sidebar/CharacterCard'
 import StatsCard from './components/Sidebar/StatsCard'
 import QuestHub from './components/Main/QuestHub'
@@ -48,15 +49,16 @@ export default function App() {
         variant="contained"
         onClick={toggleEditMode}
         sx={{
+          display: { xs: 'none', md: 'inline-flex' },
           position: 'fixed',
-          top: { xs: 12, md: 20 },
-          right: { xs: 12, md: 20 },
+          top: { md: 20 },
+          right: { md: 20 },
           bgcolor: '#a855f7',
           borderRadius: 99,
           fontWeight: 600,
-          fontSize: { xs: '0.7rem', md: '0.85rem' },
+          fontSize: '0.85rem',
           textTransform: 'uppercase',
-          px: { xs: 2, md: 3 },
+          px: 3,
           zIndex: 50,
           '&:hover': { bgcolor: '#9333ea' },
         }}
@@ -123,6 +125,15 @@ export default function App() {
         >
           <FormatListBulletedIcon fontSize="small" />
           <span className="text-[0.65rem] font-semibold">任務</span>
+        </button>
+        <button
+          onClick={toggleEditMode}
+          className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition-colors cursor-pointer border-none bg-transparent ${
+            isEditMode ? 'text-purple-500' : 'text-gray-400'
+          }`}
+        >
+          <TuneIcon fontSize="small" />
+          <span className="text-[0.65rem] font-semibold">編輯</span>
         </button>
       </nav>
 

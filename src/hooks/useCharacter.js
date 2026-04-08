@@ -43,7 +43,7 @@ function calcLevelInfo(lifetimeCompletions) {
   }
 
   const tasksAfterLv10 = lifetimeCompletions - TASKS_TO_LV10
-  const level = Math.min(120, 10 + Math.floor(tasksAfterLv10 / 10))
+  const level = Math.min(120, 11 + Math.floor(tasksAfterLv10 / 10))
   if (level >= 120) return { level: 120, expProgress: 100 }
   const progress = ((tasksAfterLv10 % 10) / 10) * 100
   return { level, expProgress: progress }

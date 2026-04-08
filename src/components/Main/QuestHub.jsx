@@ -94,7 +94,7 @@ export default function QuestHub({
                 <p className="text-sm mt-1">Add your first quest above to begin your adventure!</p>
               </div>
             ) : (
-              quests.map((quest) => (
+              [...quests].sort((a, b) => a.completed - b.completed).map((quest) => (
                 <QuestItem
                   key={quest.id}
                   quest={quest}
