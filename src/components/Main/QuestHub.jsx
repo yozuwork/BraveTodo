@@ -5,11 +5,19 @@ import TabNav from './TabNav'
 import QuestItem from './QuestItem'
 import InboxItem from './InboxItem'
 import StageSettings from './StageSettings'
+import LevelingSettings from './LevelingSettings'
+import OtherSettings from './OtherSettings'
+import HuntTab from './HuntTab'
 
 export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onToggleCore, onClearCompleted,
   isEditMode, stages, onStageName, onStageAvatar,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
+  levelingRules, onUpdateExpPerLevel,
+  atk,
+  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
+  currentLevel, onResetLevel,
+  monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
 }) {
   const [inputValue, setInputValue] = useState('')
   const [inboxInput, setInboxInput] = useState('')
@@ -18,7 +26,7 @@ export default function QuestHub({
   const isInboxComposingRef = useRef(false)
 
   useEffect(() => {
-    if (!isEditMode && activeTab === 'Stages') {
+    if (!isEditMode && (activeTab === 'Stages' || activeTab === 'Leveling' || activeTab === 'Other')) {
       setActiveTab('Tasks')
     }
   }, [isEditMode, activeTab])
@@ -102,6 +110,11 @@ export default function QuestHub({
                   onUpdate={onUpdate}
                   onRemove={onRemove}
                   onToggleCore={onToggleCore}
+                  atk={atk}
+                  onAddSubTask={onAddSubTask}
+                  onToggleSubTask={onToggleSubTask}
+                  onRemoveSubTask={onRemoveSubTask}
+                  onUpdateSubTask={onUpdateSubTask}
                 />
               ))
             )}
@@ -114,6 +127,32 @@ export default function QuestHub({
           stages={stages}
           onNameChange={onStageName}
           onAvatarChange={onStageAvatar}
+        />
+      )}
+
+      {activeTab === 'Leveling' && (
+        <LevelingSettings
+          rules={levelingRules}
+          onUpdateExpPerLevel={onUpdateExpPerLevel}
+        />
+      )}
+
+      {activeTab === 'Other' && (
+        <OtherSettings
+          currentLevel={currentLevel}
+          levelingRules={levelingRules}
+          onResetLevel={onResetLevel}
+        />
+      )}
+
+      {activeTab === 'Hunt' && (
+        <HuntTab
+          monsters={monsters}
+          isEditMode={isEditMode}
+          onAdd={onAddMonster}
+          onUpdate={onUpdateMonster}
+          onRemove={onRemoveMonster}
+          onAvatarChange={onMonsterAvatarChange}
         />
       )}
 

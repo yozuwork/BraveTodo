@@ -11,14 +11,21 @@ import useQuests from './hooks/useQuests'
 import useCharacter from './hooks/useCharacter'
 import useStages from './hooks/useStages'
 import useInbox from './hooks/useInbox'
+import useLevelingRules from './hooks/useLevelingRules'
+import useMonsters from './hooks/useMonsters'
 
 export default function App() {
-  const { quests, addQuest, toggleQuest, updateQuest, removeQuest, toggleCoreTask, clearCompleted, lifetimeCompletions, coreTaskCompleted } =
-    useQuests()
+  const {
+    quests, addQuest, toggleQuest, updateQuest, removeQuest, toggleCoreTask, clearCompleted,
+    addSubTask, toggleSubTask, removeSubTask, updateSubTask,
+    lifetimeCompletions, resetLifetimeCompletions, coreTaskCompleted,
+  } = useQuests()
+  const { rules: levelingRules, updateExpPerLevel } = useLevelingRules()
   const { avatar, isEditMode, toggleEditMode, updateAvatar, imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
-    useCharacter(lifetimeCompletions, coreTaskCompleted)
+    useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules)
   const { stages, updateStageName, updateStageAvatar } = useStages()
   const { inboxItems, addInboxItem, removeInboxItem, updateInboxItem } = useInbox()
+  const { monsters, addMonster, updateMonster, removeMonster, updateMonsterAvatar } = useMonsters()
 
   const handlePromoteToQuest = useCallback((id, text) => {
     addQuest(text)
@@ -97,6 +104,20 @@ export default function App() {
               onStageName={updateStageName}
               onStageAvatar={updateStageAvatar}
               inboxItems={inboxItems}
+              levelingRules={levelingRules}
+              onUpdateExpPerLevel={updateExpPerLevel}
+              atk={stats.atk.value}
+              onAddSubTask={addSubTask}
+              onToggleSubTask={toggleSubTask}
+              onRemoveSubTask={removeSubTask}
+              onUpdateSubTask={updateSubTask}
+              currentLevel={level}
+              onResetLevel={resetLifetimeCompletions}
+              monsters={monsters}
+              onAddMonster={addMonster}
+              onUpdateMonster={updateMonster}
+              onRemoveMonster={removeMonster}
+              onMonsterAvatarChange={updateMonsterAvatar}
               onInboxAdd={addInboxItem}
               onInboxRemove={removeInboxItem}
               onInboxUpdate={updateInboxItem}

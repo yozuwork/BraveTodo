@@ -40,6 +40,7 @@ export default function useQuests() {
         text,
         completed: false,
         isCore: false,
+        subTasks: [],
       },
       ...prev,
     ])
@@ -84,8 +85,65 @@ export default function useQuests() {
     )
   }, [])
 
+  const addSubTask = useCallback((questId, text) => {
+    setQuests((prev) =>
+      prev.map((q) =>
+        q.id === questId
+          ? { ...q, subTasks: [...(q.subTasks ?? []), { id: Date.now(), text, completed: false }] }
+          : q
+      )
+    )
+  }, [])
+
+  const toggleSubTask = useCallback((questId, subTaskId) => {
+    let completionDelta = 0
+    let shouldPlay = false
+    setQuests((prev) =>
+      prev.map((q) => {
+        if (q.id !== questId) return q
+        const updated = (q.subTasks ?? []).map((s) => {
+          if (s.id !== subTaskId) return s
+          if (!s.completed) { completionDelta = 1; shouldPlay = true }
+          else { completionDelta = -1 }
+          return { ...s, completed: !s.completed }
+        })
+        return { ...q, subTasks: updated }
+      })
+    )
+    if (shouldPlay) playQuestCompleteSound()
+    if (completionDelta !== 0) {
+      setLifetimeCompletions((c) => Math.max(0, c + completionDelta))
+    }
+  }, [])
+
+  const removeSubTask = useCallback((questId, subTaskId) => {
+    setQuests((prev) =>
+      prev.map((q) =>
+        q.id === questId
+          ? { ...q, subTasks: (q.subTasks ?? []).filter((s) => s.id !== subTaskId) }
+          : q
+      )
+    )
+  }, [])
+
+  const updateSubTask = useCallback((questId, subTaskId, text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    setQuests((prev) =>
+      prev.map((q) =>
+        q.id === questId
+          ? { ...q, subTasks: (q.subTasks ?? []).map((s) => s.id === subTaskId ? { ...s, text: trimmed } : s) }
+          : q
+      )
+    )
+  }, [])
+
   const clearCompleted = useCallback(() => {
     setQuests((prev) => prev.filter((q) => !q.completed))
+  }, [])
+
+  const resetLifetimeCompletions = useCallback((value) => {
+    setLifetimeCompletions(Math.max(0, value))
   }, [])
 
   const coreQuest = quests.find((q) => q.isCore) ?? null
@@ -99,7 +157,12 @@ export default function useQuests() {
     removeQuest,
     toggleCoreTask,
     clearCompleted,
+    addSubTask,
+    toggleSubTask,
+    removeSubTask,
+    updateSubTask,
     lifetimeCompletions,
+    resetLifetimeCompletions,
     coreTaskCompleted,
   }
 }

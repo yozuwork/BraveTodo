@@ -22,34 +22,27 @@ function playLevelUpSound() {
 
 const BASE_STATS = { atk: 5, def: 5, spd: 5 }
 
-// LV1-5:  每3個完成任務升一級（升到LV6共需15個）
-// LV6-10: 每5個完成任務升一級（LV10需再25個，累計40個）
-// LV11+:  每10個完成任務升一級（最高LV120）
-const TASKS_TO_LV6 = 15  // 5 levels × 3 tasks
-const TASKS_TO_LV10 = 40 // 15 + 5 levels × 5 tasks
+function calcLevelInfo(lifetimeCompletions, rules) {
+  let remaining = lifetimeCompletions
 
-function calcLevelInfo(lifetimeCompletions) {
-  if (lifetimeCompletions < TASKS_TO_LV6) {
-    const level = Math.floor(lifetimeCompletions / 3) + 1
-    const progress = ((lifetimeCompletions % 3) / 3) * 100
-    return { level, expProgress: progress }
+  for (const rule of rules) {
+    const levelsInRange = rule.maxLevel - rule.minLevel
+    const tasksForRange = levelsInRange * rule.expPerLevel
+
+    if (remaining < tasksForRange) {
+      const levelsGained = Math.floor(remaining / rule.expPerLevel)
+      const level = rule.minLevel + levelsGained
+      const progress = ((remaining % rule.expPerLevel) / rule.expPerLevel) * 100
+      return { level, expProgress: progress }
+    }
+
+    remaining -= tasksForRange
   }
 
-  if (lifetimeCompletions < TASKS_TO_LV10) {
-    const tasksAfterLv5 = lifetimeCompletions - TASKS_TO_LV6
-    const level = 6 + Math.floor(tasksAfterLv5 / 5)
-    const progress = ((tasksAfterLv5 % 5) / 5) * 100
-    return { level, expProgress: progress }
-  }
-
-  const tasksAfterLv10 = lifetimeCompletions - TASKS_TO_LV10
-  const level = Math.min(120, 11 + Math.floor(tasksAfterLv10 / 10))
-  if (level >= 120) return { level: 120, expProgress: 100 }
-  const progress = ((tasksAfterLv10 % 10) / 10) * 100
-  return { level, expProgress: progress }
+  return { level: rules[rules.length - 1].maxLevel, expProgress: 100 }
 }
 
-export default function useCharacter(lifetimeCompletions, coreTaskCompleted) {
+export default function useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules) {
   const [avatar, setAvatar] = useState(
     () => localStorage.getItem(STORAGE_KEY_AVATAR) || defaultAvatar
   )
@@ -83,8 +76,8 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted) {
   }, [])
 
   const { level, expProgress } = useMemo(
-    () => calcLevelInfo(lifetimeCompletions),
-    [lifetimeCompletions]
+    () => calcLevelInfo(lifetimeCompletions, levelingRules),
+    [lifetimeCompletions, levelingRules]
   )
 
   useEffect(() => {
