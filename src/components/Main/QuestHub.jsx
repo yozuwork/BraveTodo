@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import AddIcon from '@mui/icons-material/Add'
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import Button from '@mui/material/Button'
 import TabNav from './TabNav'
 import QuestItem from './QuestItem'
@@ -11,7 +12,9 @@ import HuntTab from './HuntTab'
 import HuntMission from './HuntMission'
 
 export default function QuestHub({
-  quests, onAdd, onToggle, onUpdate, onRemove, onToggleCore, onClearCompleted,
+  quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onReorderQuests, onClearCompleted,
+  onDemoteToInbox,
+  onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
   isEditMode, stages, onStageName, onStageAvatar,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
   levelingRules, onUpdateExpPerLevel,
@@ -23,6 +26,7 @@ export default function QuestHub({
   onStartStageBossHunt, onStopStageBossHunt,
   onStageBossNameChange, onStageBossAvatarChange,
   activeHuntTarget, huntTaskHandlers,
+  onReorderInbox,
   // lifted tab state
   activeTab, onTabChange,
 }) {
@@ -30,6 +34,69 @@ export default function QuestHub({
   const [inboxInput, setInboxInput] = useState('')
   const isComposingRef = useRef(false)
   const isInboxComposingRef = useRef(false)
+
+  // ── Drag-and-drop state ──
+  const questDragId = useRef(null)
+  const [questDragOverId, setQuestDragOverId] = useState(null)
+  const [questInsertBefore, setQuestInsertBefore] = useState(true)
+
+  const inboxDragId = useRef(null)
+  const [inboxDragOverId, setInboxDragOverId] = useState(null)
+  const [inboxInsertBefore, setInboxInsertBefore] = useState(true)
+
+  const handleQuestDragStart = useCallback((e, id) => {
+    questDragId.current = id
+    e.dataTransfer.effectAllowed = 'move'
+  }, [])
+
+  const handleQuestDragOver = useCallback((e, id) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const rect = e.currentTarget.getBoundingClientRect()
+    setQuestDragOverId(id)
+    setQuestInsertBefore(e.clientY < rect.top + rect.height / 2)
+  }, [])
+
+  const handleQuestDrop = useCallback((e, id) => {
+    e.preventDefault()
+    if (questDragId.current && questDragId.current !== id) {
+      onReorderQuests(questDragId.current, id, questInsertBefore)
+    }
+    questDragId.current = null
+    setQuestDragOverId(null)
+  }, [onReorderQuests, questInsertBefore])
+
+  const handleQuestDragEnd = useCallback(() => {
+    questDragId.current = null
+    setQuestDragOverId(null)
+  }, [])
+
+  const handleInboxDragStart = useCallback((e, id) => {
+    inboxDragId.current = id
+    e.dataTransfer.effectAllowed = 'move'
+  }, [])
+
+  const handleInboxDragOver = useCallback((e, id) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    const rect = e.currentTarget.getBoundingClientRect()
+    setInboxDragOverId(id)
+    setInboxInsertBefore(e.clientY < rect.top + rect.height / 2)
+  }, [])
+
+  const handleInboxDrop = useCallback((e, id) => {
+    e.preventDefault()
+    if (inboxDragId.current && inboxDragId.current !== id) {
+      onReorderInbox(inboxDragId.current, id, inboxInsertBefore)
+    }
+    inboxDragId.current = null
+    setInboxDragOverId(null)
+  }, [onReorderInbox, inboxInsertBefore])
+
+  const handleInboxDragEnd = useCallback(() => {
+    inboxDragId.current = null
+    setInboxDragOverId(null)
+  }, [])
 
   const hasActiveHunt = activeHuntTarget !== null
 
@@ -121,21 +188,52 @@ export default function QuestHub({
                 <p className="text-sm mt-1">Add your first quest above to begin your adventure!</p>
               </div>
             ) : (
-              [...quests].sort((a, b) => a.completed - b.completed).map((quest) => (
-                <QuestItem
-                  key={quest.id}
-                  quest={quest}
-                  onToggle={onToggle}
-                  onUpdate={onUpdate}
-                  onRemove={onRemove}
-                  onToggleCore={onToggleCore}
-                  atk={atk}
-                  onAddSubTask={onAddSubTask}
-                  onToggleSubTask={onToggleSubTask}
-                  onRemoveSubTask={onRemoveSubTask}
-                  onUpdateSubTask={onUpdateSubTask}
-                />
-              ))
+              [...quests]
+                .sort((a, b) => {
+                  if (a.completed !== b.completed) return a.completed ? 1 : -1
+                  if (a.pinned !== b.pinned) return b.pinned ? 1 : -1
+                  return 0
+                })
+                .map((quest) => {
+                  const isOver = questDragOverId === quest.id
+                  return (
+                    <div
+                      key={quest.id}
+                      draggable={!quest.completed}
+                      onDragStart={(e) => handleQuestDragStart(e, quest.id)}
+                      onDragOver={(e) => !quest.completed && handleQuestDragOver(e, quest.id)}
+                      onDrop={(e) => handleQuestDrop(e, quest.id)}
+                      onDragEnd={handleQuestDragEnd}
+                      className={`relative group/drag ${!quest.completed ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      style={{ opacity: questDragId.current === quest.id ? 0.4 : 1 }}
+                    >
+                      {isOver && questInsertBefore && (
+                        <div className="absolute -top-1.5 left-0 right-0 h-0.5 bg-purple-400 rounded-full z-10 pointer-events-none" />
+                      )}
+                      <div className="absolute left-0 top-0 bottom-0 flex items-center pl-1 opacity-0 group-hover/drag:opacity-100 transition-opacity z-10 pointer-events-none">
+                        {!quest.completed && <DragIndicatorIcon sx={{ fontSize: 16, color: '#d1d5db' }} />}
+                      </div>
+                      <QuestItem
+                        quest={quest}
+                        onToggle={onToggle}
+                        onUpdate={onUpdate}
+                        onRemove={onRemove}
+                        onTogglePin={onTogglePin}
+                        onToggleCore={onToggleCore}
+                        onSetPriority={onSetPriority}
+                        onDemoteToInbox={onDemoteToInbox}
+                        atk={atk}
+                        onAddSubTask={onAddSubTask}
+                        onToggleSubTask={onToggleSubTask}
+                        onRemoveSubTask={onRemoveSubTask}
+                        onUpdateSubTask={onUpdateSubTask}
+                      />
+                      {isOver && !questInsertBefore && (
+                        <div className="absolute -bottom-1.5 left-0 right-0 h-0.5 bg-purple-400 rounded-full z-10 pointer-events-none" />
+                      )}
+                    </div>
+                  )
+                })
             )}
           </div>
         </div>
@@ -223,15 +321,41 @@ export default function QuestHub({
                 <p className="text-sm mt-1">把待釐清的事項放這裡，之後再轉成任務！</p>
               </div>
             ) : (
-              inboxItems.map((item) => (
-                <InboxItem
-                  key={item.id}
-                  item={item}
-                  onUpdate={onInboxUpdate}
-                  onRemove={onInboxRemove}
-                  onPromoteToQuest={onPromoteToQuest}
-                />
-              ))
+              inboxItems.map((item) => {
+                const isOver = inboxDragOverId === item.id
+                return (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={(e) => handleInboxDragStart(e, item.id)}
+                    onDragOver={(e) => handleInboxDragOver(e, item.id)}
+                    onDrop={(e) => handleInboxDrop(e, item.id)}
+                    onDragEnd={handleInboxDragEnd}
+                    className="relative group/drag cursor-grab active:cursor-grabbing"
+                    style={{ opacity: inboxDragId.current === item.id ? 0.4 : 1 }}
+                  >
+                    {isOver && inboxInsertBefore && (
+                      <div className="absolute -top-1.5 left-0 right-0 h-0.5 bg-gray-400 rounded-full z-10 pointer-events-none" />
+                    )}
+                    <div className="absolute left-0 top-0 bottom-0 flex items-center pl-1 opacity-0 group-hover/drag:opacity-100 transition-opacity z-10 pointer-events-none">
+                      <DragIndicatorIcon sx={{ fontSize: 16, color: '#d1d5db' }} />
+                    </div>
+                    <InboxItem
+                      item={item}
+                      onUpdate={onInboxUpdate}
+                      onRemove={onInboxRemove}
+                      onPromoteToQuest={onPromoteToQuest}
+                      onAddSubTask={onInboxAddSubTask}
+                      onToggleSubTask={onInboxToggleSubTask}
+                      onRemoveSubTask={onInboxRemoveSubTask}
+                      onUpdateSubTask={onInboxUpdateSubTask}
+                    />
+                    {isOver && !inboxInsertBefore && (
+                      <div className="absolute -bottom-1.5 left-0 right-0 h-0.5 bg-gray-400 rounded-full z-10 pointer-events-none" />
+                    )}
+                  </div>
+                )
+              })
             )}
           </div>
         </div>

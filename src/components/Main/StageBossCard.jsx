@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import { resolveImg } from '../../utils/imageSrc'
 
 const STAGE_COLORS = ['#a855f7', '#3b82f6', '#f97316', '#ef4444', '#10b981', '#f59e0b']
 
@@ -71,7 +72,7 @@ export default function StageBossCard({
       >
         {bossAvatar ? (
           <img
-            src={bossAvatar}
+            src={resolveImg(bossAvatar)}
             alt={bossName}
             className="w-full h-full object-contain"
             draggable={false}

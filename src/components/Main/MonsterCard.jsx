@@ -5,6 +5,7 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import SwordsIcon from '@mui/icons-material/SportsMartialArts'
 import { MONSTER_TYPES, TYPE_CONFIG } from '../../hooks/useMonsters'
+import { resolveImg } from '../../utils/imageSrc'
 
 const MIN_CARD_W = 130
 const MAX_CARD_W = 420
@@ -106,7 +107,7 @@ export default function MonsterCard({
       >
         {avatar ? (
           <img
-            src={avatar}
+            src={resolveImg(avatar)}
             alt={name}
             className="w-full h-full object-contain"
             draggable={false}

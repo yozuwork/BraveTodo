@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { compressImage } from '../utils/compressImage'
+import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
 
 const STORAGE_KEY = 'brave-todo:monsters'
 
@@ -71,8 +72,10 @@ export default function useMonsters() {
 
   const updateMonsterAvatar = useCallback((id, file) => {
     if (!file) return
-    compressImage(file).then((dataUrl) => {
-      setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: dataUrl } : m)))
+    compressImage(file).then(async (dataUrl) => {
+      const relPath = await saveImageToDisk(dataUrl, `uploads/monsters/${id}.jpg`)
+      const stored = relPath ?? dataUrl
+      setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: stored } : m)))
     })
   }, [])
 

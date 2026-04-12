@@ -14,10 +14,11 @@ import useStages, { resolveCurrentStage } from './hooks/useStages'
 import useInbox from './hooks/useInbox'
 import useLevelingRules from './hooks/useLevelingRules'
 import useMonsters from './hooks/useMonsters'
+import { resolveImg } from './utils/imageSrc'
 
 export default function App() {
   const {
-    quests, addQuest, toggleQuest, updateQuest, removeQuest, toggleCoreTask, clearCompleted,
+    quests, addQuest, toggleQuest, updateQuest, removeQuest, togglePin, toggleCoreTask, setQuestPriority, reorderQuests, clearCompleted,
     addSubTask, toggleSubTask, removeSubTask, updateSubTask,
     lifetimeCompletions, resetLifetimeCompletions, coreTaskCompleted,
   } = useQuests()
@@ -30,7 +31,10 @@ export default function App() {
     startStageBossHunt, stopStageBossHunt, completeStageBossHunt,
     addStageBossHuntTask, toggleStageBossHuntTask, removeStageBossHuntTask, updateStageBossHuntTask,
   } = useStages()
-  const { inboxItems, addInboxItem, removeInboxItem, updateInboxItem } = useInbox()
+  const {
+    inboxItems, addInboxItem, removeInboxItem, updateInboxItem, reorderInboxItems,
+    addInboxSubTask, toggleInboxSubTask, removeInboxSubTask, updateInboxSubTask,
+  } = useInbox()
   const {
     monsters, addMonster, updateMonster, removeMonster, updateMonsterAvatar,
     startHunt, stopHunt, addHuntTask, toggleHuntTask, removeHuntTask, updateHuntTask,
@@ -40,6 +44,13 @@ export default function App() {
     addQuest(text)
     removeInboxItem(id)
   }, [addQuest, removeInboxItem])
+
+  const handleDemoteToInbox = useCallback((id) => {
+    const quest = quests.find((q) => q.id === id)
+    if (!quest) return
+    addInboxItem(quest.text, quest.subTasks ?? [])
+    removeQuest(id)
+  }, [quests, addInboxItem, removeQuest])
 
   const [mobileTab, setMobileTab] = useState('character')
   const [activeTab, setActiveTab] = useState('Tasks')
@@ -57,7 +68,7 @@ export default function App() {
         id:    activeStageBoss.id,
         name:  activeStageBoss.bossName,
         avatar:    activeStageBoss.bossAvatar,
-        avatarSrc: activeStageBoss.bossAvatar,
+        avatarSrc: resolveImg(activeStageBoss.bossAvatar),
         recommendedLevel: activeStageBoss.maxLevel,
         huntTasks:  activeStageBoss.bossHuntTasks,
         stageRange: { min: activeStageBoss.minLevel, max: activeStageBoss.maxLevel },
@@ -69,7 +80,7 @@ export default function App() {
         id:    activeMonster.id,
         name:  activeMonster.name,
         avatar:    activeMonster.avatar,
-        avatarSrc: activeMonster.avatar,
+        avatarSrc: resolveImg(activeMonster.avatar),
         recommendedLevel: activeMonster.recommendedLevel,
         huntTasks:  activeMonster.huntTasks,
         stageRange: null,
@@ -163,8 +174,12 @@ export default function App() {
               onToggle={toggleQuest}
               onUpdate={updateQuest}
               onRemove={removeQuest}
+              onTogglePin={togglePin}
               onToggleCore={toggleCoreTask}
+              onSetPriority={setQuestPriority}
+              onReorderQuests={reorderQuests}
               onClearCompleted={clearCompleted}
+              onDemoteToInbox={handleDemoteToInbox}
               isEditMode={isEditMode}
               stages={stages}
               onStageName={updateStageName}
@@ -195,6 +210,11 @@ export default function App() {
               onInboxAdd={addInboxItem}
               onInboxRemove={removeInboxItem}
               onInboxUpdate={updateInboxItem}
+              onReorderInbox={reorderInboxItems}
+              onInboxAddSubTask={addInboxSubTask}
+              onInboxToggleSubTask={toggleInboxSubTask}
+              onInboxRemoveSubTask={removeInboxSubTask}
+              onInboxUpdateSubTask={updateInboxSubTask}
               onPromoteToQuest={handlePromoteToQuest}
               activeTab={activeTab}
               onTabChange={setActiveTab}

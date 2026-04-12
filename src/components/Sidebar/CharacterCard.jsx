@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { resolveImg } from '../../utils/imageSrc'
 import Chip from '@mui/material/Chip'
 import EditIcon from '@mui/icons-material/Edit'
 import OpenWithIcon from '@mui/icons-material/OpenWith'
@@ -11,7 +12,14 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
   const containerRef = useRef(null)
   const dragState = useRef(null)
   const resizeState = useRef(null)
-  const [cardSize, setCardSize] = useState({ width: 380, height: 600 })
+  const cardSizeRef = useRef(null)
+  const [cardSize, setCardSize] = useState(() => {
+    try {
+      const saved = localStorage.getItem('characterCardSize')
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return { width: 380, height: 600 }
+  })
   const [avatarVisible, setAvatarVisible] = useState(true)
 
   const handleFileChange = (e) => {
@@ -69,13 +77,18 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
     if (!resizeState.current) return
     const dx = e.clientX - resizeState.current.startX
     const dy = e.clientY - resizeState.current.startY
-    setCardSize({
+    const newSize = {
       width: Math.max(200, resizeState.current.startW + dx),
       height: Math.max(100, resizeState.current.startH + dy),
-    })
+    }
+    cardSizeRef.current = newSize
+    setCardSize(newSize)
   }
 
   const handleResizeUp = () => {
+    if (resizeState.current && cardSizeRef.current) {
+      localStorage.setItem('characterCardSize', JSON.stringify(cardSizeRef.current))
+    }
     resizeState.current = null
   }
 
@@ -95,7 +108,7 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
       >
         {avatar ? (
           <img
-            src={avatar}
+            src={resolveImg(avatar)}
             alt="Avatar"
             className={`w-full h-full object-cover select-none transition-opacity duration-300 ${avatarVisible ? 'opacity-100' : 'opacity-0'}`}
             style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }}

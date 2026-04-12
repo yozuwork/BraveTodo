@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import defaultAvatar from '../assets/hero.jpg'
 import { compressImage } from '../utils/compressImage'
+import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
 
 const STORAGE_KEY      = 'brave-todo:stages'
 const STORAGE_KEY_BOSS = 'brave-todo:stageBossHunts'
@@ -81,7 +82,10 @@ export default function useStages() {
 
   // ── Stage settings ─────────────────────────────────────────
 
-  const getStageAvatar = useCallback((stage) => stage.avatar || defaultAvatar, [])
+  const getStageAvatar = useCallback(
+    (stage) => resolveImg(stage.avatar) || defaultAvatar,
+    []
+  )
 
   const updateStageName = useCallback((id, newName) => {
     setStages((prev) => prev.map((s) => (s.id === id ? { ...s, className: newName } : s)))
@@ -89,8 +93,10 @@ export default function useStages() {
 
   const updateStageAvatar = useCallback((id, file) => {
     if (!file) return
-    compressImage(file).then((dataUrl) => {
-      setStages((prev) => prev.map((s) => (s.id === id ? { ...s, avatar: dataUrl } : s)))
+    compressImage(file).then(async (dataUrl) => {
+      const relPath = await saveImageToDisk(dataUrl, `uploads/stages/${id}.jpg`)
+      const stored = relPath ?? dataUrl
+      setStages((prev) => prev.map((s) => (s.id === id ? { ...s, avatar: stored } : s)))
     })
   }, [])
 
@@ -105,10 +111,12 @@ export default function useStages() {
 
   const updateStageBossAvatar = useCallback((stageId, file) => {
     if (!file) return
-    compressImage(file).then((dataUrl) => {
+    compressImage(file).then(async (dataUrl) => {
+      const relPath = await saveImageToDisk(dataUrl, `uploads/bosses/${stageId}.jpg`)
+      const stored = relPath ?? dataUrl
       setBossHunts((prev) => ({
         ...prev,
-        [stageId]: { ...(prev[stageId] ?? { huntStatus: null, huntTasks: [] }), bossAvatar: dataUrl },
+        [stageId]: { ...(prev[stageId] ?? { huntStatus: null, huntTasks: [] }), bossAvatar: stored },
       }))
     })
   }, [])

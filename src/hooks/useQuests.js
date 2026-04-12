@@ -42,10 +42,20 @@ export default function useQuests() {
         text,
         completed: false,
         isCore: false,
+        pinned: false,
+        priority: 'normal',
         subTasks: [],
       },
       ...prev,
     ])
+  }, [])
+
+  const setQuestPriority = useCallback((id, priority) => {
+    setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, priority } : q)))
+  }, [])
+
+  const togglePin = useCallback((id) => {
+    setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, pinned: !q.pinned } : q)))
   }, [])
 
   const toggleQuest = useCallback((id) => {
@@ -133,6 +143,19 @@ export default function useQuests() {
     )
   }, [])
 
+  const reorderQuests = useCallback((fromId, toId, insertBefore) => {
+    setQuests((prev) => {
+      const fromIdx = prev.findIndex((q) => q.id === fromId)
+      const toIdx = prev.findIndex((q) => q.id === toId)
+      if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev
+      const result = [...prev]
+      const [removed] = result.splice(fromIdx, 1)
+      const newToIdx = result.findIndex((q) => q.id === toId)
+      result.splice(insertBefore ? newToIdx : newToIdx + 1, 0, removed)
+      return result
+    })
+  }, [])
+
   const clearCompleted = useCallback(() => {
     setQuests((prev) => prev.filter((q) => !q.completed))
   }, [])
@@ -150,7 +173,10 @@ export default function useQuests() {
     toggleQuest,
     updateQuest,
     removeQuest,
+    togglePin,
     toggleCoreTask,
+    setQuestPriority,
+    reorderQuests,
     clearCompleted,
     addSubTask,
     toggleSubTask,

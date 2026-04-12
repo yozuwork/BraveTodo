@@ -16,9 +16,9 @@ export default function StatsCard({ expProgress, coreTaskProgress, stats, level,
     <div className="bg-white rounded-2xl p-5 md:p-8 flex flex-col gap-5">
       <div>
         <div className="flex items-center gap-2 mb-3">
-          {currentStage?.avatar && (
+          {currentStage?.avatarSrc && (
             <img
-              src={currentStage.avatar}
+              src={currentStage.avatarSrc}
               alt={currentStage.className}
               className="w-8 h-8 rounded-full object-cover shrink-0"
             />

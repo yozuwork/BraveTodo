@@ -2,10 +2,15 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { playQuestCompleteSound } from '../../hooks/useQuests'
 import Checkbox from '@mui/material/Checkbox'
 import IconButton from '@mui/material/IconButton'
+import MenuItem from '@mui/material/MenuItem'
+import Select from '@mui/material/Select'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import StarIcon from '@mui/icons-material/Star'
 import StarBorderIcon from '@mui/icons-material/StarBorder'
+import PushPinIcon from '@mui/icons-material/PushPin'
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
+import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined'
 import AddIcon from '@mui/icons-material/Add'
 import SlashEffect from './SlashEffect'
 import DamageNumber from './DamageNumber'
@@ -97,9 +102,18 @@ function SubTaskItem({ sub, questCompleted, onToggle, onRemove, onUpdate }) {
 }
 
 // ── Main quest row ────────────────────────────────────────────
+const PRIORITY_CYCLE = { normal: 'high', high: 'low', low: 'normal' }
+const PRIORITY_LABEL = { high: '優先', normal: '次要', low: '最後' }
+const PRIORITY_STYLE = {
+  high: 'bg-red-100 text-red-600 hover:bg-red-200',
+  normal: 'bg-gray-100 text-gray-400 hover:bg-gray-200',
+  low: 'bg-blue-50 text-blue-400 hover:bg-blue-100',
+}
+
 export default function QuestItem({
-  quest, onToggle, onUpdate, onRemove, onToggleCore, atk,
-  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
+  quest, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
+  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority,
+  onDemoteToInbox,
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(quest.text)
@@ -109,6 +123,7 @@ export default function QuestItem({
   const [damageInfo, setDamageInfo] = useState(null)
   const [addingSubTask, setAddingSubTask] = useState(false)
   const [subDraft, setSubDraft] = useState('')
+  const [tagOpen, setTagOpen] = useState(false)
   const inputRef = useRef(null)
   const subInputRef = useRef(null)
   const pendingToggleRef = useRef(false)
@@ -173,10 +188,16 @@ export default function QuestItem({
 
   return (
     <div
-      className={`bg-white rounded-xl px-5 py-4 flex gap-4 border border-transparent hover:border-gray-200 transition-colors group relative ${
+      className={`bg-white rounded-xl px-5 py-4 flex gap-4 border transition-colors group relative overflow-hidden ${
         quest.completed || animatingComplete ? 'opacity-50' : ''
-      } ${shaking ? 'quest-shake' : ''}`}
+      } ${shaking ? 'quest-shake' : ''} ${
+        quest.pinned && !quest.completed ? 'border-purple-200 hover:border-purple-300' : 'border-transparent hover:border-gray-200'
+      }`}
     >
+      {/* Pinned left-edge indicator */}
+      {quest.pinned && !quest.completed && (
+        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl bg-purple-400" />
+      )}
       <SlashEffect
         visible={slashing}
         onComplete={() => {
@@ -196,6 +217,43 @@ export default function QuestItem({
         onComplete={() => setDamageInfo(null)}
       />
 
+      {/* Tag selector */}
+      <div className="shrink-0 mt-0.5">
+        <Select
+          value="task"
+          onChange={(e) => { if (e.target.value === 'inbox') onDemoteToInbox(quest.id) }}
+          open={tagOpen}
+          onOpen={() => setTagOpen(true)}
+          onClose={() => setTagOpen(false)}
+          size="small"
+          variant="outlined"
+          renderValue={() => (
+            <span className="flex items-center gap-1 text-xs text-purple-500 font-medium">
+              <LocalOfferOutlinedIcon style={{ fontSize: 14 }} />
+              任務
+            </span>
+          )}
+          sx={{
+            minWidth: 80,
+            fontSize: '0.75rem',
+            '.MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' },
+            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#a855f7' },
+            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#a855f7' },
+            '.MuiSelect-icon': { color: '#9ca3af' },
+            '.MuiSelect-select': { py: '4px', px: '8px' },
+          }}
+        >
+          <MenuItem value="task" disabled sx={{ fontSize: '0.8rem', color: '#a855f7' }}>
+            <LocalOfferOutlinedIcon style={{ fontSize: 14, marginRight: 6, color: '#a855f7' }} />
+            任務
+          </MenuItem>
+          <MenuItem value="inbox" sx={{ fontSize: '0.8rem' }}>
+            <LocalOfferOutlinedIcon style={{ fontSize: 14, marginRight: 6, color: '#9ca3af' }} />
+            移到收集箱
+          </MenuItem>
+        </Select>
+      </div>
+
       {/* Checkbox — align to top */}
       <div className="shrink-0 mt-0.5">
         <Checkbox
@@ -210,6 +268,18 @@ export default function QuestItem({
 
         {/* Main quest title row */}
         <div className="flex items-center gap-2">
+          {/* Priority badge */}
+          {!quest.completed && !editing && (
+            <button
+              onClick={() => onSetPriority(quest.id, PRIORITY_CYCLE[quest.priority ?? 'normal'])}
+              title="點擊切換優先級"
+              className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${
+                PRIORITY_STYLE[quest.priority ?? 'normal']
+              }`}
+            >
+              {PRIORITY_LABEL[quest.priority ?? 'normal']}
+            </button>
+          )}
           {editing ? (
             <input
               ref={inputRef}
@@ -255,6 +325,19 @@ export default function QuestItem({
               <EditOutlinedIcon fontSize="small" />
             </IconButton>
           )}
+          <IconButton
+            size="small"
+            onClick={() => onTogglePin(quest.id)}
+            aria-label="置頂任務"
+            sx={{
+              color: quest.pinned ? '#a855f7' : '#d1d5db',
+              '&:hover': { color: '#a855f7' },
+              transform: quest.pinned ? 'rotate(0deg)' : 'rotate(45deg)',
+              transition: 'transform 0.2s, color 0.15s',
+            }}
+          >
+            {quest.pinned ? <PushPinIcon fontSize="small" /> : <PushPinOutlinedIcon fontSize="small" />}
+          </IconButton>
           <IconButton
             size="small"
             onClick={() => onToggleCore(quest.id)}
