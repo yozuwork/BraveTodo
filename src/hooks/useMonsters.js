@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { compressImage } from '../utils/compressImage'
 
 const STORAGE_KEY = 'brave-todo:monsters'
 
@@ -12,11 +13,11 @@ export const TYPE_CONFIG = {
 }
 
 const DEFAULT_MONSTERS = [
-  { id: 1, name: '大地守護者', recommendedLevel: 10,  type: 'boss',       avatar: null, cardW: 160, cardH: 260 },
-  { id: 2, name: '炎狼暗將',   recommendedLevel: 30,  type: 'boss',       avatar: null, cardW: 160, cardH: 260 },
-  { id: 3, name: '深淵支配者', recommendedLevel: 70,  type: 'boss',       avatar: null, cardW: 160, cardH: 260 },
-  { id: 4, name: '天龍王',     recommendedLevel: 120, type: 'boss',       avatar: null, cardW: 160, cardH: 260 },
-  { id: 5, name: '魔王',       recommendedLevel: 250, type: 'final_boss', avatar: null, cardW: 180, cardH: 280 },
+  { id: 1, name: '大地守護者', recommendedLevel: 10,  type: 'boss',       avatar: null, cardW: 160, cardH: 260, huntStatus: null, huntTasks: [] },
+  { id: 2, name: '炎狼暗將',   recommendedLevel: 30,  type: 'boss',       avatar: null, cardW: 160, cardH: 260, huntStatus: null, huntTasks: [] },
+  { id: 3, name: '深淵支配者', recommendedLevel: 70,  type: 'boss',       avatar: null, cardW: 160, cardH: 260, huntStatus: null, huntTasks: [] },
+  { id: 4, name: '天龍王',     recommendedLevel: 120, type: 'boss',       avatar: null, cardW: 160, cardH: 260, huntStatus: null, huntTasks: [] },
+  { id: 5, name: '魔王',       recommendedLevel: 250, type: 'final_boss', avatar: null, cardW: 180, cardH: 280, huntStatus: null, huntTasks: [] },
 ]
 
 function loadMonsters() {
@@ -25,7 +26,12 @@ function loadMonsters() {
     if (!raw) return DEFAULT_MONSTERS
     const saved = JSON.parse(raw)
     // merge saved data onto defaults shape (in case new fields added)
-    return saved.map((m) => ({ ...DEFAULT_MONSTERS[0], ...m }))
+    return saved.map((m) => ({
+      ...DEFAULT_MONSTERS[0],
+      huntStatus: null,
+      huntTasks: [],
+      ...m,
+    }))
   } catch {
     return DEFAULT_MONSTERS
   }
@@ -49,6 +55,8 @@ export default function useMonsters() {
         avatar: null,
         cardW: 160,
         cardH: 260,
+        huntStatus: null,
+        huntTasks: [],
       },
     ])
   }, [])
@@ -63,12 +71,88 @@ export default function useMonsters() {
 
   const updateMonsterAvatar = useCallback((id, file) => {
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: e.target.result } : m)))
-    }
-    reader.readAsDataURL(file)
+    compressImage(file).then((dataUrl) => {
+      setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: dataUrl } : m)))
+    })
   }, [])
 
-  return { monsters, addMonster, updateMonster, removeMonster, updateMonsterAvatar }
+  // ── Hunt management ──────────────────────────────────────────────
+
+  const startHunt = useCallback((id) => {
+    setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, huntStatus: 'hunting' } : m)))
+  }, [])
+
+  const stopHunt = useCallback((id) => {
+    setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, huntStatus: null } : m)))
+  }, [])
+
+  const addHuntTask = useCallback((monsterId, text) => {
+    setMonsters((prev) =>
+      prev.map((m) => {
+        if (m.id !== monsterId) return m
+        if (m.huntTasks.length >= 10) return m
+        return {
+          ...m,
+          huntTasks: [
+            ...m.huntTasks,
+            { id: Date.now(), text, completed: false },
+          ],
+        }
+      })
+    )
+  }, [])
+
+  const toggleHuntTask = useCallback((monsterId, taskId) => {
+    setMonsters((prev) =>
+      prev.map((m) => {
+        if (m.id !== monsterId) return m
+        return {
+          ...m,
+          huntTasks: m.huntTasks.map((t) =>
+            t.id === taskId ? { ...t, completed: !t.completed } : t
+          ),
+        }
+      })
+    )
+  }, [])
+
+  const removeHuntTask = useCallback((monsterId, taskId) => {
+    setMonsters((prev) =>
+      prev.map((m) => {
+        if (m.id !== monsterId) return m
+        return {
+          ...m,
+          huntTasks: m.huntTasks.filter((t) => t.id !== taskId),
+        }
+      })
+    )
+  }, [])
+
+  const updateHuntTask = useCallback((monsterId, taskId, text) => {
+    setMonsters((prev) =>
+      prev.map((m) => {
+        if (m.id !== monsterId) return m
+        return {
+          ...m,
+          huntTasks: m.huntTasks.map((t) =>
+            t.id === taskId ? { ...t, text } : t
+          ),
+        }
+      })
+    )
+  }, [])
+
+  return {
+    monsters,
+    addMonster,
+    updateMonster,
+    removeMonster,
+    updateMonsterAvatar,
+    startHunt,
+    stopHunt,
+    addHuntTask,
+    toggleHuntTask,
+    removeHuntTask,
+    updateHuntTask,
+  }
 }

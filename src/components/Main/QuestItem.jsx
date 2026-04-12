@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { playQuestCompleteSound } from '../../hooks/useQuests'
 import Checkbox from '@mui/material/Checkbox'
 import IconButton from '@mui/material/IconButton'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
@@ -134,6 +135,7 @@ export default function QuestItem({
 
   const handleToggle = useCallback(() => {
     if (!quest.completed) {
+      playQuestCompleteSound()
       setSlashing(true)
       setAnimatingComplete(true)
       pendingToggleRef.current = true

@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import coinSfxUrl from '../assets/music/coin03.mp3'
+import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
 
 const STORAGE_KEY_QUESTS = 'brave-todo:quests'
 const STORAGE_KEY_COMPLETIONS = 'brave-todo:lifetimeCompletions'
@@ -13,10 +13,12 @@ function loadJSON(key, fallback) {
   }
 }
 
-function playQuestCompleteSound() {
-  const audio = new Audio(coinSfxUrl)
-  audio.volume = 0.65
-  void audio.play().catch(() => {})
+const _questCompleteAudio = new Audio(coinSfxUrl)
+_questCompleteAudio.volume = 0.65
+
+export function playQuestCompleteSound() {
+  _questCompleteAudio.currentTime = 0
+  void _questCompleteAudio.play().catch(() => {})
 }
 
 export default function useQuests() {
@@ -47,20 +49,13 @@ export default function useQuests() {
   }, [])
 
   const toggleQuest = useCallback((id) => {
-    let shouldPlay = false
     let completionDelta = 0
     setQuests((prev) => {
       const target = prev.find((q) => q.id === id)
       if (!target) return prev
-      if (!target.completed) {
-        shouldPlay = true
-        completionDelta = 1
-      } else {
-        completionDelta = -1
-      }
+      completionDelta = target.completed ? -1 : 1
       return prev.map((q) => (q.id === id ? { ...q, completed: !q.completed } : q))
     })
-    if (shouldPlay) playQuestCompleteSound()
     if (completionDelta !== 0) {
       setLifetimeCompletions((c) => Math.max(0, c + completionDelta))
     }

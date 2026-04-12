@@ -4,12 +4,13 @@ import PersonIcon from '@mui/icons-material/Person'
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted'
 import TuneIcon from '@mui/icons-material/Tune'
 import CharacterCard from './components/Sidebar/CharacterCard'
+import HuntSideCard from './components/Sidebar/HuntSideCard'
 import StatsCard from './components/Sidebar/StatsCard'
 import QuestHub from './components/Main/QuestHub'
 import LevelUpEffect from './components/LevelUpEffect/LevelUpEffect'
 import useQuests from './hooks/useQuests'
 import useCharacter from './hooks/useCharacter'
-import useStages from './hooks/useStages'
+import useStages, { resolveCurrentStage } from './hooks/useStages'
 import useInbox from './hooks/useInbox'
 import useLevelingRules from './hooks/useLevelingRules'
 import useMonsters from './hooks/useMonsters'
@@ -23,19 +24,80 @@ export default function App() {
   const { rules: levelingRules, updateExpPerLevel } = useLevelingRules()
   const { avatar, isEditMode, toggleEditMode, updateAvatar, imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
     useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules)
-  const { stages, updateStageName, updateStageAvatar } = useStages()
+  const {
+    stages, updateStageName, updateStageAvatar,
+    updateStageBossName, updateStageBossAvatar,
+    startStageBossHunt, stopStageBossHunt, completeStageBossHunt,
+    addStageBossHuntTask, toggleStageBossHuntTask, removeStageBossHuntTask, updateStageBossHuntTask,
+  } = useStages()
   const { inboxItems, addInboxItem, removeInboxItem, updateInboxItem } = useInbox()
-  const { monsters, addMonster, updateMonster, removeMonster, updateMonsterAvatar } = useMonsters()
+  const {
+    monsters, addMonster, updateMonster, removeMonster, updateMonsterAvatar,
+    startHunt, stopHunt, addHuntTask, toggleHuntTask, removeHuntTask, updateHuntTask,
+  } = useMonsters()
 
   const handlePromoteToQuest = useCallback((id, text) => {
     addQuest(text)
     removeInboxItem(id)
   }, [addQuest, removeInboxItem])
-  const [mobileTab, setMobileTab] = useState('character')
 
-  const currentStage = stages.find(
-    (s) => level >= s.minLevel && level < s.maxLevel
-  ) ?? stages[stages.length - 1]
+  const [mobileTab, setMobileTab] = useState('character')
+  const [activeTab, setActiveTab] = useState('Tasks')
+
+  // Stage progression lock: only advance if previous boss is defeated
+  const currentStage = resolveCurrentStage(stages, level)
+
+  // Unified active hunt target
+  const activeStageBoss = stages.find((s) => s.bossHuntStatus === 'hunting') ?? null
+  const activeMonster   = monsters.find((m) => m.huntStatus === 'hunting') ?? null
+
+  const activeHuntTarget = activeStageBoss
+    ? {
+        _type: 'stageBoss',
+        id:    activeStageBoss.id,
+        name:  activeStageBoss.bossName,
+        avatar:    activeStageBoss.bossAvatar,
+        avatarSrc: activeStageBoss.bossAvatar,
+        recommendedLevel: activeStageBoss.maxLevel,
+        huntTasks:  activeStageBoss.bossHuntTasks,
+        stageRange: { min: activeStageBoss.minLevel, max: activeStageBoss.maxLevel },
+        type: 'boss',
+      }
+    : activeMonster
+    ? {
+        _type: 'monster',
+        id:    activeMonster.id,
+        name:  activeMonster.name,
+        avatar:    activeMonster.avatar,
+        avatarSrc: activeMonster.avatar,
+        recommendedLevel: activeMonster.recommendedLevel,
+        huntTasks:  activeMonster.huntTasks,
+        stageRange: null,
+        type: activeMonster.type,
+      }
+    : null
+
+  const hasActiveHunt  = activeHuntTarget !== null
+  const isOnHuntMission = activeTab === 'HuntMission' && hasActiveHunt
+
+  // Hunt task handlers — routed to the right hook
+  const huntTaskHandlers = activeHuntTarget?._type === 'stageBoss'
+    ? {
+        onAddHuntTask:    (_, text)         => addStageBossHuntTask(activeHuntTarget.id, text),
+        onToggleHuntTask: (_, taskId)       => toggleStageBossHuntTask(activeHuntTarget.id, taskId),
+        onRemoveHuntTask: (_, taskId)       => removeStageBossHuntTask(activeHuntTarget.id, taskId),
+        onUpdateHuntTask: (_, taskId, text) => updateStageBossHuntTask(activeHuntTarget.id, taskId, text),
+        onStopHunt:       ()                => stopStageBossHunt(activeHuntTarget.id),
+        onCompleteHunt:   ()                => completeStageBossHunt(activeHuntTarget.id),
+      }
+    : {
+        onAddHuntTask:    addHuntTask,
+        onToggleHuntTask: toggleHuntTask,
+        onRemoveHuntTask: removeHuntTask,
+        onUpdateHuntTask: updateHuntTask,
+        onStopHunt:       (id) => stopHunt(id),
+        onCompleteHunt:   null,
+      }
 
   // Level-up effect
   const [showLevelUp, setShowLevelUp] = useState(false)
@@ -78,14 +140,18 @@ export default function App() {
 
           {/* Sidebar */}
           <aside className={`w-full md:w-[380px] md:shrink-0 flex flex-col gap-6 md:gap-8 ${mobileTab === 'quests' ? 'hidden md:flex' : 'flex'}`}>
-            <CharacterCard
-              level={level}
-              avatar={currentStage.avatarSrc}
-              isEditMode={isEditMode}
-              onAvatarChange={(file) => updateStageAvatar(currentStage.id, file)}
-              imagePosition={imagePosition}
-              onImagePositionChange={updateImagePosition}
-            />
+            {isOnHuntMission ? (
+              <HuntSideCard target={activeHuntTarget} />
+            ) : (
+              <CharacterCard
+                level={level}
+                avatar={currentStage.avatarSrc}
+                isEditMode={isEditMode}
+                onAvatarChange={(file) => updateStageAvatar(currentStage.id, file)}
+                imagePosition={imagePosition}
+                onImagePositionChange={updateImagePosition}
+              />
+            )}
             <StatsCard expProgress={expProgress} coreTaskProgress={coreTaskProgress} stats={stats} level={level} currentStage={currentStage} />
           </aside>
 
@@ -118,10 +184,20 @@ export default function App() {
               onUpdateMonster={updateMonster}
               onRemoveMonster={removeMonster}
               onMonsterAvatarChange={updateMonsterAvatar}
+              onStartHunt={startHunt}
+              onStopHunt={stopHunt}
+              onStartStageBossHunt={startStageBossHunt}
+              onStopStageBossHunt={stopStageBossHunt}
+              onStageBossNameChange={updateStageBossName}
+              onStageBossAvatarChange={updateStageBossAvatar}
+              activeHuntTarget={activeHuntTarget}
+              huntTaskHandlers={huntTaskHandlers}
               onInboxAdd={addInboxItem}
               onInboxRemove={removeInboxItem}
               onInboxUpdate={updateInboxItem}
               onPromoteToQuest={handlePromoteToQuest}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
             />
           </div>
         </div>
@@ -158,7 +234,6 @@ export default function App() {
         </button>
       </nav>
 
-      {/* Level up special effect */}
       <LevelUpEffect visible={showLevelUp} onComplete={handleLevelUpComplete} />
     </div>
   )

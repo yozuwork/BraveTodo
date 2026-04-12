@@ -3,16 +3,20 @@ import IconButton from '@mui/material/IconButton'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
+import SwordsIcon from '@mui/icons-material/SportsMartialArts'
 import { MONSTER_TYPES, TYPE_CONFIG } from '../../hooks/useMonsters'
 
 const MIN_CARD_W = 130
 const MAX_CARD_W = 420
 const MIN_CARD_H = 200
 const MAX_CARD_H = 600
-const TEXT_AREA_H = 72   // fixed height for the bottom text section
+const TEXT_AREA_H = 96   // slightly taller to fit hunt button
 
-export default function MonsterCard({ monster, isEditMode, onUpdate, onRemove, onAvatarChange }) {
-  const { id, name, recommendedLevel, type, avatar, cardW, cardH } = monster
+export default function MonsterCard({
+  monster, isEditMode, onUpdate, onRemove, onAvatarChange,
+  currentLevel, onStartHunt, onStopHunt,
+}) {
+  const { id, name, recommendedLevel, type, avatar, cardW, cardH, huntStatus } = monster
 
   const [editingName, setEditingName] = useState(false)
   const [editingLevel, setEditingLevel] = useState(false)
@@ -26,6 +30,10 @@ export default function MonsterCard({ monster, isEditMode, onUpdate, onRemove, o
 
   const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.minion
   const imgH = cardH - TEXT_AREA_H
+
+  // Can hunt: level is within 3 of recommended level (or above)
+  const canHunt = currentLevel >= recommendedLevel - 3
+  const isHunting = huntStatus === 'hunting'
 
   useEffect(() => {
     if (editingName && nameInputRef.current) { nameInputRef.current.focus(); nameInputRef.current.select() }
@@ -70,10 +78,24 @@ export default function MonsterCard({ monster, isEditMode, onUpdate, onRemove, o
 
   const handleResizeUp = () => { cardResizeRef.current = null }
 
+  const handleHuntClick = (e) => {
+    e.stopPropagation()
+    if (isHunting) {
+      onStopHunt(id)
+    } else {
+      onStartHunt(id)
+    }
+  }
+
   return (
     <div
       className="flex flex-col rounded-2xl overflow-hidden shadow-md select-none border border-gray-100"
-      style={{ width: cardW, height: cardH, flexShrink: 0 }}
+      style={{
+        width: cardW,
+        height: cardH,
+        flexShrink: 0,
+        ...(isHunting ? { boxShadow: '0 0 16px rgba(239,68,68,0.5)', borderColor: '#ef444466' } : {}),
+      }}
       onPointerMove={handleResizeMove}
       onPointerUp={handleResizeUp}
     >
@@ -133,6 +155,16 @@ export default function MonsterCard({ monster, isEditMode, onUpdate, onRemove, o
             </span>
           )}
         </div>
+
+        {/* Hunting status glow overlay */}
+        {isHunting && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'linear-gradient(to top, rgba(239,68,68,0.25) 0%, transparent 60%)',
+            }}
+          />
+        )}
 
         {/* Edit mode controls — top left */}
         {isEditMode && (
@@ -220,6 +252,23 @@ export default function MonsterCard({ monster, isEditMode, onUpdate, onRemove, o
           >
             推薦 <span className="font-bold" style={{ color: cfg.accent }}>LV {recommendedLevel}</span>
           </p>
+        )}
+
+        {/* Hunt button — visible when level is within range */}
+        {canHunt && !isEditMode && (
+          <button
+            onClick={handleHuntClick}
+            className="w-full mt-1 py-1 rounded-lg text-xs font-bold text-white transition-all duration-200"
+            style={isHunting ? {
+              background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
+              boxShadow: '0 2px 8px rgba(220,38,38,0.5)',
+              animation: 'pulse 2s infinite',
+            } : {
+              background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+            }}
+          >
+            {isHunting ? '⚔ 討伐中' : '⚔ 可討伐'}
+          </button>
         )}
       </div>
 

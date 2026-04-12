@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import defaultAvatar from '../assets/hero.jpg'
+import { compressImage } from '../utils/compressImage'
 import levelUpSfxUrl from '../assets/music/Key Item Get (The Legend of Zelda Breath of the Wild OST).mp3'
 
 const STORAGE_KEY_AVATAR = 'brave-todo:avatar'
@@ -66,9 +67,7 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
 
   const updateAvatar = useCallback((file) => {
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = (e) => setAvatar(e.target.result)
-    reader.readAsDataURL(file)
+    compressImage(file).then((dataUrl) => setAvatar(dataUrl))
   }, [])
 
   const updateImagePosition = useCallback((pos) => {

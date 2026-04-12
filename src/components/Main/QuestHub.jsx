@@ -8,6 +8,7 @@ import StageSettings from './StageSettings'
 import LevelingSettings from './LevelingSettings'
 import OtherSettings from './OtherSettings'
 import HuntTab from './HuntTab'
+import HuntMission from './HuntMission'
 
 export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onToggleCore, onClearCompleted,
@@ -18,18 +19,31 @@ export default function QuestHub({
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
   currentLevel, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
+  onStartHunt, onStopHunt,
+  onStartStageBossHunt, onStopStageBossHunt,
+  onStageBossNameChange, onStageBossAvatarChange,
+  activeHuntTarget, huntTaskHandlers,
+  // lifted tab state
+  activeTab, onTabChange,
 }) {
   const [inputValue, setInputValue] = useState('')
   const [inboxInput, setInboxInput] = useState('')
-  const [activeTab, setActiveTab] = useState('Tasks')
   const isComposingRef = useRef(false)
   const isInboxComposingRef = useRef(false)
 
+  const hasActiveHunt = activeHuntTarget !== null
+
   useEffect(() => {
     if (!isEditMode && (activeTab === 'Stages' || activeTab === 'Leveling' || activeTab === 'Other')) {
-      setActiveTab('Tasks')
+      onTabChange('Tasks')
     }
-  }, [isEditMode, activeTab])
+  }, [isEditMode, activeTab, onTabChange])
+
+  useEffect(() => {
+    if (!hasActiveHunt && activeTab === 'HuntMission') {
+      onTabChange('Tasks')
+    }
+  }, [hasActiveHunt, activeTab, onTabChange])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !isComposingRef.current && inputValue.trim()) {
@@ -53,7 +67,12 @@ export default function QuestHub({
         <h1 className="text-black text-2xl md:text-4xl font-extrabold uppercase m-0 tracking-tight">
           米莉亞
         </h1>
-        <TabNav activeTab={activeTab} onTabChange={setActiveTab} isEditMode={isEditMode} />
+        <TabNav
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          isEditMode={isEditMode}
+          hasActiveHunt={hasActiveHunt}
+        />
       </div>
 
       {activeTab === 'Tasks' && (
@@ -122,6 +141,18 @@ export default function QuestHub({
         </div>
       )}
 
+      {activeTab === 'HuntMission' && (
+        <HuntMission
+          target={activeHuntTarget}
+          onAddHuntTask={huntTaskHandlers.onAddHuntTask}
+          onToggleHuntTask={huntTaskHandlers.onToggleHuntTask}
+          onRemoveHuntTask={huntTaskHandlers.onRemoveHuntTask}
+          onUpdateHuntTask={huntTaskHandlers.onUpdateHuntTask}
+          onStopHunt={huntTaskHandlers.onStopHunt}
+          onCompleteHunt={huntTaskHandlers.onCompleteHunt}
+        />
+      )}
+
       {activeTab === 'Stages' && (
         <StageSettings
           stages={stages}
@@ -153,6 +184,14 @@ export default function QuestHub({
           onUpdate={onUpdateMonster}
           onRemove={onRemoveMonster}
           onAvatarChange={onMonsterAvatarChange}
+          currentLevel={currentLevel}
+          onStartHunt={onStartHunt}
+          onStopHunt={onStopHunt}
+          stages={stages}
+          onStartStageBossHunt={onStartStageBossHunt}
+          onStopStageBossHunt={onStopStageBossHunt}
+          onStageBossNameChange={onStageBossNameChange}
+          onStageBossAvatarChange={onStageBossAvatarChange}
         />
       )}
 
