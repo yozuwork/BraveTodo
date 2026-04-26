@@ -7,6 +7,7 @@ const STAGE_COLORS = ['#a855f7', '#3b82f6', '#f97316', '#ef4444', '#10b981', '#f
 
 export default function StageBossCard({
   stage,         // { id, minLevel, maxLevel, className, bossName, bossAvatar, bossHuntStatus, bossHuntTasks }
+  stageIndex,
   currentLevel,
   onStartHunt,
   onStopHunt,
@@ -20,7 +21,7 @@ export default function StageBossCard({
     bossHuntStatus, bossHuntTasks = [],
   } = stage
 
-  const accent   = STAGE_COLORS[(id - 1) % STAGE_COLORS.length]
+  const accent   = STAGE_COLORS[stageIndex % STAGE_COLORS.length]
   const canHunt  = currentLevel >= maxLevel - 3
   const isHunting  = bossHuntStatus === 'hunting'
   const isDefeated = bossHuntStatus === 'defeated'
@@ -110,7 +111,7 @@ export default function StageBossCard({
           className="absolute top-2.5 left-2.5 text-[10px] font-bold text-white px-2 py-0.5 rounded-full z-10"
           style={{ background: accent }}
         >
-          第{id}階段
+          第{stageIndex + 1}階段
         </span>
 
         {/* Defeated crown — top right */}

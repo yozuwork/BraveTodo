@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
+import { isSoundEnabled } from '../utils/soundSettings'
 
 const STORAGE_KEY_QUESTS = 'brave-todo:quests'
 const STORAGE_KEY_COMPLETIONS = 'brave-todo:lifetimeCompletions'
@@ -17,6 +18,7 @@ const _questCompleteAudio = new Audio(coinSfxUrl)
 _questCompleteAudio.volume = 0.65
 
 export function playQuestCompleteSound() {
+  if (!isSoundEnabled()) return
   _questCompleteAudio.currentTime = 0
   void _questCompleteAudio.play().catch(() => {})
 }
@@ -63,12 +65,17 @@ export default function useQuests() {
     setQuests((prev) => {
       const target = prev.find((q) => q.id === id)
       if (!target) return prev
-      completionDelta = target.completed ? -1 : 1
+      const exp = target.expValue ?? 1
+      completionDelta = target.completed ? -exp : exp
       return prev.map((q) => (q.id === id ? { ...q, completed: !q.completed } : q))
     })
     if (completionDelta !== 0) {
       setLifetimeCompletions((c) => Math.max(0, c + completionDelta))
     }
+  }, [])
+
+  const updateQuestExp = useCallback((id, expValue) => {
+    setQuests((prev) => prev.map((q) => q.id === id ? { ...q, expValue } : q))
   }, [])
 
   const removeQuest = useCallback((id) => {
@@ -101,24 +108,20 @@ export default function useQuests() {
   }, [])
 
   const toggleSubTask = useCallback((questId, subTaskId) => {
-    let completionDelta = 0
     let shouldPlay = false
     setQuests((prev) =>
       prev.map((q) => {
         if (q.id !== questId) return q
         const updated = (q.subTasks ?? []).map((s) => {
           if (s.id !== subTaskId) return s
-          if (!s.completed) { completionDelta = 1; shouldPlay = true }
-          else { completionDelta = -1 }
+          if (!s.completed) shouldPlay = true
           return { ...s, completed: !s.completed }
         })
         return { ...q, subTasks: updated }
       })
     )
     if (shouldPlay) playQuestCompleteSound()
-    if (completionDelta !== 0) {
-      setLifetimeCompletions((c) => Math.max(0, c + completionDelta))
-    }
+    // 子任務不計入 EXP，只有完成主任務才根據 expValue 給予 EXP
   }, [])
 
   const removeSubTask = useCallback((questId, subTaskId) => {
@@ -176,6 +179,7 @@ export default function useQuests() {
     togglePin,
     toggleCoreTask,
     setQuestPriority,
+    updateQuestExp,
     reorderQuests,
     clearCompleted,
     addSubTask,

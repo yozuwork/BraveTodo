@@ -110,9 +110,19 @@ const PRIORITY_STYLE = {
   low: 'bg-blue-50 text-blue-400 hover:bg-blue-100',
 }
 
+const EXP_CYCLE  = { 1: 2, 2: 5, 5: 10, 10: 1 }
+const EXP_LABEL  = { 1: '一般', 2: '中等', 5: '上等', 10: '特等' }
+const EXP_POINTS = { 1: '×1', 2: '×2', 5: '×5', 10: '×10' }
+const EXP_STYLE  = {
+  1:  'bg-gray-100 text-gray-400 hover:bg-gray-200',
+  2:  'bg-blue-50 text-blue-400 hover:bg-blue-100',
+  5:  'bg-yellow-50 text-yellow-500 hover:bg-yellow-100',
+  10: 'bg-orange-50 text-orange-500 hover:bg-orange-100',
+}
+
 export default function QuestItem({
   quest, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
-  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority,
+  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetExp,
   onDemoteToInbox,
 }) {
   const [editing, setEditing] = useState(false)
@@ -278,6 +288,18 @@ export default function QuestItem({
               }`}
             >
               {PRIORITY_LABEL[quest.priority ?? 'normal']}
+            </button>
+          )}
+          {/* EXP badge */}
+          {!quest.completed && !editing && (
+            <button
+              onClick={() => onSetExp(quest.id, EXP_CYCLE[quest.expValue ?? 1])}
+              title={`經驗值：${EXP_LABEL[quest.expValue ?? 1]}（點擊切換）`}
+              className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${
+                EXP_STYLE[quest.expValue ?? 1]
+              }`}
+            >
+              {EXP_LABEL[quest.expValue ?? 1]} {EXP_POINTS[quest.expValue ?? 1]}
             </button>
           )}
           {editing ? (

@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react'
-import { resolveImg } from '../../utils/imageSrc'
 import Chip from '@mui/material/Chip'
 import EditIcon from '@mui/icons-material/Edit'
 import OpenWithIcon from '@mui/icons-material/OpenWith'
@@ -108,7 +107,7 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
       >
         {avatar ? (
           <img
-            src={resolveImg(avatar)}
+            src={avatar}
             alt="Avatar"
             className={`w-full h-full object-cover select-none transition-opacity duration-300 ${avatarVisible ? 'opacity-100' : 'opacity-0'}`}
             style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }}

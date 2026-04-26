@@ -25,6 +25,13 @@ function loadStages() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return DEFAULT_STAGES
     const saved = JSON.parse(raw)
+    // New format includes minLevel/maxLevel; legacy only has className/avatar
+    if (saved.length > 0 && 'minLevel' in saved[0]) {
+      // Filter out timestamp-ID stages (IDs > 9999 were created via Date.now() — cleanup)
+      const valid = saved.filter((s) => s.id <= 9999)
+      return valid.length > 0 ? valid : DEFAULT_STAGES
+    }
+    // Legacy: merge with DEFAULT_STAGES
     return DEFAULT_STAGES.map((def) => {
       const s = saved.find((x) => x.id === def.id)
       return s ? { ...def, className: s.className, avatar: s.avatar } : def
@@ -49,14 +56,16 @@ function loadBossHunts() {
 // respecting the boss-defeat lock: you can only enter a stage
 // if the previous stage's boss has been defeated (or it's the first stage).
 export function resolveCurrentStage(stages, level) {
-  let displayStage = stages[0]
-  for (let i = 0; i < stages.length; i++) {
-    const s = stages[i]
+  // Always sort by minLevel for progression logic, regardless of display order
+  const sorted = [...stages].sort((a, b) => a.minLevel - b.minLevel)
+  let displayStage = sorted[0]
+  for (let i = 0; i < sorted.length; i++) {
+    const s = sorted[i]
     if (level < s.minLevel) break
     if (i === 0) {
       displayStage = s
     } else {
-      const prev = stages[i - 1]
+      const prev = sorted[i - 1]
       if (prev.bossHuntStatus === 'defeated') {
         displayStage = s
       } else {
@@ -72,7 +81,7 @@ export default function useStages() {
   const [bossHunts, setBossHunts] = useState(loadBossHunts)
 
   useEffect(() => {
-    const toSave = stages.map(({ id, className, avatar }) => ({ id, className, avatar }))
+    const toSave = stages.map(({ id, minLevel, maxLevel, className, avatar }) => ({ id, minLevel, maxLevel, className, avatar }))
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
   }, [stages])
 
@@ -91,11 +100,40 @@ export default function useStages() {
     setStages((prev) => prev.map((s) => (s.id === id ? { ...s, className: newName } : s)))
   }, [])
 
+  const updateStageLevel = useCallback((id, field, value) => {
+    const num = parseInt(value, 10)
+    if (isNaN(num) || num < 0) return
+    setStages((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: num } : s)))
+  }, [])
+
+  const addStage = useCallback(() => {
+    setStages((prev) => {
+      const sorted = [...prev].sort((a, b) => a.minLevel - b.minLevel)
+      const last = sorted[sorted.length - 1]
+      const newMin = last ? last.maxLevel : 1
+      const newMax = newMin + 10
+      const newId = Math.max(0, ...prev.map((s) => s.id)) + 1
+      return [...prev, { id: newId, minLevel: newMin, maxLevel: newMax, className: '新階段' }]
+    })
+  }, [])
+
+  const removeStage = useCallback((id) => {
+    setStages((prev) => {
+      if (prev.length <= 1) return prev
+      return prev.filter((s) => s.id !== id)
+    })
+    setBossHunts((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+  }, [])
+
   const updateStageAvatar = useCallback((id, file) => {
     if (!file) return
     compressImage(file).then(async (dataUrl) => {
       const relPath = await saveImageToDisk(dataUrl, `uploads/stages/${id}.jpg`)
-      const stored = relPath ?? dataUrl
+      const stored = relPath ? `${relPath}?t=${Date.now()}` : dataUrl
       setStages((prev) => prev.map((s) => (s.id === id ? { ...s, avatar: stored } : s)))
     })
   }, [])
@@ -113,7 +151,7 @@ export default function useStages() {
     if (!file) return
     compressImage(file).then(async (dataUrl) => {
       const relPath = await saveImageToDisk(dataUrl, `uploads/bosses/${stageId}.jpg`)
-      const stored = relPath ?? dataUrl
+      const stored = relPath ? `${relPath}?t=${Date.now()}` : dataUrl
       setBossHunts((prev) => ({
         ...prev,
         [stageId]: { ...(prev[stageId] ?? { huntStatus: null, huntTasks: [] }), bossAvatar: stored },
@@ -194,24 +232,43 @@ export default function useStages() {
     })
   }, [])
 
+  // ── Reorder stages ─────────────────────────────────────────
+
+  const reorderStages = useCallback((dragId, dropId, insertBefore) => {
+    setStages((prev) => {
+      const items = [...prev]
+      const fromIdx = items.findIndex((s) => s.id === dragId)
+      if (fromIdx === -1) return prev
+      const [item] = items.splice(fromIdx, 1)
+      const toIdx = items.findIndex((s) => s.id === dropId)
+      if (toIdx === -1) return prev
+      items.splice(insertBefore ? toIdx : toIdx + 1, 0, item)
+      return items
+    })
+  }, [])
+
   // ── Merge everything ───────────────────────────────────────
 
   const stagesWithDefaults = stages.map((s) => {
-    const boss = bossHunts[s.id] ?? {}
-    return {
-      ...s,
-      avatarSrc:       getStageAvatar(s),
-      avatar:          s.avatar,
-      bossName:        boss.bossName   ?? DEFAULT_BOSS_NAMES[s.id] ?? `第${s.id}階段Boss`,
-      bossAvatar:      boss.bossAvatar ?? null,
-      bossHuntStatus:  boss.huntStatus  ?? null,
-      bossHuntTasks:   boss.huntTasks   ?? [],
-    }
-  })
+      const boss = bossHunts[s.id] ?? {}
+      return {
+        ...s,
+        avatarSrc:       getStageAvatar(s),
+        avatar:          s.avatar,
+        bossName:        boss.bossName   ?? DEFAULT_BOSS_NAMES[s.id] ?? `${s.className} Boss`,
+        bossAvatar:      boss.bossAvatar ?? null,
+        bossHuntStatus:  boss.huntStatus  ?? null,
+        bossHuntTasks:   boss.huntTasks   ?? [],
+      }
+    })
 
   return {
     stages: stagesWithDefaults,
     updateStageName,
+    updateStageLevel,
+    addStage,
+    removeStage,
+    reorderStages,
     updateStageAvatar,
     updateStageBossName,
     updateStageBossAvatar,

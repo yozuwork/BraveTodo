@@ -3,6 +3,7 @@ import defaultAvatar from '../assets/hero.jpg'
 import { compressImage } from '../utils/compressImage'
 import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
 import levelUpSfxUrl from '../assets/music/Key Item Get (The Legend of Zelda Breath of the Wild OST).mp3'
+import { isSoundEnabled } from '../utils/soundSettings'
 
 const STORAGE_KEY_AVATAR = 'brave-todo:avatar'
 const STORAGE_KEY_IMG_POS = 'brave-todo:imagePosition'
@@ -17,6 +18,7 @@ function loadJSON(key, fallback) {
 }
 
 function playLevelUpSound() {
+  if (!isSoundEnabled()) return
   const audio = new Audio(levelUpSfxUrl)
   audio.volume = 0.75
   void audio.play().catch(() => {})
@@ -70,7 +72,7 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
     if (!file) return
     compressImage(file).then(async (dataUrl) => {
       const relPath = await saveImageToDisk(dataUrl, 'uploads/character/avatar.jpg')
-      const stored = relPath ?? dataUrl
+      const stored = relPath ? `${relPath}?t=${Date.now()}` : dataUrl
       setAvatar(stored)
     })
   }, [])

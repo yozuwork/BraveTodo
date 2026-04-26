@@ -18,7 +18,7 @@ import { resolveImg } from './utils/imageSrc'
 
 export default function App() {
   const {
-    quests, addQuest, toggleQuest, updateQuest, removeQuest, togglePin, toggleCoreTask, setQuestPriority, reorderQuests, clearCompleted,
+    quests, addQuest, toggleQuest, updateQuest, removeQuest, togglePin, toggleCoreTask, setQuestPriority, updateQuestExp, reorderQuests, clearCompleted,
     addSubTask, toggleSubTask, removeSubTask, updateSubTask,
     lifetimeCompletions, resetLifetimeCompletions, coreTaskCompleted,
   } = useQuests()
@@ -26,7 +26,7 @@ export default function App() {
   const { avatar, isEditMode, toggleEditMode, updateAvatar, imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
     useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules)
   const {
-    stages, updateStageName, updateStageAvatar,
+    stages, updateStageName, updateStageAvatar, updateStageLevel, addStage, removeStage, reorderStages,
     updateStageBossName, updateStageBossAvatar,
     startStageBossHunt, stopStageBossHunt, completeStageBossHunt,
     addStageBossHuntTask, toggleStageBossHuntTask, removeStageBossHuntTask, updateStageBossHuntTask,
@@ -177,6 +177,7 @@ export default function App() {
               onTogglePin={togglePin}
               onToggleCore={toggleCoreTask}
               onSetPriority={setQuestPriority}
+              onSetExp={updateQuestExp}
               onReorderQuests={reorderQuests}
               onClearCompleted={clearCompleted}
               onDemoteToInbox={handleDemoteToInbox}
@@ -184,6 +185,10 @@ export default function App() {
               stages={stages}
               onStageName={updateStageName}
               onStageAvatar={updateStageAvatar}
+              onStageLevel={updateStageLevel}
+              onAddStage={addStage}
+              onRemoveStage={removeStage}
+              onReorderStages={reorderStages}
               inboxItems={inboxItems}
               levelingRules={levelingRules}
               onUpdateExpPerLevel={updateExpPerLevel}

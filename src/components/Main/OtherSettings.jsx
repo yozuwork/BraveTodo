@@ -1,9 +1,15 @@
 import { useState, useRef, useEffect } from 'react'
 import Button from '@mui/material/Button'
+import Switch from '@mui/material/Switch'
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import ImageIcon from '@mui/icons-material/Image'
 import RestoreIcon from '@mui/icons-material/Restore'
 import TitleIcon from '@mui/icons-material/Title'
+import FileDownloadIcon from '@mui/icons-material/FileDownload'
+import FileUploadIcon from '@mui/icons-material/FileUpload'
+import VolumeUpIcon from '@mui/icons-material/VolumeUp'
+import VolumeOffIcon from '@mui/icons-material/VolumeOff'
+import { isSoundEnabled, setSoundEnabled } from '../../utils/soundSettings'
 
 const FAVICON_KEY  = 'brave-todo:favicon'
 const TITLE_KEY    = 'brave-todo:pageTitle'
@@ -146,6 +152,75 @@ function calcCompletionsForLevel(targetLevel, rules) {
   return total
 }
 
+// ── Save keys to include in export ───────────────────────────
+const SAVE_KEYS = [
+  'brave-todo:quests',
+  'brave-todo:lifetimeCompletions',
+  'brave-todo:stages',
+  'brave-todo:stageBossHunts',
+  'brave-todo:avatar',
+  'brave-todo:imagePosition',
+  'brave-todo:inbox',
+  'brave-todo:favicon',
+  'brave-todo:pageTitle',
+  'brave-todo:monsters',
+  'brave-todo:levelingRules',
+  'characterCardSize',
+]
+
+function exportSave() {
+  const save = { _version: 1, _exportedAt: new Date().toISOString() }
+  for (const key of SAVE_KEYS) {
+    const val = localStorage.getItem(key)
+    if (val !== null) save[key] = val
+  }
+  const blob = new Blob([JSON.stringify(save, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `braveTodo-save-${Date.now()}.json`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function SoundToggleCard() {
+  const [enabled, setEnabled] = useState(isSoundEnabled)
+
+  const toggle = () => {
+    const next = !enabled
+    setEnabled(next)
+    setSoundEnabled(next)
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-3">
+      <p className="text-sm font-semibold text-black m-0">音效設定</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {enabled
+            ? <VolumeUpIcon sx={{ fontSize: 20, color: '#a855f7' }} />
+            : <VolumeOffIcon sx={{ fontSize: 20, color: '#d1d5db' }} />
+          }
+          <span className="text-sm text-gray-600">
+            {enabled ? '音效已開啟' : '音效已關閉'}
+          </span>
+        </div>
+        <Switch
+          checked={enabled}
+          onChange={toggle}
+          sx={{
+            '& .MuiSwitch-switchBase.Mui-checked': { color: '#a855f7' },
+            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#a855f7' },
+          }}
+        />
+      </div>
+      <p className="text-xs text-gray-400 m-0">控制任務完成音效與升級音效</p>
+    </div>
+  )
+}
+
 export default function OtherSettings({ currentLevel, levelingRules, onResetLevel }) {
   const maxLevel = levelingRules[levelingRules.length - 1]?.maxLevel ?? 250
   const [targetLevel, setTargetLevel] = useState(1)
@@ -154,6 +229,30 @@ export default function OtherSettings({ currentLevel, levelingRules, onResetLeve
   const faviconInputRef = useRef(null)
   const { title: pageTitle, saveTitle, resetTitle, savedToDisk: titleSaved } = usePageTitle()
   const [titleDraft, setTitleDraft] = useState(pageTitle)
+  const importInputRef = useRef(null)
+  const [importStatus, setImportStatus] = useState(null) // null | 'success' | 'error'
+  const [importError, setImportError] = useState('')
+
+  const handleImport = (file) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const save = JSON.parse(e.target.result)
+        if (typeof save !== 'object' || Array.isArray(save)) throw new Error('格式錯誤')
+        for (const [key, val] of Object.entries(save)) {
+          if (key.startsWith('_')) continue  // skip metadata fields
+          if (typeof val === 'string') localStorage.setItem(key, val)
+        }
+        setImportStatus('success')
+        setTimeout(() => window.location.reload(), 800)
+      } catch (err) {
+        setImportStatus('error')
+        setImportError(err.message)
+      }
+    }
+    reader.readAsText(file)
+  }
 
   const handleInput = (e) => {
     const val = parseInt(e.target.value, 10)
@@ -386,6 +485,82 @@ export default function OtherSettings({ currentLevel, levelingRules, onResetLeve
         >
           {confirmed ? '確認重置' : '重置等級'}
         </Button>
+      </div>
+
+      {/* Sound toggle card */}
+      <SoundToggleCard />
+
+      {/* Save data management card */}
+      <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
+        <div>
+          <p className="text-sm font-semibold text-black m-0">存檔管理</p>
+          <p className="text-xs text-gray-400 mt-0.5 m-0">
+            匯出本機所有設定為 JSON 檔案，可匯入到其他裝置或線上版本來覆蓋設定
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3">
+          {/* Export */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outlined"
+              startIcon={<FileDownloadIcon />}
+              onClick={exportSave}
+              sx={{
+                borderColor: '#a855f7',
+                color: '#a855f7',
+                borderRadius: 99,
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                textTransform: 'none',
+                '&:hover': { borderColor: '#9333ea', bgcolor: '#faf5ff' },
+              }}
+            >
+              匯出存檔
+            </Button>
+            <span className="text-xs text-gray-400">下載 JSON 檔案</span>
+          </div>
+
+          {/* Import */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button
+              variant="outlined"
+              startIcon={<FileUploadIcon />}
+              onClick={() => { setImportStatus(null); importInputRef.current?.click() }}
+              sx={{
+                borderColor: '#6b7280',
+                color: '#6b7280',
+                borderRadius: 99,
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                textTransform: 'none',
+                '&:hover': { borderColor: '#4b5563', bgcolor: '#f9fafb' },
+              }}
+            >
+              匯入存檔
+            </Button>
+            <span className="text-xs text-gray-400">選取 JSON 檔案，匯入後自動重新載入</span>
+          </div>
+
+          {importStatus === 'success' && (
+            <p className="text-xs font-medium m-0" style={{ color: '#10b981' }}>
+              ✓ 匯入成功，正在重新載入...
+            </p>
+          )}
+          {importStatus === 'error' && (
+            <p className="text-xs font-medium text-red-500 m-0">
+              ✗ 匯入失敗：{importError}
+            </p>
+          )}
+        </div>
+
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(e) => { handleImport(e.target.files[0]); e.target.value = '' }}
+        />
       </div>
     </div>
   )

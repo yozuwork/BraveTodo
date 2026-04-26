@@ -12,10 +12,10 @@ import HuntTab from './HuntTab'
 import HuntMission from './HuntMission'
 
 export default function QuestHub({
-  quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onReorderQuests, onClearCompleted,
+  quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
-  isEditMode, stages, onStageName, onStageAvatar,
+  isEditMode, stages, onStageName, onStageAvatar, onStageLevel, onAddStage, onRemoveStage, onReorderStages,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
   levelingRules, onUpdateExpPerLevel,
   atk,
@@ -221,6 +221,7 @@ export default function QuestHub({
                         onTogglePin={onTogglePin}
                         onToggleCore={onToggleCore}
                         onSetPriority={onSetPriority}
+                        onSetExp={onSetExp}
                         onDemoteToInbox={onDemoteToInbox}
                         atk={atk}
                         onAddSubTask={onAddSubTask}
@@ -256,6 +257,10 @@ export default function QuestHub({
           stages={stages}
           onNameChange={onStageName}
           onAvatarChange={onStageAvatar}
+          onLevelChange={onStageLevel}
+          onAddStage={onAddStage}
+          onRemoveStage={onRemoveStage}
+          onReorderStages={onReorderStages}
         />
       )}
 
