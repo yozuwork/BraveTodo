@@ -164,12 +164,22 @@ const SAVE_KEYS = [
   'brave-todo:favicon',
   'brave-todo:pageTitle',
   'brave-todo:monsters',
+  // NOTE: actual key is 'brave-todo:leveling-rules' (keep legacy key for backward compatibility)
+  'brave-todo:leveling-rules',
   'brave-todo:levelingRules',
+  'brave-todo:soundEnabled',
   'characterCardSize',
 ]
 
 function exportSave() {
-  const save = { _version: 1, _exportedAt: new Date().toISOString() }
+  const save = {
+    _version: 1,
+    _exportedAt: new Date().toISOString(),
+    _snapshot: {
+      level: currentLevel,
+      lifetimeCompletions: localStorage.getItem('brave-todo:lifetimeCompletions'),
+    },
+  }
   for (const key of SAVE_KEYS) {
     const val = localStorage.getItem(key)
     if (val !== null) save[key] = val
