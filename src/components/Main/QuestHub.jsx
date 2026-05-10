@@ -226,6 +226,7 @@ export default function QuestHub({
                         onSetPriority={onSetPriority}
                         onSetExp={onSetExp}
                         onDemoteToInbox={onDemoteToInbox}
+                        isEditMode={isEditMode}
                         atk={atk}
                         onAddSubTask={onAddSubTask}
                         onToggleSubTask={onToggleSubTask}

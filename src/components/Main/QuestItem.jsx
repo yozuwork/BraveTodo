@@ -134,6 +134,7 @@ export default function QuestItem({
   quest, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetExp,
   onDemoteToInbox,
+  isEditMode,
   activeHuntTarget,
   monsters,
   stages,
@@ -178,6 +179,9 @@ export default function QuestItem({
   const completedSubs = subTasks.filter((s) => s.completed).length
   const effectiveExp = normalizeExpValue(quest.expValue)
   const requiredSubs = SUBTASK_REQUIREMENT[effectiveExp] ?? 0
+  const mobileEditOnlyBlock = isEditMode ? '' : 'hidden sm:block'
+  const mobileEditOnlyInline = isEditMode ? '' : 'hidden sm:inline-flex'
+  const mobileContentBasis = isEditMode ? 'basis-full' : 'basis-0'
   const canCompleteBySubs = requiredSubs === 0
     ? true
     : (subTasks.length >= requiredSubs && completedSubs >= requiredSubs)
@@ -259,7 +263,7 @@ export default function QuestItem({
 
   return (
     <div
-      className={`bg-white rounded-xl px-5 py-4 flex gap-4 border transition-colors group relative overflow-hidden ${
+      className={`bg-white rounded-xl px-4 py-4 sm:px-5 flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4 border transition-colors group relative overflow-hidden ${
         quest.completed || animatingComplete ? 'opacity-50' : ''
       } ${shaking ? 'quest-shake' : ''} ${
         quest.pinned && !quest.completed ? 'border-purple-200 hover:border-purple-300' : 'border-transparent hover:border-gray-200'
@@ -289,7 +293,7 @@ export default function QuestItem({
       />
 
       {/* Tag selector */}
-      <div className="shrink-0 mt-0.5">
+      <div className={`order-1 sm:order-none shrink-0 mt-0.5 ${mobileEditOnlyBlock}`}>
         <Select
           value="task"
           onChange={(e) => { if (e.target.value === 'inbox') onDemoteToInbox(quest.id) }}
@@ -326,7 +330,7 @@ export default function QuestItem({
       </div>
 
       {/* Checkbox — align to top */}
-      <div className="shrink-0 mt-0.5">
+      <div className="order-2 sm:order-none shrink-0 mt-0.5">
         <Checkbox
           checked={quest.completed || animatingComplete}
           onChange={handleToggle}
@@ -335,16 +339,16 @@ export default function QuestItem({
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col gap-2 min-w-0">
+      <div className={`order-3 ${mobileContentBasis} sm:basis-auto sm:order-none flex-1 flex flex-col gap-2 min-w-0`}>
 
         {/* Main quest title row */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-start sm:items-center gap-2">
           {/* Priority badge */}
           {!quest.completed && !editing && (
             <button
               onClick={() => onSetPriority(quest.id, PRIORITY_CYCLE[quest.priority ?? 'normal'])}
               title="點擊切換優先級"
-              className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${
+              className={`order-2 sm:order-none shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${mobileEditOnlyInline} ${
                 PRIORITY_STYLE[quest.priority ?? 'normal']
               }`}
             >
@@ -356,7 +360,7 @@ export default function QuestItem({
             <button
               onClick={() => onSetExp(quest.id, EXP_CYCLE[effectiveExp])}
               title={`經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）｜需完成子任務 ${requiredSubs} 個才可完成母任務`}
-              className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${
+              className={`order-3 sm:order-none shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${mobileEditOnlyInline} ${
                 EXP_STYLE[effectiveExp]
               }`}
             >
@@ -367,7 +371,7 @@ export default function QuestItem({
             <input
               ref={inputRef}
               type="text"
-              className="flex-1 text-sm font-medium text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200"
+              className="order-1 sm:order-none basis-full sm:basis-auto flex-1 text-sm font-medium text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commitEdit}
@@ -380,7 +384,7 @@ export default function QuestItem({
             <p
               role="button"
               tabIndex={0}
-              className={`flex-1 text-sm font-medium text-black m-0 text-left cursor-text rounded px-1 -mx-1 hover:bg-stone-100 ${
+              className={`order-1 sm:order-none basis-full sm:basis-auto flex-1 text-sm sm:text-sm leading-5 text-black font-semibold sm:font-medium m-0 text-left cursor-text rounded px-1 -mx-1 hover:bg-stone-100 break-words ${
                 quest.completed || animatingComplete ? 'line-through text-gray-400' : ''
               }`}
               onDoubleClick={() => setEditing(true)}
@@ -403,7 +407,12 @@ export default function QuestItem({
               size="small"
               onClick={() => setEditing(true)}
               aria-label="編輯任務"
-              sx={{ color: '#d1d5db', '&:hover': { color: '#a855f7' } }}
+              sx={{
+                display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+                order: { xs: 4, sm: 0 },
+                color: '#d1d5db',
+                '&:hover': { color: '#a855f7' },
+              }}
             >
               <EditOutlinedIcon fontSize="small" />
             </IconButton>
@@ -460,6 +469,9 @@ export default function QuestItem({
               )
             }}
             sx={{
+              display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+              order: { xs: 5, sm: 0 },
+              width: { xs: '100%', sm: 'auto' },
               minWidth: 96,
               fontSize: '0.75rem',
               '.MuiOutlinedInput-notchedOutline': { borderColor: '#f3f4f6' },
@@ -496,6 +508,8 @@ export default function QuestItem({
             onClick={() => onTogglePin(quest.id)}
             aria-label="置頂任務"
             sx={{
+              display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+              order: { xs: 6, sm: 0 },
               color: quest.pinned ? '#a855f7' : '#d1d5db',
               '&:hover': { color: '#a855f7' },
               transform: quest.pinned ? 'rotate(0deg)' : 'rotate(45deg)',
@@ -507,14 +521,24 @@ export default function QuestItem({
           <IconButton
             size="small"
             onClick={() => onToggleCore(quest.id)}
-            sx={{ color: quest.isCore ? '#f59e0b' : '#d1d5db', '&:hover': { color: '#f59e0b' } }}
+            sx={{
+              display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+              order: { xs: 7, sm: 0 },
+              color: quest.isCore ? '#f59e0b' : '#d1d5db',
+              '&:hover': { color: '#f59e0b' },
+            }}
           >
             {quest.isCore ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
           </IconButton>
           <IconButton
             size="small"
             onClick={() => onRemove(quest.id)}
-            sx={{ color: '#d1d5db', '&:hover': { color: '#ef4444' } }}
+            sx={{
+              display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+              order: { xs: 8, sm: 0 },
+              color: '#d1d5db',
+              '&:hover': { color: '#ef4444' },
+            }}
           >
             <DeleteOutlineIcon fontSize="small" />
           </IconButton>
@@ -558,7 +582,7 @@ export default function QuestItem({
           !quest.completed && (
             <button
               onClick={() => setAddingSubTask(true)}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-purple-500 transition-colors cursor-pointer bg-transparent border-none p-0 w-fit pl-2 ml-1"
+              className={`items-center gap-1 text-xs text-gray-400 hover:text-purple-500 transition-colors cursor-pointer bg-transparent border-none p-0 w-fit pl-2 ml-1 ${isEditMode ? 'flex' : 'hidden sm:flex'}`}
             >
               <AddIcon sx={{ fontSize: 13 }} />
               新增子任務
