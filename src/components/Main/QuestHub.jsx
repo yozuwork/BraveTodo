@@ -27,6 +27,9 @@ export default function QuestHub({
   onStageBossNameChange, onStageBossAvatarChange,
   activeHuntTarget, huntTaskHandlers,
   onReorderInbox,
+  onBindQuestToActiveHuntTask,
+  onUnbindQuestFromHuntTask,
+  onCreateAndBindQuestToActiveHunt,
   // lifted tab state
   activeTab, onTabChange,
 }) {
@@ -228,6 +231,12 @@ export default function QuestHub({
                         onToggleSubTask={onToggleSubTask}
                         onRemoveSubTask={onRemoveSubTask}
                         onUpdateSubTask={onUpdateSubTask}
+                        activeHuntTarget={activeHuntTarget}
+                        monsters={monsters}
+                        stages={stages}
+                        onBindQuestToActiveHuntTask={onBindQuestToActiveHuntTask}
+                        onUnbindQuestFromHuntTask={onUnbindQuestFromHuntTask}
+                        onCreateAndBindQuestToActiveHunt={onCreateAndBindQuestToActiveHunt}
                       />
                       {isOver && !questInsertBefore && (
                         <div className="absolute -bottom-1.5 left-0 right-0 h-0.5 bg-purple-400 rounded-full z-10 pointer-events-none" />

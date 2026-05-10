@@ -21,6 +21,7 @@ export default function App() {
     quests, addQuest, toggleQuest, updateQuest, removeQuest, togglePin, toggleCoreTask, setQuestPriority, updateQuestExp, reorderQuests, clearCompleted,
     addSubTask, toggleSubTask, removeSubTask, updateSubTask,
     lifetimeCompletions, resetLifetimeCompletions, coreTaskCompleted,
+    setQuestCompleted, bindQuestToHuntTask, unbindQuestFromHuntTask,
   } = useQuests()
   const { rules: levelingRules, updateExpPerLevel } = useLevelingRules()
   const { avatar, isEditMode, toggleEditMode, updateAvatar, imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
@@ -91,20 +92,106 @@ export default function App() {
   const hasActiveHunt  = activeHuntTarget !== null
   const isOnHuntMission = activeTab === 'HuntMission' && hasActiveHunt
 
+  const resolveHuntTaskCompleted = useCallback((binding) => {
+    if (!binding) return null
+    if (binding.targetType === 'monster') {
+      const m = monsters.find((x) => x.id === binding.targetId)
+      const t = m?.huntTasks?.find((x) => x.id === binding.taskId) ?? null
+      return t?.completed ?? null
+    }
+    if (binding.targetType === 'stageBoss') {
+      const s = stages.find((x) => x.id === binding.targetId)
+      const t = s?.bossHuntTasks?.find((x) => x.id === binding.taskId) ?? null
+      return t?.completed ?? null
+    }
+    return null
+  }, [monsters, stages])
+
+  const setHuntTaskCompleted = useCallback((binding, completed) => {
+    if (!binding) return
+    const cur = resolveHuntTaskCompleted(binding)
+    if (cur === null || cur === completed) return
+    if (binding.targetType === 'monster') toggleHuntTask(binding.targetId, binding.taskId)
+    else if (binding.targetType === 'stageBoss') toggleStageBossHuntTask(binding.targetId, binding.taskId)
+  }, [resolveHuntTaskCompleted, toggleHuntTask, toggleStageBossHuntTask])
+
+  const syncQuestsForHuntTask = useCallback((bindingLike, completed) => {
+    if (!bindingLike) return
+    const { targetType, targetId, taskId } = bindingLike
+    quests.forEach((q) => {
+      const b = q.huntBinding
+      if (!b) return
+      if (b.targetType === targetType && b.targetId === targetId && b.taskId === taskId) {
+        setQuestCompleted(q.id, completed)
+      }
+    })
+  }, [quests, setQuestCompleted])
+
+  const toggleQuestSynced = useCallback((questId) => {
+    const q = quests.find((x) => x.id === questId)
+    if (!q) return
+    const next = !q.completed
+    setQuestCompleted(questId, next)
+    if (q.huntBinding) setHuntTaskCompleted(q.huntBinding, next)
+  }, [quests, setQuestCompleted, setHuntTaskCompleted])
+
+  const handleBindQuestToActiveHuntTask = useCallback((questId, huntTaskId) => {
+    if (!activeHuntTarget) return
+    const binding = { targetType: activeHuntTarget._type, targetId: activeHuntTarget.id, taskId: huntTaskId }
+    bindQuestToHuntTask(questId, binding)
+    const cur = resolveHuntTaskCompleted(binding)
+    if (cur !== null) setQuestCompleted(questId, cur)
+  }, [activeHuntTarget, bindQuestToHuntTask, resolveHuntTaskCompleted, setQuestCompleted])
+
+  const handleUnbindQuest = useCallback((questId) => {
+    unbindQuestFromHuntTask(questId)
+  }, [unbindQuestFromHuntTask])
+
+  const handleCreateAndBindQuestToActiveHunt = useCallback((questId) => {
+    const q = quests.find((x) => x.id === questId)
+    if (!q || !activeHuntTarget) return
+    const taskId = Date.now()
+    if (activeHuntTarget._type === 'stageBoss') addStageBossHuntTask(activeHuntTarget.id, q.text, taskId)
+    else addHuntTask(activeHuntTarget.id, q.text, taskId)
+    bindQuestToHuntTask(questId, { targetType: activeHuntTarget._type, targetId: activeHuntTarget.id, taskId })
+    setQuestCompleted(questId, false)
+  }, [quests, activeHuntTarget, addStageBossHuntTask, addHuntTask, bindQuestToHuntTask, setQuestCompleted])
+
   // Hunt task handlers — routed to the right hook
   const huntTaskHandlers = activeHuntTarget?._type === 'stageBoss'
     ? {
         onAddHuntTask:    (_, text)         => addStageBossHuntTask(activeHuntTarget.id, text),
-        onToggleHuntTask: (_, taskId)       => toggleStageBossHuntTask(activeHuntTarget.id, taskId),
-        onRemoveHuntTask: (_, taskId)       => removeStageBossHuntTask(activeHuntTarget.id, taskId),
+        onToggleHuntTask: (_, taskId)       => {
+          const cur = activeHuntTarget.huntTasks.find((t) => t.id === taskId)?.completed ?? null
+          toggleStageBossHuntTask(activeHuntTarget.id, taskId)
+          if (cur !== null) syncQuestsForHuntTask({ targetType: 'stageBoss', targetId: activeHuntTarget.id, taskId }, !cur)
+        },
+        onRemoveHuntTask: (_, taskId)       => {
+          removeStageBossHuntTask(activeHuntTarget.id, taskId)
+          quests.forEach((q) => {
+            const b = q.huntBinding
+            if (b?.targetType === 'stageBoss' && b.targetId === activeHuntTarget.id && b.taskId === taskId) unbindQuestFromHuntTask(q.id)
+          })
+        },
         onUpdateHuntTask: (_, taskId, text) => updateStageBossHuntTask(activeHuntTarget.id, taskId, text),
         onStopHunt:       ()                => stopStageBossHunt(activeHuntTarget.id),
         onCompleteHunt:   ()                => completeStageBossHunt(activeHuntTarget.id),
       }
     : {
         onAddHuntTask:    addHuntTask,
-        onToggleHuntTask: toggleHuntTask,
-        onRemoveHuntTask: removeHuntTask,
+        onToggleHuntTask: (monsterId, taskId) => {
+          const m = monsters.find((x) => x.id === monsterId)
+          const cur = m?.huntTasks?.find((t) => t.id === taskId)?.completed ?? null
+          toggleHuntTask(monsterId, taskId)
+          if (cur !== null) syncQuestsForHuntTask({ targetType: 'monster', targetId: monsterId, taskId }, !cur)
+        },
+        onRemoveHuntTask: (monsterId, taskId) => {
+          removeHuntTask(monsterId, taskId)
+          quests.forEach((q) => {
+            const b = q.huntBinding
+            if (b?.targetType === 'monster' && b.targetId === monsterId && b.taskId === taskId) unbindQuestFromHuntTask(q.id)
+          })
+        },
         onUpdateHuntTask: updateHuntTask,
         onStopHunt:       (id) => stopHunt(id),
         onCompleteHunt:   null,
@@ -171,7 +258,7 @@ export default function App() {
             <QuestHub
               quests={quests}
               onAdd={addQuest}
-              onToggle={toggleQuest}
+              onToggle={toggleQuestSynced}
               onUpdate={updateQuest}
               onRemove={removeQuest}
               onTogglePin={togglePin}
@@ -212,6 +299,9 @@ export default function App() {
               onStageBossAvatarChange={updateStageBossAvatar}
               activeHuntTarget={activeHuntTarget}
               huntTaskHandlers={huntTaskHandlers}
+              onBindQuestToActiveHuntTask={handleBindQuestToActiveHuntTask}
+              onUnbindQuestFromHuntTask={handleUnbindQuest}
+              onCreateAndBindQuestToActiveHunt={handleCreateAndBindQuestToActiveHunt}
               onInboxAdd={addInboxItem}
               onInboxRemove={removeInboxItem}
               onInboxUpdate={updateInboxItem}

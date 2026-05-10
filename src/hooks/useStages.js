@@ -185,13 +185,13 @@ export default function useStages() {
 
   // ── Boss hunt tasks ────────────────────────────────────────
 
-  const addStageBossHuntTask = useCallback((stageId, text) => {
+  const addStageBossHuntTask = useCallback((stageId, text, taskId = Date.now()) => {
     setBossHunts((prev) => {
       const cur = prev[stageId] ?? { huntStatus: null, huntTasks: [] }
       if (cur.huntTasks.length >= 10) return prev
       return {
         ...prev,
-        [stageId]: { ...cur, huntTasks: [...cur.huntTasks, { id: Date.now(), text, completed: false }] },
+        [stageId]: { ...cur, huntTasks: [...cur.huntTasks, { id: taskId, text, completed: false }] },
       }
     })
   }, [])

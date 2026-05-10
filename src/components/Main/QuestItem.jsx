@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { playQuestCompleteSound } from '../../hooks/useQuests'
 import Checkbox from '@mui/material/Checkbox'
 import IconButton from '@mui/material/IconButton'
@@ -12,6 +12,7 @@ import PushPinIcon from '@mui/icons-material/PushPin'
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined'
 import AddIcon from '@mui/icons-material/Add'
+import SportsMmaIcon from '@mui/icons-material/SportsMma'
 import SlashEffect from './SlashEffect'
 import DamageNumber from './DamageNumber'
 
@@ -110,20 +111,35 @@ const PRIORITY_STYLE = {
   low: 'bg-blue-50 text-blue-400 hover:bg-blue-100',
 }
 
-const EXP_CYCLE  = { 1: 2, 2: 5, 5: 10, 10: 1 }
-const EXP_LABEL  = { 1: '一般', 2: '中等', 5: '上等', 10: '特等' }
-const EXP_POINTS = { 1: '×1', 2: '×2', 5: '×5', 10: '×10' }
+const EXP_CYCLE  = { 1: 3, 3: 5, 5: 10, 10: 1 }
+const EXP_LABEL  = { 1: '一般', 3: '中等', 5: '上等', 10: '特級' }
+const EXP_POINTS = { 1: '+1', 3: '+3', 5: '+5', 10: '+10' }
 const EXP_STYLE  = {
   1:  'bg-gray-100 text-gray-400 hover:bg-gray-200',
-  2:  'bg-blue-50 text-blue-400 hover:bg-blue-100',
+  3:  'bg-blue-50 text-blue-400 hover:bg-blue-100',
   5:  'bg-yellow-50 text-yellow-500 hover:bg-yellow-100',
   10: 'bg-orange-50 text-orange-500 hover:bg-orange-100',
+}
+
+const SUBTASK_REQUIREMENT = { 1: 0, 3: 2, 5: 3, 10: 5 }
+
+function normalizeExpValue(expValue) {
+  // legacy support: old "中等" used 2
+  if (expValue === 2) return 3
+  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10) return expValue
+  return 1
 }
 
 export default function QuestItem({
   quest, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetExp,
   onDemoteToInbox,
+  activeHuntTarget,
+  monsters,
+  stages,
+  onBindQuestToActiveHuntTask,
+  onUnbindQuestFromHuntTask,
+  onCreateAndBindQuestToActiveHunt,
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(quest.text)
@@ -134,6 +150,7 @@ export default function QuestItem({
   const [addingSubTask, setAddingSubTask] = useState(false)
   const [subDraft, setSubDraft] = useState('')
   const [tagOpen, setTagOpen] = useState(false)
+  const [huntBindOpen, setHuntBindOpen] = useState(false)
   const inputRef = useRef(null)
   const subInputRef = useRef(null)
   const pendingToggleRef = useRef(false)
@@ -158,8 +175,20 @@ export default function QuestItem({
     if (!editing) setDraft(quest.text)
   }, [quest.text, editing])
 
+  const completedSubs = subTasks.filter((s) => s.completed).length
+  const effectiveExp = normalizeExpValue(quest.expValue)
+  const requiredSubs = SUBTASK_REQUIREMENT[effectiveExp] ?? 0
+  const canCompleteBySubs = requiredSubs === 0
+    ? true
+    : (subTasks.length >= requiredSubs && completedSubs >= requiredSubs)
+
   const handleToggle = useCallback(() => {
     if (!quest.completed) {
+      if (!canCompleteBySubs) {
+        setShaking(true)
+        setTimeout(() => setShaking(false), 450)
+        return
+      }
       playQuestCompleteSound()
       setSlashing(true)
       setAnimatingComplete(true)
@@ -167,7 +196,7 @@ export default function QuestItem({
     } else {
       onToggle(quest.id)
     }
-  }, [quest.completed, quest.id, onToggle])
+  }, [quest.completed, quest.id, onToggle, canCompleteBySubs])
 
   const handleShakeReady = useCallback(() => {
     setShaking(true)
@@ -194,7 +223,39 @@ export default function QuestItem({
 
   const cancelSubTask = () => { setSubDraft(''); setAddingSubTask(false) }
 
-  const completedSubs = subTasks.filter((s) => s.completed).length
+  const boundTarget = useMemo(() => {
+    const b = quest.huntBinding
+    if (!b) return null
+    if (b.targetType === 'monster') {
+      const m = (monsters ?? []).find((x) => x.id === b.targetId)
+      if (!m) return { name: '（目標已不存在）', hpPercent: null, isMissing: true }
+      const tasks = m.huntTasks ?? []
+      const completed = tasks.filter((t) => t.completed).length
+      const total = tasks.length
+      const hpPercent = total > 0 ? ((total - completed) / total) * 100 : 100
+      return { name: m.name, hpPercent, isMissing: false }
+    }
+    if (b.targetType === 'stageBoss') {
+      const s = (stages ?? []).find((x) => x.id === b.targetId)
+      if (!s) return { name: '（目標已不存在）', hpPercent: null, isMissing: true }
+      const tasks = s.bossHuntTasks ?? []
+      const completed = tasks.filter((t) => t.completed).length
+      const total = tasks.length
+      const hpPercent = total > 0 ? ((total - completed) / total) * 100 : 100
+      return { name: s.bossName ?? `第${s.id}階段Boss`, hpPercent, isMissing: false }
+    }
+    return { name: '（未知目標）', hpPercent: null, isMissing: true }
+  }, [quest.huntBinding, monsters, stages])
+
+  const isActiveTargetBound =
+    !!quest.huntBinding &&
+    !!activeHuntTarget &&
+    quest.huntBinding.targetType === activeHuntTarget._type &&
+    quest.huntBinding.targetId === activeHuntTarget.id
+
+  const boundTaskText = isActiveTargetBound
+    ? (activeHuntTarget.huntTasks.find((t) => t.id === quest.huntBinding.taskId)?.text ?? null)
+    : null
 
   return (
     <div
@@ -293,13 +354,13 @@ export default function QuestItem({
           {/* EXP badge */}
           {!quest.completed && !editing && (
             <button
-              onClick={() => onSetExp(quest.id, EXP_CYCLE[quest.expValue ?? 1])}
-              title={`經驗值：${EXP_LABEL[quest.expValue ?? 1]}（點擊切換）`}
+              onClick={() => onSetExp(quest.id, EXP_CYCLE[effectiveExp])}
+              title={`經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）｜需完成子任務 ${requiredSubs} 個才可完成母任務`}
               className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${
-                EXP_STYLE[quest.expValue ?? 1]
+                EXP_STYLE[effectiveExp]
               }`}
             >
-              {EXP_LABEL[quest.expValue ?? 1]} {EXP_POINTS[quest.expValue ?? 1]}
+              {EXP_LABEL[effectiveExp]} {EXP_POINTS[effectiveExp]}
             </button>
           )}
           {editing ? (
@@ -347,6 +408,89 @@ export default function QuestItem({
               <EditOutlinedIcon fontSize="small" />
             </IconButton>
           )}
+
+          {/* Hunt bind selector */}
+          <Select
+            value={isActiveTargetBound ? String(quest.huntBinding.taskId) : ''}
+            onChange={(e) => {
+              const val = e.target.value
+              if (val === '__none__') onUnbindQuestFromHuntTask?.(quest.id)
+              else if (val === '__create__') onCreateAndBindQuestToActiveHunt?.(quest.id)
+              else if (val) onBindQuestToActiveHuntTask?.(quest.id, Number(val))
+            }}
+            open={huntBindOpen}
+            onOpen={() => setHuntBindOpen(true)}
+            onClose={() => setHuntBindOpen(false)}
+            displayEmpty
+            size="small"
+            variant="outlined"
+            disabled={!activeHuntTarget}
+            renderValue={() => {
+              if (quest.huntBinding && boundTarget) {
+                const hpText = boundTarget.hpPercent === null ? '' : ` HP ${Math.round(boundTarget.hpPercent)}%`
+                const nameText = boundTarget.name.length > 8 ? `${boundTarget.name.slice(0, 8)}…` : boundTarget.name
+                const taskText = boundTaskText
+                  ? `：${boundTaskText.length > 6 ? `${boundTaskText.slice(0, 6)}…` : boundTaskText}`
+                  : ''
+                return (
+                  <span
+                    className={`flex items-center gap-1 text-xs font-medium ${
+                      boundTarget.isMissing ? 'text-gray-400' : 'text-red-500'
+                    }`}
+                    title={`${boundTarget.name}${hpText}${boundTaskText ? `｜${boundTaskText}` : ''}`}
+                  >
+                    <SportsMmaIcon style={{ fontSize: 14 }} />
+                    綁定：{nameText}{hpText}{taskText}
+                  </span>
+                )
+              }
+              if (!activeHuntTarget) {
+                return (
+                  <span className="flex items-center gap-1 text-xs text-gray-300 font-medium">
+                    <SportsMmaIcon style={{ fontSize: 14 }} />
+                    未討伐
+                  </span>
+                )
+              }
+              return (
+                <span className="flex items-center gap-1 text-xs text-gray-400 font-medium">
+                  <SportsMmaIcon style={{ fontSize: 14 }} />
+                  綁定討伐
+                </span>
+              )
+            }}
+            sx={{
+              minWidth: 96,
+              fontSize: '0.75rem',
+              '.MuiOutlinedInput-notchedOutline': { borderColor: '#f3f4f6' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fecaca' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#fca5a5' },
+              '.MuiSelect-icon': { color: '#d1d5db' },
+              '.MuiSelect-select': { py: '4px', px: '8px' },
+              '&.Mui-disabled': { opacity: 0.7 },
+            }}
+          >
+            <MenuItem value="__none__" sx={{ fontSize: '0.8rem' }}>
+              取消綁定
+            </MenuItem>
+            <MenuItem value="__create__" sx={{ fontSize: '0.8rem' }} disabled={!activeHuntTarget}>
+              以此任務新增討伐任務並綁定
+            </MenuItem>
+            <MenuItem disabled sx={{ fontSize: '0.75rem', opacity: 0.6 }}>
+              ── 當前討伐任務 ──
+            </MenuItem>
+            {(activeHuntTarget?.huntTasks ?? []).map((t) => (
+              <MenuItem key={t.id} value={String(t.id)} sx={{ fontSize: '0.8rem' }}>
+                {t.completed ? '✅ ' : '⬜ '} {t.text}
+              </MenuItem>
+            ))}
+            {(activeHuntTarget?.huntTasks?.length ?? 0) === 0 && (
+              <MenuItem disabled sx={{ fontSize: '0.8rem', opacity: 0.6 }}>
+                （尚無討伐任務）
+              </MenuItem>
+            )}
+          </Select>
+
           <IconButton
             size="small"
             onClick={() => onTogglePin(quest.id)}

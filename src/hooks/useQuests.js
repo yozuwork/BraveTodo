@@ -17,6 +17,13 @@ function loadJSON(key, fallback) {
 const _questCompleteAudio = new Audio(coinSfxUrl)
 _questCompleteAudio.volume = 0.65
 
+function normalizeQuestExpValue(expValue) {
+  // legacy support: old "中等" used 2
+  if (expValue === 2) return 3
+  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10) return expValue
+  return 1
+}
+
 export function playQuestCompleteSound() {
   if (!isSoundEnabled()) return
   _questCompleteAudio.currentTime = 0
@@ -46,6 +53,7 @@ export default function useQuests() {
         isCore: false,
         pinned: false,
         priority: 'normal',
+        huntBinding: null, // { targetType: 'monster'|'stageBoss', targetId: number, taskId: number } | null
         subTasks: [],
       },
       ...prev,
@@ -60,18 +68,38 @@ export default function useQuests() {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, pinned: !q.pinned } : q)))
   }, [])
 
-  const toggleQuest = useCallback((id) => {
+  const setQuestCompleted = useCallback((id, completed) => {
     let completionDelta = 0
     setQuests((prev) => {
       const target = prev.find((q) => q.id === id)
       if (!target) return prev
-      const exp = target.expValue ?? 1
-      completionDelta = target.completed ? -exp : exp
-      return prev.map((q) => (q.id === id ? { ...q, completed: !q.completed } : q))
+      if (target.completed === completed) return prev
+      const exp = normalizeQuestExpValue(target.expValue)
+      completionDelta = completed ? exp : -exp
+      return prev.map((q) => (q.id === id ? { ...q, completed } : q))
     })
     if (completionDelta !== 0) {
       setLifetimeCompletions((c) => Math.max(0, c + completionDelta))
     }
+  }, [])
+
+  const toggleQuest = useCallback((id) => {
+    let nextCompleted = null
+    setQuests((prev) => {
+      const target = prev.find((q) => q.id === id)
+      if (!target) return prev
+      nextCompleted = !target.completed
+      return prev
+    })
+    if (nextCompleted !== null) setQuestCompleted(id, nextCompleted)
+  }, [setQuestCompleted])
+
+  const bindQuestToHuntTask = useCallback((questId, binding) => {
+    setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, huntBinding: binding } : q)))
+  }, [])
+
+  const unbindQuestFromHuntTask = useCallback((questId) => {
+    setQuests((prev) => prev.map((q) => (q.id === questId ? { ...q, huntBinding: null } : q)))
   }, [])
 
   const updateQuestExp = useCallback((id, expValue) => {
@@ -174,6 +202,7 @@ export default function useQuests() {
     quests,
     addQuest,
     toggleQuest,
+    setQuestCompleted,
     updateQuest,
     removeQuest,
     togglePin,
@@ -182,6 +211,8 @@ export default function useQuests() {
     updateQuestExp,
     reorderQuests,
     clearCompleted,
+    bindQuestToHuntTask,
+    unbindQuestFromHuntTask,
     addSubTask,
     toggleSubTask,
     removeSubTask,

@@ -89,7 +89,7 @@ export default function useMonsters() {
     setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, huntStatus: null } : m)))
   }, [])
 
-  const addHuntTask = useCallback((monsterId, text) => {
+  const addHuntTask = useCallback((monsterId, text, taskId = Date.now()) => {
     setMonsters((prev) =>
       prev.map((m) => {
         if (m.id !== monsterId) return m
@@ -98,7 +98,7 @@ export default function useMonsters() {
           ...m,
           huntTasks: [
             ...m.huntTasks,
-            { id: Date.now(), text, completed: false },
+            { id: taskId, text, completed: false },
           ],
         }
       })
