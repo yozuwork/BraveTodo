@@ -171,7 +171,7 @@ const SAVE_KEYS = [
   'characterCardSize',
 ]
 
-function exportSave() {
+function exportSave(currentLevel) {
   const save = {
     _version: 1,
     _exportedAt: new Date().toISOString(),
@@ -515,7 +515,7 @@ export default function OtherSettings({ currentLevel, levelingRules, onResetLeve
             <Button
               variant="outlined"
               startIcon={<FileDownloadIcon />}
-              onClick={exportSave}
+              onClick={() => exportSave(currentLevel)}
               sx={{
                 borderColor: '#a855f7',
                 color: '#a855f7',
