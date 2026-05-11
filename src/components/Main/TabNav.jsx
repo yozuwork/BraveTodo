@@ -9,9 +9,8 @@ const ALL_TABS = [
   { key: 'Inbox',       label: '收集箱' },
 ]
 
-export default function TabNav({ activeTab, onTabChange, isEditMode, hasActiveHunt }) {
+export default function TabNav({ activeTab, onTabChange, hasActiveHunt }) {
   const visibleTabs = ALL_TABS.filter((t) => {
-    if (t.editOnly && !isEditMode) return false
     if (t.huntOnly && !hasActiveHunt) return false
     return true
   })

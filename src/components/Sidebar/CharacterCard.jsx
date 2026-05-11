@@ -6,7 +6,7 @@ import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 
-export default function CharacterCard({ level, avatar, isEditMode, onAvatarChange, imagePosition, onImagePositionChange }) {
+export default function CharacterCard({ level, avatar, onAvatarChange, imagePosition, onImagePositionChange }) {
   const fileInputRef = useRef(null)
   const containerRef = useRef(null)
   const dragState = useRef(null)
@@ -29,7 +29,7 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
 
   // --- 圖片拖曳位置 ---
   const handlePointerDown = (e) => {
-    if (!isEditMode || !avatar) return
+    if (!avatar) return
     e.preventDefault()
     e.currentTarget.setPointerCapture(e.pointerId)
     dragState.current = {
@@ -100,7 +100,7 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
       onPointerUp={handleResizeUp}
     >
       <div
-        className={`w-full h-full relative ${isEditMode && avatar ? 'cursor-grab active:cursor-grabbing' : isEditMode ? 'cursor-pointer' : ''}`}
+        className={`w-full h-full relative ${avatar ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
@@ -116,20 +116,20 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
         ) : (
           <div
             className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-900 flex items-center justify-center cursor-pointer"
-            onClick={() => isEditMode && fileInputRef.current?.click()}
+            onClick={() => fileInputRef.current?.click()}
           >
             <span className="text-4xl font-extrabold text-white/80">V</span>
           </div>
         )}
 
-        {isEditMode && avatar && (
+        {avatar && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-black/60 text-white text-xs px-3 py-1 rounded-full pointer-events-none select-none">
             <OpenWithIcon sx={{ fontSize: 14 }} />
             <span>拖曳調整位置・點擊換圖</span>
           </div>
         )}
 
-        {isEditMode && !avatar && (
+        {!avatar && (
           <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center pointer-events-none">
             <EditIcon sx={{ color: 'white', fontSize: 28 }} />
             <span className="text-white text-xs mt-1 uppercase font-semibold">點擊上傳圖片</span>
@@ -162,14 +162,12 @@ export default function CharacterCard({ level, avatar, isEditMode, onAvatarChang
         }
       </button>
 
-      {isEditMode && (
-        <div
-          className="absolute bottom-0 right-0 w-6 h-6 flex items-center justify-center cursor-se-resize z-10"
-          onPointerDown={handleResizeDown}
-        >
-          <OpenInFullIcon sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, transform: 'rotate(90deg)' }} />
-        </div>
-      )}
+      <div
+        className="absolute bottom-0 right-0 w-6 h-6 flex items-center justify-center cursor-se-resize z-10"
+        onPointerDown={handleResizeDown}
+      >
+        <OpenInFullIcon sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, transform: 'rotate(90deg)' }} />
+      </div>
 
       <input
         ref={fileInputRef}

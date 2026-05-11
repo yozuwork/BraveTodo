@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Button from '@mui/material/Button'
 import PersonIcon from '@mui/icons-material/Person'
 import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted'
-import TuneIcon from '@mui/icons-material/Tune'
 import CharacterCard from './components/Sidebar/CharacterCard'
 import HuntSideCard from './components/Sidebar/HuntSideCard'
 import StatsCard from './components/Sidebar/StatsCard'
@@ -24,7 +22,7 @@ export default function App() {
     setQuestCompleted, bindQuestToHuntTask, unbindQuestFromHuntTask,
   } = useQuests()
   const { rules: levelingRules, updateExpPerLevel } = useLevelingRules()
-  const { avatar, isEditMode, toggleEditMode, updateAvatar, imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
+  const { imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
     useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules)
   const {
     stages, updateStageName, updateStageAvatar, updateStageLevel, addStage, removeStage, reorderStages,
@@ -212,27 +210,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-stone-50 relative overflow-x-hidden">
-      <Button
-        variant="contained"
-        onClick={toggleEditMode}
-        sx={{
-          display: { xs: 'none', md: 'inline-flex' },
-          position: 'fixed',
-          top: { md: 20 },
-          right: { md: 20 },
-          bgcolor: '#a855f7',
-          borderRadius: 99,
-          fontWeight: 600,
-          fontSize: '0.85rem',
-          textTransform: 'uppercase',
-          px: 3,
-          zIndex: 50,
-          '&:hover': { bgcolor: '#9333ea' },
-        }}
-      >
-        {isEditMode ? 'Exit Edit' : 'Edit Mode'}
-      </Button>
-
       <div className="flex justify-center items-start p-4 md:p-10 pb-20 md:pb-10">
         <div className="w-full max-w-[1200px] flex flex-col md:flex-row gap-6 md:gap-10">
 
@@ -244,7 +221,6 @@ export default function App() {
               <CharacterCard
                 level={level}
                 avatar={currentStage.avatarSrc}
-                isEditMode={isEditMode}
                 onAvatarChange={(file) => updateStageAvatar(currentStage.id, file)}
                 imagePosition={imagePosition}
                 onImagePositionChange={updateImagePosition}
@@ -268,7 +244,6 @@ export default function App() {
               onReorderQuests={reorderQuests}
               onClearCompleted={clearCompleted}
               onDemoteToInbox={handleDemoteToInbox}
-              isEditMode={isEditMode}
               stages={stages}
               onStageName={updateStageName}
               onStageAvatar={updateStageAvatar}
@@ -339,12 +314,10 @@ export default function App() {
           <span className="text-[0.65rem] font-semibold">任務</span>
         </button>
         <button
-          onClick={toggleEditMode}
-          className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition-colors cursor-pointer border-none bg-transparent ${
-            isEditMode ? 'text-purple-500' : 'text-gray-400'
-          }`}
+          onClick={() => setMobileTab('quests')}
+          className="hidden"
         >
-          <TuneIcon fontSize="small" />
+          <FormatListBulletedIcon fontSize="small" />
           <span className="text-[0.65rem] font-semibold">編輯</span>
         </button>
       </nav>

@@ -15,7 +15,7 @@ export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
-  isEditMode, stages, onStageName, onStageAvatar, onStageLevel, onAddStage, onRemoveStage, onReorderStages,
+  stages, onStageName, onStageAvatar, onStageLevel, onAddStage, onRemoveStage, onReorderStages,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
   levelingRules, onUpdateExpPerLevel,
   atk,
@@ -104,12 +104,6 @@ export default function QuestHub({
   const hasActiveHunt = activeHuntTarget !== null
 
   useEffect(() => {
-    if (!isEditMode && (activeTab === 'Stages' || activeTab === 'Leveling' || activeTab === 'Other')) {
-      onTabChange('Tasks')
-    }
-  }, [isEditMode, activeTab, onTabChange])
-
-  useEffect(() => {
     if (!hasActiveHunt && activeTab === 'HuntMission') {
       onTabChange('Tasks')
     }
@@ -140,7 +134,6 @@ export default function QuestHub({
         <TabNav
           activeTab={activeTab}
           onTabChange={onTabChange}
-          isEditMode={isEditMode}
           hasActiveHunt={hasActiveHunt}
         />
       </div>
@@ -226,7 +219,6 @@ export default function QuestHub({
                         onSetPriority={onSetPriority}
                         onSetExp={onSetExp}
                         onDemoteToInbox={onDemoteToInbox}
-                        isEditMode={isEditMode}
                         atk={atk}
                         onAddSubTask={onAddSubTask}
                         onToggleSubTask={onToggleSubTask}
@@ -292,7 +284,6 @@ export default function QuestHub({
       {activeTab === 'Hunt' && (
         <HuntTab
           monsters={monsters}
-          isEditMode={isEditMode}
           onAdd={onAddMonster}
           onUpdate={onUpdateMonster}
           onRemove={onRemoveMonster}
@@ -305,6 +296,9 @@ export default function QuestHub({
           onStopStageBossHunt={onStopStageBossHunt}
           onStageBossNameChange={onStageBossNameChange}
           onStageBossAvatarChange={onStageBossAvatarChange}
+          onStageLevelChange={onStageLevel}
+          onAddStage={onAddStage}
+          onRemoveStage={onRemoveStage}
         />
       )}
 

@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { resolveImg } from '../../utils/imageSrc'
 
 const STAGE_COLORS = ['#a855f7', '#3b82f6', '#f97316', '#ef4444', '#10b981', '#f59e0b']
@@ -13,7 +14,9 @@ export default function StageBossCard({
   onStopHunt,
   onBossNameChange,
   onBossAvatarChange,
-  isEditMode,
+  onStageLevelChange,
+  onRemove,
+  canDelete,
 }) {
   const {
     id, minLevel, maxLevel, className,
@@ -77,14 +80,14 @@ export default function StageBossCard({
             alt={bossName}
             className="w-full h-full object-contain"
             draggable={false}
-            onClick={() => isEditMode && fileInputRef.current?.click()}
-            style={{ cursor: isEditMode ? 'pointer' : 'default' }}
+            onClick={() => fileInputRef.current?.click()}
+            style={{ cursor: 'pointer' }}
           />
         ) : (
           <div
             className="w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer"
             style={{ background: `linear-gradient(135deg, ${accent}33 0%, #111827 100%)` }}
-            onClick={() => isEditMode && fileInputRef.current?.click()}
+            onClick={() => fileInputRef.current?.click()}
           >
             <div
               className="w-12 h-12 rounded-full flex items-center justify-center"
@@ -92,7 +95,7 @@ export default function StageBossCard({
             >
               <PhotoCameraIcon sx={{ fontSize: 22, color: accent, opacity: 0.6 }} />
             </div>
-            {isEditMode && (
+            {true && (
               <span className="text-[10px] font-medium" style={{ color: `${accent}99` }}>
                 點擊上傳圖片
               </span>
@@ -115,14 +118,23 @@ export default function StageBossCard({
         </span>
 
         {/* Defeated crown — top right */}
+        <button
+          onClick={() => onRemove(id)}
+          disabled={!canDelete}
+          className="absolute top-2.5 right-2.5 w-7 h-7 rounded-full flex items-center justify-center bg-black/55 hover:bg-red-600 transition-colors border border-white/20 z-20 disabled:opacity-30 disabled:cursor-not-allowed"
+          title="刪除"
+        >
+          <DeleteOutlineIcon sx={{ fontSize: 15, color: 'white' }} />
+        </button>
+
         {isDefeated && (
-          <div className="absolute top-2.5 right-2.5 z-10">
+          <div className="absolute top-11 right-2.5 z-10">
             <CheckCircleIcon sx={{ fontSize: 18, color: accent }} />
           </div>
         )}
 
         {/* Edit-mode camera overlay */}
-        {isEditMode && bossAvatar && (
+        {bossAvatar && (
           <button
             onClick={() => fileInputRef.current?.click()}
             className="absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20 z-10"
@@ -161,9 +173,9 @@ export default function StageBossCard({
         ) : (
           <p
             className="text-xs font-bold text-black text-center m-0 leading-tight"
-            onDoubleClick={() => isEditMode && setEditingName(true)}
-            title={isEditMode ? '雙擊編輯Boss名稱' : undefined}
-            style={{ cursor: isEditMode ? 'text' : 'default' }}
+            onDoubleClick={() => setEditingName(true)}
+            title="雙擊編輯 Boss 名稱"
+            style={{ cursor: 'text' }}
           >
             {bossName}
           </p>
@@ -175,6 +187,26 @@ export default function StageBossCard({
         </p>
 
         {/* Mini HP bar — only while hunting */}
+        <div className="flex items-center justify-center gap-1 text-[10px] text-gray-400 font-mono m-0">
+          <span>LV</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={minLevel}
+            onChange={(e) => onStageLevelChange(id, 'minLevel', e.target.value)}
+            className="w-8 text-center text-[10px] font-mono bg-stone-50 border border-gray-200 rounded px-1 py-0.5 outline-none focus:border-purple-400"
+          />
+          <span>-</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={maxLevel}
+            onChange={(e) => onStageLevelChange(id, 'maxLevel', e.target.value)}
+            className="w-8 text-center text-[10px] font-mono bg-stone-50 border border-gray-200 rounded px-1 py-0.5 outline-none focus:border-purple-400"
+            style={{ color: accent }}
+          />
+        </div>
+
         {isHunting && totalCount > 0 && (
           <div className="w-full mt-0.5">
             <div className="h-1.5 rounded-full overflow-hidden bg-gray-200">

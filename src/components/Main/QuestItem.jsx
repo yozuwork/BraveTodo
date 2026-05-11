@@ -17,7 +17,7 @@ import SlashEffect from './SlashEffect'
 import DamageNumber from './DamageNumber'
 
 // ── Sub-task row ──────────────────────────────────────────────
-function SubTaskItem({ sub, questCompleted, onToggle, onRemove, onUpdate }) {
+function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(sub.text)
   const inputRef = useRef(null)
@@ -45,13 +45,11 @@ function SubTaskItem({ sub, questCompleted, onToggle, onRemove, onUpdate }) {
       <Checkbox
         checked={sub.completed}
         onChange={onToggle}
-        disabled={questCompleted}
         size="small"
         sx={{
           p: 0.3,
           color: '#d1d5db',
           '&.Mui-checked': { color: '#a855f7' },
-          '&.Mui-disabled': { opacity: 0.4 },
         }}
       />
       {editing ? (
@@ -73,9 +71,9 @@ function SubTaskItem({ sub, questCompleted, onToggle, onRemove, onUpdate }) {
           className={`flex-1 text-xs cursor-text rounded px-1 -mx-1 hover:bg-stone-100 ${
             sub.completed ? 'line-through text-gray-400' : 'text-gray-600'
           }`}
-          onDoubleClick={() => !questCompleted && setEditing(true)}
+          onDoubleClick={() => setEditing(true)}
           onKeyDown={(e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && !questCompleted) {
+            if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault(); setEditing(true)
             }
           }}
@@ -134,7 +132,6 @@ export default function QuestItem({
   quest, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetExp,
   onDemoteToInbox,
-  isEditMode,
   activeHuntTarget,
   monsters,
   stages,
@@ -179,9 +176,9 @@ export default function QuestItem({
   const completedSubs = subTasks.filter((s) => s.completed).length
   const effectiveExp = normalizeExpValue(quest.expValue)
   const requiredSubs = SUBTASK_REQUIREMENT[effectiveExp] ?? 0
-  const mobileEditOnlyBlock = isEditMode ? '' : 'hidden sm:block'
-  const mobileEditOnlyInline = isEditMode ? '' : 'hidden sm:inline-flex'
-  const mobileContentBasis = isEditMode ? 'basis-full' : 'basis-0'
+  const mobileEditOnlyBlock = ''
+  const mobileEditOnlyInline = 'inline-flex'
+  const mobileContentBasis = 'basis-full'
   const canCompleteBySubs = requiredSubs === 0
     ? true
     : (subTasks.length >= requiredSubs && completedSubs >= requiredSubs)
@@ -344,7 +341,7 @@ export default function QuestItem({
         {/* Main quest title row */}
         <div className="flex flex-wrap items-start sm:items-center gap-2">
           {/* Priority badge */}
-          {!quest.completed && !editing && (
+          {!editing && (
             <button
               onClick={() => onSetPriority(quest.id, PRIORITY_CYCLE[quest.priority ?? 'normal'])}
               title="點擊切換優先級"
@@ -356,7 +353,7 @@ export default function QuestItem({
             </button>
           )}
           {/* EXP badge */}
-          {!quest.completed && !editing && (
+          {!editing && (
             <button
               onClick={() => onSetExp(quest.id, EXP_CYCLE[effectiveExp])}
               title={`經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）｜需完成子任務 ${requiredSubs} 個才可完成母任務`}
@@ -408,7 +405,7 @@ export default function QuestItem({
               onClick={() => setEditing(true)}
               aria-label="編輯任務"
               sx={{
-                display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+                display: 'inline-flex',
                 order: { xs: 4, sm: 0 },
                 color: '#d1d5db',
                 '&:hover': { color: '#a855f7' },
@@ -469,7 +466,7 @@ export default function QuestItem({
               )
             }}
             sx={{
-              display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+              display: 'inline-flex',
               order: { xs: 5, sm: 0 },
               width: { xs: '100%', sm: 'auto' },
               minWidth: 96,
@@ -508,7 +505,7 @@ export default function QuestItem({
             onClick={() => onTogglePin(quest.id)}
             aria-label="置頂任務"
             sx={{
-              display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+              display: 'inline-flex',
               order: { xs: 6, sm: 0 },
               color: quest.pinned ? '#a855f7' : '#d1d5db',
               '&:hover': { color: '#a855f7' },
@@ -522,7 +519,7 @@ export default function QuestItem({
             size="small"
             onClick={() => onToggleCore(quest.id)}
             sx={{
-              display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+              display: 'inline-flex',
               order: { xs: 7, sm: 0 },
               color: quest.isCore ? '#f59e0b' : '#d1d5db',
               '&:hover': { color: '#f59e0b' },
@@ -534,7 +531,7 @@ export default function QuestItem({
             size="small"
             onClick={() => onRemove(quest.id)}
             sx={{
-              display: { xs: isEditMode ? 'inline-flex' : 'none', sm: 'inline-flex' },
+              display: 'inline-flex',
               order: { xs: 8, sm: 0 },
               color: '#d1d5db',
               '&:hover': { color: '#ef4444' },
@@ -551,7 +548,6 @@ export default function QuestItem({
               <SubTaskItem
                 key={sub.id}
                 sub={sub}
-                questCompleted={quest.completed}
                 onToggle={() => onToggleSubTask(quest.id, sub.id)}
                 onRemove={() => onRemoveSubTask(quest.id, sub.id)}
                 onUpdate={(text) => onUpdateSubTask(quest.id, sub.id, text)}
@@ -579,15 +575,13 @@ export default function QuestItem({
             />
           </div>
         ) : (
-          !quest.completed && (
             <button
               onClick={() => setAddingSubTask(true)}
-              className={`items-center gap-1 text-xs text-gray-400 hover:text-purple-500 transition-colors cursor-pointer bg-transparent border-none p-0 w-fit pl-2 ml-1 ${isEditMode ? 'flex' : 'hidden sm:flex'}`}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-purple-500 transition-colors cursor-pointer bg-transparent border-none p-0 w-fit pl-2 ml-1"
             >
               <AddIcon sx={{ fontSize: 13 }} />
               新增子任務
             </button>
-          )
         )}
       </div>
     </div>

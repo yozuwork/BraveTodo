@@ -1,9 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
-import IconButton from '@mui/material/IconButton'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
-import SwordsIcon from '@mui/icons-material/SportsMartialArts'
 import { MONSTER_TYPES, TYPE_CONFIG } from '../../hooks/useMonsters'
 import { resolveImg } from '../../utils/imageSrc'
 
@@ -14,7 +12,7 @@ const MAX_CARD_H = 600
 const TEXT_AREA_H = 96   // slightly taller to fit hunt button
 
 export default function MonsterCard({
-  monster, isEditMode, onUpdate, onRemove, onAvatarChange,
+  monster, onUpdate, onRemove, onAvatarChange,
   currentLevel, onStartHunt, onStopHunt,
 }) {
   const { id, name, recommendedLevel, type, avatar, cardW, cardH, huntStatus } = monster
@@ -61,7 +59,6 @@ export default function MonsterCard({
 
   // ── Card resize ──────────────────────────────────────────────
   const handleResizeDown = (e) => {
-    if (!isEditMode) return
     e.stopPropagation()
     e.currentTarget.setPointerCapture(e.pointerId)
     cardResizeRef.current = { startX: e.clientX, startY: e.clientY, startW: cardW, startH: cardH }
@@ -111,8 +108,8 @@ export default function MonsterCard({
             alt={name}
             className="w-full h-full object-contain"
             draggable={false}
-            onClick={() => isEditMode && fileInputRef.current?.click()}
-            style={{ cursor: isEditMode ? 'pointer' : 'default' }}
+            onClick={() => fileInputRef.current?.click()}
+            style={{ cursor: 'pointer' }}
           />
         ) : (
           <div
@@ -134,27 +131,18 @@ export default function MonsterCard({
 
         {/* Type badge / dropdown — top right */}
         <div className="absolute top-2.5 right-2.5 z-10">
-          {isEditMode ? (
-            <select
-              value={type}
-              onChange={(e) => onUpdate(id, { type: e.target.value })}
-              className="text-xs font-bold text-white rounded-full border-none outline-none cursor-pointer px-2.5 py-1"
-              style={{ background: cfg.accent, appearance: 'none', WebkitAppearance: 'none' }}
-            >
-              {MONSTER_TYPES.map((t) => (
-                <option key={t} value={t} style={{ background: '#1f2937', color: 'white' }}>
-                  {TYPE_CONFIG[t].label}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span
-              className="text-xs font-bold text-white px-2.5 py-1 rounded-full"
-              style={{ background: cfg.accent }}
-            >
-              {cfg.label}
-            </span>
-          )}
+          <select
+            value={type}
+            onChange={(e) => onUpdate(id, { type: e.target.value })}
+            className="text-xs font-bold text-white rounded-full border-none outline-none cursor-pointer px-2.5 py-1"
+            style={{ background: cfg.accent, appearance: 'none', WebkitAppearance: 'none' }}
+          >
+            {MONSTER_TYPES.map((t) => (
+              <option key={t} value={t} style={{ background: '#1f2937', color: 'white' }}>
+                {TYPE_CONFIG[t].label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Hunting status glow overlay */}
@@ -168,8 +156,7 @@ export default function MonsterCard({
         )}
 
         {/* Edit mode controls — top left */}
-        {isEditMode && (
-          <div className="absolute top-2 left-2 flex items-center gap-1 z-10">
+        <div className="absolute top-2 left-2 flex items-center gap-1 z-10">
             <button
               onClick={() => fileInputRef.current?.click()}
               className="w-7 h-7 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20"
@@ -185,19 +172,16 @@ export default function MonsterCard({
             >
               <DeleteOutlineIcon sx={{ fontSize: 14, color: 'white' }} />
             </button>
-          </div>
-        )}
+        </div>
 
         {/* Resize handle — bottom right */}
-        {isEditMode && (
-          <div
+        <div
             className="absolute bottom-1 right-1 w-6 h-6 flex items-center justify-center cursor-se-resize z-10 rounded-md bg-black/40 hover:bg-black/70 transition-colors"
             onPointerDown={handleResizeDown}
             title="拖曳調整卡片大小"
           >
             <OpenInFullIcon sx={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', transform: 'rotate(90deg)' }} />
-          </div>
-        )}
+        </div>
       </div>
 
       {/* ── Text section ── */}
@@ -256,7 +240,7 @@ export default function MonsterCard({
         )}
 
         {/* Hunt button — visible when level is within range */}
-        {canHunt && !isEditMode && (
+        {canHunt && (
           <button
             onClick={handleHuntClick}
             className="w-full mt-1 py-1 rounded-lg text-xs font-bold text-white transition-all duration-200"
