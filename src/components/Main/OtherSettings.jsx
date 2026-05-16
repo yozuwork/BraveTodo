@@ -171,10 +171,77 @@ const SAVE_KEYS = [
   'characterCardSize',
 ]
 
-function exportSave(currentLevel) {
+function isUploadedImageValue(value) {
+  if (typeof value !== 'string') return false
+  const cleanBase = import.meta.env.BASE_URL.replace(/^\/|\/$/g, '')
+  let clean = value.startsWith('/') ? value.slice(1) : value
+  if (cleanBase && clean.startsWith(`${cleanBase}/`)) {
+    clean = clean.slice(cleanBase.length + 1)
+  }
+  return clean.startsWith('uploads/')
+}
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = reject
+    reader.onload = () => resolve(reader.result)
+    reader.readAsDataURL(blob)
+  })
+}
+
+async function inlineUploadedImage(value, cache) {
+  if (!isUploadedImageValue(value)) return value
+  if (cache.has(value)) return cache.get(value)
+
+  const cleanBase = import.meta.env.BASE_URL.replace(/^\/|\/$/g, '')
+  let clean = value.startsWith('/') ? value.slice(1) : value
+  if (cleanBase && clean.startsWith(`${cleanBase}/`)) {
+    clean = clean.slice(cleanBase.length + 1)
+  }
+  try {
+    const res = await fetch(import.meta.env.BASE_URL + clean)
+    if (!res.ok) throw new Error(`Image fetch failed: ${clean}`)
+    const blob = await res.blob()
+    if (!blob.type.startsWith('image/')) throw new Error(`Not an image: ${clean}`)
+    const dataUrl = await blobToDataUrl(blob)
+    cache.set(value, dataUrl)
+    return dataUrl
+  } catch {
+    cache.set(value, value)
+    return value
+  }
+}
+
+async function inlineUploadedImagesDeep(value, cache) {
+  if (typeof value === 'string') return inlineUploadedImage(value, cache)
+  if (Array.isArray(value)) {
+    return Promise.all(value.map((item) => inlineUploadedImagesDeep(item, cache)))
+  }
+  if (value && typeof value === 'object') {
+    const entries = await Promise.all(
+      Object.entries(value).map(async ([key, item]) => [key, await inlineUploadedImagesDeep(item, cache)])
+    )
+    return Object.fromEntries(entries)
+  }
+  return value
+}
+
+async function inlineImagesInStorageValue(rawValue, cache) {
+  try {
+    const parsed = JSON.parse(rawValue)
+    return JSON.stringify(await inlineUploadedImagesDeep(parsed, cache))
+  } catch {
+    return inlineUploadedImage(rawValue, cache)
+  }
+}
+
+async function exportSave(currentLevel) {
+  const imageCache = new Map()
   const save = {
-    _version: 1,
+    _version: 2,
     _exportedAt: new Date().toISOString(),
+    _includesImages: true,
     _snapshot: {
       level: currentLevel,
       lifetimeCompletions: localStorage.getItem('brave-todo:lifetimeCompletions'),
@@ -182,7 +249,7 @@ function exportSave(currentLevel) {
   }
   for (const key of SAVE_KEYS) {
     const val = localStorage.getItem(key)
-    if (val !== null) save[key] = val
+    if (val !== null) save[key] = await inlineImagesInStorageValue(val, imageCache)
   }
   const blob = new Blob([JSON.stringify(save, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -242,6 +309,16 @@ export default function OtherSettings({ currentLevel, levelingRules, onResetLeve
   const importInputRef = useRef(null)
   const [importStatus, setImportStatus] = useState(null) // null | 'success' | 'error'
   const [importError, setImportError] = useState('')
+  const [exporting, setExporting] = useState(false)
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      await exportSave(currentLevel)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const handleImport = (file) => {
     if (!file) return
@@ -515,7 +592,8 @@ export default function OtherSettings({ currentLevel, levelingRules, onResetLeve
             <Button
               variant="outlined"
               startIcon={<FileDownloadIcon />}
-              onClick={() => exportSave(currentLevel)}
+              onClick={handleExport}
+              disabled={exporting}
               sx={{
                 borderColor: '#a855f7',
                 color: '#a855f7',
@@ -526,9 +604,9 @@ export default function OtherSettings({ currentLevel, levelingRules, onResetLeve
                 '&:hover': { borderColor: '#9333ea', bgcolor: '#faf5ff' },
               }}
             >
-              匯出存檔
+              {exporting ? '匯出中...' : '匯出存檔'}
             </Button>
-            <span className="text-xs text-gray-400">下載 JSON 檔案</span>
+            <span className="text-xs text-gray-400">下載 JSON 檔案，會包含上傳圖片</span>
           </div>
 
           {/* Import */}

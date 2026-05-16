@@ -25,7 +25,7 @@ export default function App() {
   const { imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
     useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules)
   const {
-    stages, updateStageName, updateStageAvatar, updateStageLevel, addStage, removeStage, reorderStages,
+    stages, updateStageName, updateStageAvatar, removeStageAvatar, updateStageLevel, addStage, removeStage, reorderStages,
     updateStageBossName, updateStageBossAvatar,
     startStageBossHunt, stopStageBossHunt, completeStageBossHunt,
     addStageBossHuntTask, toggleStageBossHuntTask, removeStageBossHuntTask, updateStageBossHuntTask,
@@ -221,6 +221,7 @@ export default function App() {
               <CharacterCard
                 level={level}
                 avatar={currentStage.avatarSrc}
+                avatars={currentStage.avatarSrcs}
                 onAvatarChange={(file) => updateStageAvatar(currentStage.id, file)}
                 imagePosition={imagePosition}
                 onImagePositionChange={updateImagePosition}
@@ -247,6 +248,7 @@ export default function App() {
               stages={stages}
               onStageName={updateStageName}
               onStageAvatar={updateStageAvatar}
+              onStageAvatarRemove={removeStageAvatar}
               onStageLevel={updateStageLevel}
               onAddStage={addStage}
               onRemoveStage={removeStage}

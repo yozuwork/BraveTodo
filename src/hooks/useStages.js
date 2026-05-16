@@ -20,6 +20,17 @@ const DEFAULT_BOSS_NAMES = {
   4: '終焉魔王',
 }
 
+function normalizeStageImages(stage) {
+  const avatars = Array.isArray(stage.avatars)
+    ? stage.avatars.filter(Boolean)
+    : (stage.avatar ? [stage.avatar] : [])
+  return {
+    ...stage,
+    avatar: avatars[0] ?? stage.avatar ?? null,
+    avatars,
+  }
+}
+
 function loadStages() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
@@ -28,13 +39,13 @@ function loadStages() {
     // New format includes minLevel/maxLevel; legacy only has className/avatar
     if (saved.length > 0 && 'minLevel' in saved[0]) {
       // Filter out timestamp-ID stages (IDs > 9999 were created via Date.now() — cleanup)
-      const valid = saved.filter((s) => s.id <= 9999)
+      const valid = saved.filter((s) => s.id <= 9999).map(normalizeStageImages)
       return valid.length > 0 ? valid : DEFAULT_STAGES
     }
     // Legacy: merge with DEFAULT_STAGES
     return DEFAULT_STAGES.map((def) => {
       const s = saved.find((x) => x.id === def.id)
-      return s ? { ...def, className: s.className, avatar: s.avatar } : def
+      return s ? normalizeStageImages({ ...def, className: s.className, avatar: s.avatar }) : def
     })
   } catch {
     return DEFAULT_STAGES
@@ -81,7 +92,14 @@ export default function useStages() {
   const [bossHunts, setBossHunts] = useState(loadBossHunts)
 
   useEffect(() => {
-    const toSave = stages.map(({ id, minLevel, maxLevel, className, avatar }) => ({ id, minLevel, maxLevel, className, avatar }))
+    const toSave = stages.map(({ id, minLevel, maxLevel, className, avatar, avatars }) => ({
+      id,
+      minLevel,
+      maxLevel,
+      className,
+      avatar,
+      avatars: Array.isArray(avatars) ? avatars : (avatar ? [avatar] : []),
+    }))
     localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
   }, [stages])
 
@@ -92,7 +110,16 @@ export default function useStages() {
   // ── Stage settings ─────────────────────────────────────────
 
   const getStageAvatar = useCallback(
-    (stage) => resolveImg(stage.avatar) || defaultAvatar,
+    (stage) => resolveImg(stage.avatar ?? stage.avatars?.[0]) || defaultAvatar,
+    []
+  )
+
+  const getStageAvatars = useCallback(
+    (stage) => {
+      const avatars = Array.isArray(stage.avatars) ? stage.avatars : (stage.avatar ? [stage.avatar] : [])
+      const resolved = avatars.map(resolveImg).filter(Boolean)
+      return resolved.length > 0 ? resolved : [defaultAvatar]
+    },
     []
   )
 
@@ -129,13 +156,31 @@ export default function useStages() {
     })
   }, [])
 
-  const updateStageAvatar = useCallback((id, file) => {
-    if (!file) return
-    compressImage(file).then(async (dataUrl) => {
-      const relPath = await saveImageToDisk(dataUrl, `uploads/stages/${id}.jpg`)
-      const stored = relPath ? `${relPath}?t=${Date.now()}` : dataUrl
-      setStages((prev) => prev.map((s) => (s.id === id ? { ...s, avatar: stored } : s)))
+  const updateStageAvatar = useCallback((id, filesLike) => {
+    const files = Array.from(filesLike?.length !== undefined ? filesLike : [filesLike]).filter(Boolean)
+    if (files.length === 0) return
+    Promise.all(files.map(async (file, index) => {
+      const dataUrl = await compressImage(file)
+      const stamp = `${Date.now()}-${index}`
+      const relPath = await saveImageToDisk(dataUrl, `uploads/stages/${id}-${stamp}.jpg`)
+      return relPath ? `${relPath}?t=${Date.now()}` : dataUrl
+    })).then((storedImages) => {
+      setStages((prev) => prev.map((s) => {
+        if (s.id !== id) return s
+        const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
+        const avatars = [...current, ...storedImages]
+        return { ...s, avatar: avatars[0] ?? null, avatars }
+      }))
     })
+  }, [])
+
+  const removeStageAvatar = useCallback((id, avatarIndex) => {
+    setStages((prev) => prev.map((s) => {
+      if (s.id !== id) return s
+      const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
+      const avatars = current.filter((_, index) => index !== avatarIndex)
+      return { ...s, avatar: avatars[0] ?? null, avatars }
+    }))
   }, [])
 
   // ── Boss metadata (name / avatar) ──────────────────────────
@@ -254,7 +299,9 @@ export default function useStages() {
       return {
         ...s,
         avatarSrc:       getStageAvatar(s),
+        avatarSrcs:      getStageAvatars(s),
         avatar:          s.avatar,
+        avatars:         Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : []),
         bossName:        boss.bossName   ?? DEFAULT_BOSS_NAMES[s.id] ?? `${s.className} Boss`,
         bossAvatar:      boss.bossAvatar ?? null,
         bossHuntStatus:  boss.huntStatus  ?? null,
@@ -270,6 +317,7 @@ export default function useStages() {
     removeStage,
     reorderStages,
     updateStageAvatar,
+    removeStageAvatar,
     updateStageBossName,
     updateStageBossAvatar,
     startStageBossHunt,
