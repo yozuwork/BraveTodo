@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import defaultAvatar from '../assets/hero.jpg'
-import { compressImage } from '../utils/compressImage'
-import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
+import { compressImage, getCompressedImageExtension } from '../utils/compressImage'
+import { saveImageToDisk } from '../utils/imageSrc'
 import levelUpSfxUrl from '../assets/music/Key Item Get (The Legend of Zelda Breath of the Wild OST).mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
 
@@ -71,7 +71,8 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
   const updateAvatar = useCallback((file) => {
     if (!file) return
     compressImage(file).then(async (dataUrl) => {
-      const relPath = await saveImageToDisk(dataUrl, 'uploads/character/avatar.jpg')
+      const ext = getCompressedImageExtension(file)
+      const relPath = await saveImageToDisk(dataUrl, `uploads/character/avatar.${ext}`)
       const stored = relPath ? `${relPath}?t=${Date.now()}` : dataUrl
       setAvatar(stored)
     })

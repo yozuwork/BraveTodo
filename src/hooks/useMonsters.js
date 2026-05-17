@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
-import { compressImage } from '../utils/compressImage'
-import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
+import { compressImage, getCompressedImageExtension } from '../utils/compressImage'
+import { saveImageToDisk } from '../utils/imageSrc'
 
 const STORAGE_KEY = 'brave-todo:monsters'
 
@@ -73,7 +73,8 @@ export default function useMonsters() {
   const updateMonsterAvatar = useCallback((id, file) => {
     if (!file) return
     compressImage(file).then(async (dataUrl) => {
-      const relPath = await saveImageToDisk(dataUrl, `uploads/monsters/${id}.jpg`)
+      const ext = getCompressedImageExtension(file)
+      const relPath = await saveImageToDisk(dataUrl, `uploads/monsters/${id}.${ext}`)
       const stored = relPath ?? dataUrl
       setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: stored } : m)))
     })
@@ -87,6 +88,14 @@ export default function useMonsters() {
 
   const stopHunt = useCallback((id) => {
     setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, huntStatus: null } : m)))
+  }, [])
+
+  const resetMonsterHunts = useCallback(() => {
+    setMonsters((prev) => prev.map((m) => ({
+      ...m,
+      huntStatus: null,
+      huntTasks: (m.huntTasks ?? []).map((task) => ({ ...task, completed: false })),
+    })))
   }, [])
 
   const addHuntTask = useCallback((monsterId, text, taskId = Date.now()) => {
@@ -153,6 +162,7 @@ export default function useMonsters() {
     updateMonsterAvatar,
     startHunt,
     stopHunt,
+    resetMonsterHunts,
     addHuntTask,
     toggleHuntTask,
     removeHuntTask,

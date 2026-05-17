@@ -40,7 +40,10 @@ export async function saveImageToDisk(dataUrl, relativePath) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ dataUrl, path: relativePath }),
     })
-    if (res.ok) return relativePath
+    if (res.ok) {
+      const verified = await fetch(resolveImg(`${relativePath}?verify=${Date.now()}`), { cache: 'no-store' })
+      if (verified.ok) return relativePath
+    }
   } catch {
     // dev server unavailable — silently fall back
   }

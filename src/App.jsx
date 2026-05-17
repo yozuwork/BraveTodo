@@ -25,9 +25,9 @@ export default function App() {
   const { imagePosition, updateImagePosition, level, expProgress, coreTaskProgress, stats } =
     useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules)
   const {
-    stages, updateStageName, updateStageAvatar, removeStageAvatar, updateStageLevel, addStage, removeStage, reorderStages,
+    stages, updateStageName, updateStageAvatar, replaceStageAvatar, removeStageAvatar, updateStageLevel, addStage, removeStage, reorderStages,
     updateStageBossName, updateStageBossAvatar,
-    startStageBossHunt, stopStageBossHunt, completeStageBossHunt,
+    startStageBossHunt, stopStageBossHunt, resetStageBossHunts, completeStageBossHunt,
     addStageBossHuntTask, toggleStageBossHuntTask, removeStageBossHuntTask, updateStageBossHuntTask,
   } = useStages()
   const {
@@ -37,6 +37,7 @@ export default function App() {
   const {
     monsters, addMonster, updateMonster, removeMonster, updateMonsterAvatar,
     startHunt, stopHunt, addHuntTask, toggleHuntTask, removeHuntTask, updateHuntTask,
+    resetMonsterHunts,
   } = useMonsters()
 
   const handlePromoteToQuest = useCallback((id, text) => {
@@ -53,6 +54,12 @@ export default function App() {
 
   const [mobileTab, setMobileTab] = useState('character')
   const [activeTab, setActiveTab] = useState('Tasks')
+
+  const handleResetLevel = useCallback((completions) => {
+    resetLifetimeCompletions(completions)
+    resetStageBossHunts()
+    resetMonsterHunts()
+  }, [resetLifetimeCompletions, resetStageBossHunts, resetMonsterHunts])
 
   // Stage progression lock: only advance if previous boss is defeated
   const currentStage = resolveCurrentStage(stages, level)
@@ -248,6 +255,7 @@ export default function App() {
               stages={stages}
               onStageName={updateStageName}
               onStageAvatar={updateStageAvatar}
+              onStageAvatarReplace={replaceStageAvatar}
               onStageAvatarRemove={removeStageAvatar}
               onStageLevel={updateStageLevel}
               onAddStage={addStage}
@@ -262,7 +270,7 @@ export default function App() {
               onRemoveSubTask={removeSubTask}
               onUpdateSubTask={updateSubTask}
               currentLevel={level}
-              onResetLevel={resetLifetimeCompletions}
+              onResetLevel={handleResetLevel}
               monsters={monsters}
               onAddMonster={addMonster}
               onUpdateMonster={updateMonster}
@@ -272,6 +280,7 @@ export default function App() {
               onStopHunt={stopHunt}
               onStartStageBossHunt={startStageBossHunt}
               onStopStageBossHunt={stopStageBossHunt}
+              onCompleteStageBossHunt={completeStageBossHunt}
               onStageBossNameChange={updateStageBossName}
               onStageBossAvatarChange={updateStageBossAvatar}
               activeHuntTarget={activeHuntTarget}

@@ -5,10 +5,62 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import defaultAvatar from '../../assets/hero.jpg'
+
+function StageAvatarThumb({ stage, src, index, onReplaceAvatar, onRemoveAvatar }) {
+  const replaceInputRef = useRef(null)
+  const openReplacePicker = () => replaceInputRef.current?.click()
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      openReplacePicker()
+    }
+  }
+
+  return (
+    <div className="relative shrink-0 group/thumb">
+      <img
+        src={src}
+        alt={`${stage.className} ${index + 1}`}
+        tabIndex={0}
+        role="button"
+        title="點兩下替換圖片"
+        onDoubleClick={openReplacePicker}
+        onKeyDown={handleKeyDown}
+        onError={(e) => {
+          if (!e.currentTarget.dataset.fallbackApplied) {
+            e.currentTarget.dataset.fallbackApplied = 'true'
+            e.currentTarget.src = defaultAvatar
+          }
+        }}
+        className="w-8 h-8 rounded-full object-cover border border-gray-200 cursor-pointer outline-none focus:ring-2 focus:ring-purple-300 focus:ring-offset-1"
+      />
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          onReplaceAvatar(stage.id, index, e.target.files?.[0])
+          e.target.value = ''
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => onRemoveAvatar(stage.id, index)}
+        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-black/70 text-white border-0 p-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity cursor-pointer"
+        title="移除此圖片"
+      >
+        <DeleteOutlineIcon sx={{ fontSize: 12 }} />
+      </button>
+    </div>
+  )
+}
 
 function StageRow({
   stage, canDelete,
-  onNameChange, onAvatarChange, onRemoveAvatar, onLevelChange, onRemove,
+  onNameChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onRemove,
   isDragOver, insertBefore,
   onDragStart, onDragOver, onDrop, onDragEnd,
 }) {
@@ -46,6 +98,12 @@ function StageRow({
             <img
               src={stage.avatarSrc}
               alt={stage.className}
+              onError={(e) => {
+                if (!e.currentTarget.dataset.fallbackApplied) {
+                  e.currentTarget.dataset.fallbackApplied = 'true'
+                  e.currentTarget.src = defaultAvatar
+                }
+              }}
               className="w-full h-full object-cover"
             />
           </div>
@@ -83,21 +141,14 @@ function StageRow({
           {avatarSrcs.length > 0 && (
             <div className="flex items-center gap-1 max-w-24 md:max-w-32 overflow-x-auto py-1">
               {avatarSrcs.map((src, index) => (
-                <div key={`${src}-${index}`} className="relative shrink-0 group/thumb">
-                  <img
-                    src={src}
-                    alt={`${stage.className} ${index + 1}`}
-                    className="w-8 h-8 rounded-full object-cover border border-gray-200"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onRemoveAvatar(stage.id, index)}
-                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-black/70 text-white border-0 p-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity cursor-pointer"
-                    title="移除此圖片"
-                  >
-                    <DeleteOutlineIcon sx={{ fontSize: 12 }} />
-                  </button>
-                </div>
+                <StageAvatarThumb
+                  key={`${src}-${index}`}
+                  stage={stage}
+                  src={src}
+                  index={index}
+                  onReplaceAvatar={onReplaceAvatar}
+                  onRemoveAvatar={onRemoveAvatar}
+                />
               ))}
             </div>
           )}
@@ -176,7 +227,7 @@ function StageRow({
   )
 }
 
-export default function StageSettings({ stages, onNameChange, onAvatarChange, onRemoveAvatar, onLevelChange, onAddStage, onRemoveStage, onReorderStages }) {
+export default function StageSettings({ stages, onNameChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onAddStage, onRemoveStage, onReorderStages }) {
   const dragId = useRef(null)
   const [dragOverId, setDragOverId] = useState(null)
   const [insertBefore, setInsertBefore] = useState(true)
@@ -222,6 +273,7 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
             canDelete={stages.length > 1}
             onNameChange={onNameChange}
             onAvatarChange={onAvatarChange}
+            onReplaceAvatar={onReplaceAvatar}
             onRemoveAvatar={onRemoveAvatar}
             onLevelChange={onLevelChange}
             onRemove={onRemoveStage}

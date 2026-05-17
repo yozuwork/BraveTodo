@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import defaultAvatar from '../assets/hero.jpg'
-import { compressImage } from '../utils/compressImage'
+import { compressImage, getCompressedImageExtension } from '../utils/compressImage'
 import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
 
 const STORAGE_KEY      = 'brave-todo:stages'
@@ -26,7 +26,7 @@ function normalizeStageImages(stage) {
     : (stage.avatar ? [stage.avatar] : [])
   return {
     ...stage,
-    avatar: avatars[0] ?? stage.avatar ?? null,
+    avatar: avatars[0] ?? null,
     avatars,
   }
 }
@@ -110,7 +110,10 @@ export default function useStages() {
   // ── Stage settings ─────────────────────────────────────────
 
   const getStageAvatar = useCallback(
-    (stage) => resolveImg(stage.avatar ?? stage.avatars?.[0]) || defaultAvatar,
+    (stage) => {
+      const avatars = Array.isArray(stage.avatars) ? stage.avatars : (stage.avatar ? [stage.avatar] : [])
+      return resolveImg(avatars[0]) || defaultAvatar
+    },
     []
   )
 
@@ -161,14 +164,35 @@ export default function useStages() {
     if (files.length === 0) return
     Promise.all(files.map(async (file, index) => {
       const dataUrl = await compressImage(file)
+      const ext = getCompressedImageExtension(file)
       const stamp = `${Date.now()}-${index}`
-      const relPath = await saveImageToDisk(dataUrl, `uploads/stages/${id}-${stamp}.jpg`)
+      const relPath = await saveImageToDisk(dataUrl, `uploads/stages/${id}-${stamp}.${ext}`)
       return relPath ? `${relPath}?t=${Date.now()}` : dataUrl
     })).then((storedImages) => {
       setStages((prev) => prev.map((s) => {
         if (s.id !== id) return s
         const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
         const avatars = [...current, ...storedImages]
+        return { ...s, avatar: avatars[0] ?? null, avatars }
+      }))
+    })
+  }, [])
+
+  const replaceStageAvatar = useCallback((id, avatarIndex, file) => {
+    if (!file || avatarIndex < 0) return
+    compressImage(file).then(async (dataUrl) => {
+      const ext = getCompressedImageExtension(file)
+      const stamp = Date.now()
+      const relPath = await saveImageToDisk(dataUrl, `uploads/stages/${id}-${stamp}.${ext}`)
+      const storedImage = relPath ? `${relPath}?t=${Date.now()}` : dataUrl
+
+      setStages((prev) => prev.map((s) => {
+        if (s.id !== id) return s
+        const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
+        if (!current[avatarIndex]) return s
+        const avatars = current.map((avatar, index) => (
+          index === avatarIndex ? storedImage : avatar
+        ))
         return { ...s, avatar: avatars[0] ?? null, avatars }
       }))
     })
@@ -195,7 +219,8 @@ export default function useStages() {
   const updateStageBossAvatar = useCallback((stageId, file) => {
     if (!file) return
     compressImage(file).then(async (dataUrl) => {
-      const relPath = await saveImageToDisk(dataUrl, `uploads/bosses/${stageId}.jpg`)
+      const ext = getCompressedImageExtension(file)
+      const relPath = await saveImageToDisk(dataUrl, `uploads/bosses/${stageId}.${ext}`)
       const stored = relPath ? `${relPath}?t=${Date.now()}` : dataUrl
       setBossHunts((prev) => ({
         ...prev,
@@ -218,6 +243,20 @@ export default function useStages() {
       ...prev,
       [stageId]: { ...(prev[stageId] ?? { huntTasks: [] }), huntStatus: null },
     }))
+  }, [])
+
+  const resetStageBossHunts = useCallback(() => {
+    setBossHunts((prev) => {
+      const next = {}
+      Object.entries(prev).forEach(([stageId, hunt]) => {
+        next[stageId] = {
+          ...hunt,
+          huntStatus: null,
+          huntTasks: (hunt.huntTasks ?? []).map((task) => ({ ...task, completed: false })),
+        }
+      })
+      return next
+    })
   }, [])
 
   // Called when all tasks are complete — locks in the defeated state
@@ -296,12 +335,13 @@ export default function useStages() {
 
   const stagesWithDefaults = stages.map((s) => {
       const boss = bossHunts[s.id] ?? {}
+      const avatars = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
       return {
         ...s,
         avatarSrc:       getStageAvatar(s),
         avatarSrcs:      getStageAvatars(s),
-        avatar:          s.avatar,
-        avatars:         Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : []),
+        avatar:          avatars[0] ?? null,
+        avatars,
         bossName:        boss.bossName   ?? DEFAULT_BOSS_NAMES[s.id] ?? `${s.className} Boss`,
         bossAvatar:      boss.bossAvatar ?? null,
         bossHuntStatus:  boss.huntStatus  ?? null,
@@ -317,11 +357,13 @@ export default function useStages() {
     removeStage,
     reorderStages,
     updateStageAvatar,
+    replaceStageAvatar,
     removeStageAvatar,
     updateStageBossName,
     updateStageBossAvatar,
     startStageBossHunt,
     stopStageBossHunt,
+    resetStageBossHunts,
     completeStageBossHunt,
     addStageBossHuntTask,
     toggleStageBossHuntTask,

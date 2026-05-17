@@ -46,7 +46,7 @@ function devPlugin() {
         try {
           const { dataUrl, path: relPath } = await parseBody(req)
           // Strip data URL header: data:image/jpeg;base64,XXXX
-          const m = dataUrl.match(/^data:image\/\w+;base64,(.+)$/)
+          const m = dataUrl.match(/^data:image\/[^;]+;base64,(.+)$/)
           if (!m) throw new Error('Invalid data URL')
           const buf = Buffer.from(m[1], 'base64')
           const dest = join(__dirname, 'public', relPath)

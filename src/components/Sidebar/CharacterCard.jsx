@@ -5,6 +5,16 @@ import OpenWithIcon from '@mui/icons-material/OpenWith'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import defaultAvatar from '../../assets/hero.jpg'
+
+function useFallbackImage() {
+  return (e) => {
+    if (!e.currentTarget.dataset.fallbackApplied) {
+      e.currentTarget.dataset.fallbackApplied = 'true'
+      e.currentTarget.src = defaultAvatar
+    }
+  }
+}
 
 export default function CharacterCard({ level, avatar, avatars, onAvatarChange, imagePosition, onImagePositionChange }) {
   const fileInputRef = useRef(null)
@@ -24,12 +34,16 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
   const [avatarVisible, setAvatarVisible] = useState(true)
   const [selectedAvatarIndex, setSelectedAvatarIndex] = useState(0)
   const effectiveAvatars = avatars?.length ? avatars : (avatar ? [avatar] : [])
+  const avatarCount = effectiveAvatars.length
   const avatarKey = effectiveAvatars.join('|')
   const displayAvatar = effectiveAvatars[selectedAvatarIndex] ?? effectiveAvatars[0] ?? null
+  const handleImageError = useFallbackImage()
 
   useEffect(() => {
-    setSelectedAvatarIndex(0)
-  }, [avatarKey])
+    setSelectedAvatarIndex((index) => (
+      index < avatarCount ? index : Math.max(0, avatarCount - 1)
+    ))
+  }, [avatarKey, avatarCount])
 
   const handleFileChange = (e) => {
     if (e.target.files?.length) {
@@ -124,6 +138,7 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
             <img
               src={displayAvatar}
               alt="Avatar"
+              onError={handleImageError}
               className={`w-full h-full object-cover select-none transition-opacity duration-300 ${avatarVisible ? 'opacity-100' : 'opacity-0'}`}
               style={{ objectPosition: `${imagePosition.x}% ${imagePosition.y}%` }}
               draggable={false}
@@ -202,6 +217,7 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
               <img
                 src={src}
                 alt={`圖片 ${index + 1}`}
+                onError={handleImageError}
                 className="w-full h-full object-cover"
                 draggable={false}
               />
