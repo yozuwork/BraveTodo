@@ -12,9 +12,13 @@ import useStages, { resolveCurrentStage } from './hooks/useStages'
 import useInbox from './hooks/useInbox'
 import useLevelingRules from './hooks/useLevelingRules'
 import useMonsters from './hooks/useMonsters'
+import useAuth from './hooks/useAuth'
 import { resolveImg } from './utils/imageSrc'
 
 export default function App() {
+  const { user, loading, signIn, logOut } = useAuth()
+  const [showUserMenu, setShowUserMenu] = useState(false)
+
   const {
     quests, addQuest, toggleQuest, updateQuest, removeQuest, togglePin, toggleCoreTask, setQuestPriority, updateQuestExp, reorderQuests, clearCompleted,
     addSubTask, toggleSubTask, removeSubTask, updateSubTask,
@@ -208,8 +212,66 @@ export default function App() {
 
   const handleLevelUpComplete = useCallback(() => setShowLevelUp(false), [])
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">載入中...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-6">
+        <h1 className="text-2xl font-bold text-gray-800">Vanguard Hub</h1>
+        <p className="text-gray-500 text-sm">請登入以繼續</p>
+        <button
+          onClick={signIn}
+          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-shadow text-sm font-medium text-gray-700"
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+          使用 Google 帳號登入
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-stone-50 relative overflow-x-hidden">
+
+      {/* 頂部 bar */}
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-12 flex items-center justify-end">
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu((v) => !v)}
+              className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors"
+            >
+              {user.photoURL
+                ? <img src={user.photoURL} alt="avatar" className="w-full h-full object-cover" />
+                : <div className="w-full h-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-bold">
+                    {user.displayName?.[0] ?? 'U'}
+                  </div>
+              }
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 top-10 bg-white border border-gray-100 rounded-xl shadow-lg py-2 min-w-[160px] z-50">
+                <div className="px-4 py-2 border-b border-gray-100">
+                  <p className="text-xs font-semibold text-gray-800 truncate">{user.displayName}</p>
+                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                </div>
+                <button
+                  onClick={() => { setShowUserMenu(false); logOut() }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  登出
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
       <div className="flex justify-center items-start p-4 md:p-10 pb-20 md:pb-10">
         <div className="w-full max-w-[1200px] flex flex-col md:flex-row gap-6 md:gap-10">
 

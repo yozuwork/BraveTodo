@@ -1,24 +1,15 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
 
-const STORAGE_KEY_QUESTS = 'brave-todo:quests'
-const STORAGE_KEY_COMPLETIONS = 'brave-todo:lifetimeCompletions'
-
-function loadJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw !== null ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
+const QUESTS_DOC = doc(db, 'meta', 'quests')
 
 const _questCompleteAudio = new Audio(coinSfxUrl)
 _questCompleteAudio.volume = 0.65
 
 function normalizeQuestExpValue(expValue) {
-  // legacy support: old "中等" used 2
   if (expValue === 2) return 3
   if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10) return expValue
   return 1
@@ -31,18 +22,30 @@ export function playQuestCompleteSound() {
 }
 
 export default function useQuests() {
-  const [quests, setQuests] = useState(() => loadJSON(STORAGE_KEY_QUESTS, []))
-  const [lifetimeCompletions, setLifetimeCompletions] = useState(
-    () => loadJSON(STORAGE_KEY_COMPLETIONS, 0)
-  )
+  const [quests, setQuests] = useState([])
+  const [lifetimeCompletions, setLifetimeCompletions] = useState(0)
+  const [loaded, setLoaded] = useState(false)
+  const skipWriteRef = useRef(true)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_QUESTS, JSON.stringify(quests))
-  }, [quests])
+    getDoc(QUESTS_DOC).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        setQuests(data.items ?? [])
+        setLifetimeCompletions(data.lifetimeCompletions ?? 0)
+      }
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_COMPLETIONS, JSON.stringify(lifetimeCompletions))
-  }, [lifetimeCompletions])
+    if (!loaded) return
+    if (skipWriteRef.current) {
+      skipWriteRef.current = false
+      return
+    }
+    setDoc(QUESTS_DOC, { items: quests, lifetimeCompletions }).catch(console.error)
+  }, [quests, lifetimeCompletions, loaded])
 
   const addQuest = useCallback((text) => {
     setQuests((prev) => [
@@ -53,7 +56,7 @@ export default function useQuests() {
         isCore: false,
         pinned: false,
         priority: 'normal',
-        huntBinding: null, // { targetType: 'monster'|'stageBoss', targetId: number, taskId: number } | null
+        huntBinding: null,
         subTasks: [],
       },
       ...prev,
@@ -149,7 +152,6 @@ export default function useQuests() {
       })
     )
     if (shouldPlay) playQuestCompleteSound()
-    // 子任務不計入 EXP，只有完成主任務才根據 expValue 給予 EXP
   }, [])
 
   const removeSubTask = useCallback((questId, subTaskId) => {
@@ -220,5 +222,6 @@ export default function useQuests() {
     lifetimeCompletions,
     resetLifetimeCompletions,
     coreTaskCompleted,
+    loaded,
   }
 }

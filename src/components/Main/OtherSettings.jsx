@@ -10,6 +10,8 @@ import FileUploadIcon from '@mui/icons-material/FileUpload'
 import VolumeUpIcon from '@mui/icons-material/VolumeUp'
 import VolumeOffIcon from '@mui/icons-material/VolumeOff'
 import { isSoundEnabled, setSoundEnabled } from '../../utils/soundSettings'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from '../../firebase'
 
 const FAVICON_KEY  = 'brave-todo:favicon'
 const TITLE_KEY    = 'brave-todo:pageTitle'
@@ -152,35 +154,33 @@ function calcCompletionsForLevel(targetLevel, rules) {
   return total
 }
 
-// ── Save keys to include in export ───────────────────────────
-const SAVE_KEYS = [
-  'brave-todo:quests',
-  'brave-todo:lifetimeCompletions',
-  'brave-todo:stages',
-  'brave-todo:stageBossHunts',
-  'brave-todo:avatar',
-  'brave-todo:imagePosition',
-  'brave-todo:inbox',
-  'brave-todo:favicon',
-  'brave-todo:pageTitle',
-  'brave-todo:monsters',
-  // NOTE: actual key is 'brave-todo:leveling-rules' (keep legacy key for backward compatibility)
+// localStorage keys that are NOT in Firestore
+const LOCAL_SAVE_KEYS = [
   'brave-todo:leveling-rules',
   'brave-todo:levelingRules',
   'brave-todo:soundEnabled',
   'characterCardSize',
+  'brave-todo:favicon',
+  'brave-todo:pageTitle',
 ]
 
-function exportSave(currentLevel) {
+const FIRESTORE_DOCS = ['quests', 'monsters', 'inbox', 'stages', 'character']
+
+async function exportSave(currentLevel) {
+  const firestoreData = {}
+  await Promise.all(
+    FIRESTORE_DOCS.map(async (name) => {
+      const snap = await getDoc(doc(db, 'meta', name))
+      if (snap.exists()) firestoreData[name] = snap.data()
+    })
+  )
   const save = {
-    _version: 1,
+    _version: 2,
     _exportedAt: new Date().toISOString(),
-    _snapshot: {
-      level: currentLevel,
-      lifetimeCompletions: localStorage.getItem('brave-todo:lifetimeCompletions'),
-    },
+    _snapshot: { level: currentLevel },
+    firestore: firestoreData,
   }
-  for (const key of SAVE_KEYS) {
+  for (const key of LOCAL_SAVE_KEYS) {
     const val = localStorage.getItem(key)
     if (val !== null) save[key] = val
   }
@@ -246,14 +246,49 @@ export default function OtherSettings({ currentLevel, levelingRules, onResetLeve
   const handleImport = (file) => {
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const save = JSON.parse(e.target.result)
         if (typeof save !== 'object' || Array.isArray(save)) throw new Error('格式錯誤')
-        for (const [key, val] of Object.entries(save)) {
-          if (key.startsWith('_')) continue  // skip metadata fields
-          if (typeof val === 'string') localStorage.setItem(key, val)
+
+        if (save._version === 2 && save.firestore) {
+          // 新格式：寫入 Firestore
+          await Promise.all(
+            Object.entries(save.firestore).map(([name, data]) =>
+              setDoc(doc(db, 'meta', name), data)
+            )
+          )
+          for (const [key, val] of Object.entries(save)) {
+            if (key.startsWith('_') || key === 'firestore') continue
+            if (typeof val === 'string') localStorage.setItem(key, val)
+          }
+        } else {
+          // 舊格式（v1）：轉換 localStorage 資料寫入 Firestore
+          const parse = (key) => { try { return JSON.parse(save[key]) } catch { return null } }
+
+          const quests = parse('brave-todo:quests') ?? []
+          const lifetimeCompletions = Number(save['brave-todo:lifetimeCompletions']) || 0
+          const monsters = parse('brave-todo:monsters') ?? []
+          const inbox = parse('brave-todo:inbox') ?? []
+          const stageItems = parse('brave-todo:stages') ?? []
+          const bossHunts = parse('brave-todo:stageBossHunts') ?? {}
+          const avatar = save['brave-todo:avatar'] ?? null
+          const imagePosition = parse('brave-todo:imagePosition') ?? { x: 50, y: 50 }
+
+          await Promise.all([
+            setDoc(doc(db, 'meta', 'quests'),    { items: quests, lifetimeCompletions }),
+            setDoc(doc(db, 'meta', 'monsters'),  { items: monsters }),
+            setDoc(doc(db, 'meta', 'inbox'),     { items: inbox }),
+            setDoc(doc(db, 'meta', 'stages'),    { items: stageItems, bossHunts }),
+            setDoc(doc(db, 'meta', 'character'), { avatar, imagePosition }),
+          ])
+
+          // 保留 localStorage 設定類資料
+          for (const key of LOCAL_SAVE_KEYS) {
+            if (save[key] != null) localStorage.setItem(key, save[key])
+          }
         }
+
         setImportStatus('success')
         setTimeout(() => window.location.reload(), 800)
       } catch (err) {

@@ -1,22 +1,31 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 
-const STORAGE_KEY = 'brave-todo:inbox'
-
-function loadJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw !== null ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
+const INBOX_DOC = doc(db, 'meta', 'inbox')
 
 export default function useInbox() {
-  const [inboxItems, setInboxItems] = useState(() => loadJSON(STORAGE_KEY, []))
+  const [inboxItems, setInboxItems] = useState([])
+  const [loaded, setLoaded] = useState(false)
+  const skipWriteRef = useRef(true)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(inboxItems))
-  }, [inboxItems])
+    getDoc(INBOX_DOC).then((snap) => {
+      if (snap.exists()) {
+        setInboxItems(snap.data().items ?? [])
+      }
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [])
+
+  useEffect(() => {
+    if (!loaded) return
+    if (skipWriteRef.current) {
+      skipWriteRef.current = false
+      return
+    }
+    setDoc(INBOX_DOC, { items: inboxItems }).catch(console.error)
+  }, [inboxItems, loaded])
 
   const addInboxItem = useCallback((text, subTasks = []) => {
     setInboxItems((prev) => [
@@ -102,5 +111,6 @@ export default function useInbox() {
     toggleInboxSubTask,
     removeInboxSubTask,
     updateInboxSubTask,
+    loaded,
   }
 }

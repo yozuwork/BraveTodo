@@ -1,21 +1,12 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import defaultAvatar from '../assets/hero.jpg'
 import { compressImage } from '../utils/compressImage'
-import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 import levelUpSfxUrl from '../assets/music/Key Item Get (The Legend of Zelda Breath of the Wild OST).mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
 
-const STORAGE_KEY_AVATAR = 'brave-todo:avatar'
-const STORAGE_KEY_IMG_POS = 'brave-todo:imagePosition'
-
-function loadJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw !== null ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
-  }
-}
+const CHARACTER_DOC = doc(db, 'meta', 'character')
 
 function playLevelUpSound() {
   if (!isSoundEnabled()) return
@@ -47,22 +38,32 @@ function calcLevelInfo(lifetimeCompletions, rules) {
 }
 
 export default function useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules) {
-  const [avatar, setAvatar] = useState(
-    () => localStorage.getItem(STORAGE_KEY_AVATAR) || defaultAvatar
-  )
+  const [avatar, setAvatar] = useState(defaultAvatar)
   const [isEditMode, setIsEditMode] = useState(false)
-  const [imagePosition, setImagePosition] = useState(
-    () => loadJSON(STORAGE_KEY_IMG_POS, { x: 50, y: 50 })
-  )
+  const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 })
+  const [loaded, setLoaded] = useState(false)
+  const skipWriteRef = useRef(true)
   const prevLevelRef = useRef(null)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_AVATAR, avatar)
-  }, [avatar])
+    getDoc(CHARACTER_DOC).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        if (data.avatar) setAvatar(data.avatar)
+        if (data.imagePosition) setImagePosition(data.imagePosition)
+      }
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_IMG_POS, JSON.stringify(imagePosition))
-  }, [imagePosition])
+    if (!loaded) return
+    if (skipWriteRef.current) {
+      skipWriteRef.current = false
+      return
+    }
+    setDoc(CHARACTER_DOC, { avatar, imagePosition }).catch(console.error)
+  }, [avatar, imagePosition, loaded])
 
   const toggleEditMode = useCallback(() => {
     setIsEditMode((prev) => !prev)
@@ -70,10 +71,8 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
 
   const updateAvatar = useCallback((file) => {
     if (!file) return
-    compressImage(file).then(async (dataUrl) => {
-      const relPath = await saveImageToDisk(dataUrl, 'uploads/character/avatar.jpg')
-      const stored = relPath ? `${relPath}?t=${Date.now()}` : dataUrl
-      setAvatar(stored)
+    compressImage(file).then((dataUrl) => {
+      setAvatar(dataUrl)
     })
   }, [])
 

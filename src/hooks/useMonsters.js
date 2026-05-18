@@ -1,8 +1,10 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
-import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
+import { saveImageToDisk } from '../utils/imageSrc'
 
-const STORAGE_KEY = 'brave-todo:monsters'
+const MONSTERS_DOC = doc(db, 'meta', 'monsters')
 
 export const MONSTER_TYPES = ['minion', 'elite', 'boss', 'final_boss']
 
@@ -21,29 +23,40 @@ const DEFAULT_MONSTERS = [
   { id: 5, name: '魔王',       recommendedLevel: 250, type: 'final_boss', avatar: null, cardW: 180, cardH: 280, huntStatus: null, huntTasks: [] },
 ]
 
-function loadMonsters() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_MONSTERS
-    const saved = JSON.parse(raw)
-    // merge saved data onto defaults shape (in case new fields added)
-    return saved.map((m) => ({
-      ...DEFAULT_MONSTERS[0],
-      huntStatus: null,
-      huntTasks: [],
-      ...m,
-    }))
-  } catch {
-    return DEFAULT_MONSTERS
-  }
-}
-
 export default function useMonsters() {
-  const [monsters, setMonsters] = useState(loadMonsters)
+  const [monsters, setMonsters] = useState(DEFAULT_MONSTERS)
+  const [loaded, setLoaded] = useState(false)
+  const skipWriteRef = useRef(true)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(monsters))
-  }, [monsters])
+    getDoc(MONSTERS_DOC).then((snap) => {
+      if (snap.exists()) {
+        const data = snap.data()
+        const saved = data.items ?? []
+        setMonsters(saved.map((m) => ({
+          ...DEFAULT_MONSTERS[0],
+          huntStatus: null,
+          huntTasks: [],
+          ...m,
+        })))
+      } else {
+        setMonsters(DEFAULT_MONSTERS)
+      }
+      setLoaded(true)
+    }).catch(() => {
+      setMonsters(DEFAULT_MONSTERS)
+      setLoaded(true)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!loaded) return
+    if (skipWriteRef.current) {
+      skipWriteRef.current = false
+      return
+    }
+    setDoc(MONSTERS_DOC, { items: monsters }).catch(console.error)
+  }, [monsters, loaded])
 
   const addMonster = useCallback(() => {
     setMonsters((prev) => [
@@ -78,8 +91,6 @@ export default function useMonsters() {
       setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: stored } : m)))
     })
   }, [])
-
-  // ── Hunt management ──────────────────────────────────────────────
 
   const startHunt = useCallback((id) => {
     setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, huntStatus: 'hunting' } : m)))
@@ -157,5 +168,6 @@ export default function useMonsters() {
     toggleHuntTask,
     removeHuntTask,
     updateHuntTask,
+    loaded,
   }
 }
