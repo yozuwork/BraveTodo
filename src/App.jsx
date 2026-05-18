@@ -15,8 +15,7 @@ import useMonsters from './hooks/useMonsters'
 import useAuth from './hooks/useAuth'
 import { resolveImg } from './utils/imageSrc'
 
-export default function App() {
-  const { user, loading, signIn, logOut } = useAuth()
+function MainApp({ user, logOut }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
 
   const {
@@ -58,10 +57,8 @@ export default function App() {
   const [mobileTab, setMobileTab] = useState('character')
   const [activeTab, setActiveTab] = useState('Tasks')
 
-  // Stage progression lock: only advance if previous boss is defeated
   const currentStage = resolveCurrentStage(stages, level)
 
-  // Unified active hunt target
   const activeStageBoss = stages.find((s) => s.bossHuntStatus === 'hunting') ?? null
   const activeMonster   = monsters.find((m) => m.huntStatus === 'hunting') ?? null
 
@@ -159,7 +156,6 @@ export default function App() {
     setQuestCompleted(questId, false)
   }, [quests, activeHuntTarget, addStageBossHuntTask, addHuntTask, bindQuestToHuntTask, setQuestCompleted])
 
-  // Hunt task handlers — routed to the right hook
   const huntTaskHandlers = activeHuntTarget?._type === 'stageBoss'
     ? {
         onAddHuntTask:    (_, text)         => addStageBossHuntTask(activeHuntTarget.id, text),
@@ -199,7 +195,6 @@ export default function App() {
         onCompleteHunt:   null,
       }
 
-  // Level-up effect
   const [showLevelUp, setShowLevelUp] = useState(false)
   const prevLevelRef = useRef(null)
 
@@ -211,30 +206,6 @@ export default function App() {
   }, [level])
 
   const handleLevelUpComplete = useCallback(() => setShowLevelUp(false), [])
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <div className="text-gray-400 text-sm">載入中...</div>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-6">
-        <h1 className="text-2xl font-bold text-gray-800">Vanguard Hub</h1>
-        <p className="text-gray-500 text-sm">請登入以繼續</p>
-        <button
-          onClick={signIn}
-          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-shadow text-sm font-medium text-gray-700"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-          使用 Google 帳號登入
-        </button>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-stone-50 relative overflow-x-hidden">
@@ -375,16 +346,39 @@ export default function App() {
           <FormatListBulletedIcon fontSize="small" />
           <span className="text-[0.65rem] font-semibold">任務</span>
         </button>
-        <button
-          onClick={() => setMobileTab('quests')}
-          className="hidden"
-        >
-          <FormatListBulletedIcon fontSize="small" />
-          <span className="text-[0.65rem] font-semibold">編輯</span>
-        </button>
       </nav>
 
       <LevelUpEffect visible={showLevelUp} onComplete={handleLevelUpComplete} />
     </div>
   )
+}
+
+export default function App() {
+  const { user, loading, signIn, logOut } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-gray-400 text-sm">載入中...</div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-6">
+        <h1 className="text-2xl font-bold text-gray-800">Vanguard Hub</h1>
+        <p className="text-gray-500 text-sm">請登入以繼續</p>
+        <button
+          onClick={signIn}
+          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-shadow text-sm font-medium text-gray-700"
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+          使用 Google 帳號登入
+        </button>
+      </div>
+    )
+  }
+
+  return <MainApp user={user} logOut={logOut} />
 }
