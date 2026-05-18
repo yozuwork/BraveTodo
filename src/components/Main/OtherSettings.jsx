@@ -164,7 +164,7 @@ const LOCAL_SAVE_KEYS = [
   'brave-todo:pageTitle',
 ]
 
-const FIRESTORE_DOCS = ['quests', 'monsters', 'inbox', 'stages', 'character']
+const FIRESTORE_DOCS = ['quests', 'monsters', 'inbox', 'stages', 'character', 'levelingRules']
 
 async function exportSave(currentLevel) {
   const firestoreData = {}

@@ -1,6 +1,8 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { db } from '../firebase'
 
-const STORAGE_KEY = 'brave-todo:leveling-rules'
+const RULES_DOC = doc(db, 'meta', 'levelingRules')
 
 export const DEFAULT_RULES = [
   { id: 1, minLevel: 1,   maxLevel: 10,  expPerLevel: 3 },
@@ -11,27 +13,33 @@ export const DEFAULT_RULES = [
   { id: 6, minLevel: 180, maxLevel: 250, expPerLevel: 3 },
 ]
 
-function loadRules() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_RULES
-    const saved = JSON.parse(raw)
-    return DEFAULT_RULES.map((def) => {
-      const s = saved.find((x) => x.id === def.id)
-      return s ? { ...def, expPerLevel: Math.max(1, s.expPerLevel) } : def
-    })
-  } catch {
-    return DEFAULT_RULES
-  }
-}
-
 export default function useLevelingRules() {
-  const [rules, setRules] = useState(loadRules)
+  const [rules, setRules] = useState(DEFAULT_RULES)
+  const [loaded, setLoaded] = useState(false)
+  const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    getDoc(RULES_DOC).then((snap) => {
+      if (snap.exists()) {
+        const saved = snap.data().items ?? []
+        setRules(DEFAULT_RULES.map((def) => {
+          const s = saved.find((x) => x.id === def.id)
+          return s ? { ...def, expPerLevel: Math.max(1, s.expPerLevel) } : def
+        }))
+      }
+      setLoaded(true)
+    }).catch(() => setLoaded(true))
+  }, [])
+
+  useEffect(() => {
+    if (!loaded) return
+    if (skipWriteRef.current) {
+      skipWriteRef.current = false
+      return
+    }
     const toSave = rules.map(({ id, expPerLevel }) => ({ id, expPerLevel }))
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
-  }, [rules])
+    setDoc(RULES_DOC, { items: toSave }).catch(console.error)
+  }, [rules, loaded])
 
   const updateExpPerLevel = useCallback((id, value) => {
     const parsed = parseInt(value, 10)
