@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Routes, Route, Navigate, NavLink, Outlet } from "react-router-dom";
 import PersonIcon from "@mui/icons-material/Person";
 import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
 import CharacterCard from "./components/Sidebar/CharacterCard";
@@ -14,9 +15,9 @@ import useLevelingRules from "./hooks/useLevelingRules";
 import useMonsters from "./hooks/useMonsters";
 import useAuth from "./hooks/useAuth";
 import { resolveImg } from "./utils/imageSrc";
+import WorldGallery from "./pages/WorldGallery";
 
-function MainApp({ user, logOut }) {
-  const [showUserMenu, setShowUserMenu] = useState(false);
+function MainApp() {
 
   const {
     quests,
@@ -362,50 +363,7 @@ function MainApp({ user, logOut }) {
   const handleLevelUpComplete = useCallback(() => setShowLevelUp(false), []);
 
   return (
-    <div className="min-h-screen bg-stone-50 relative overflow-x-hidden">
-      {/* 頂部 bar */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-12 flex items-center justify-end">
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu((v) => !v)}
-              className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors"
-            >
-              {user.photoURL ? (
-                <img
-                  src={user.photoURL}
-                  alt="avatar"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-bold">
-                  {user.displayName?.[0] ?? "U"}
-                </div>
-              )}
-            </button>
-            {showUserMenu && (
-              <div className="absolute right-0 top-10 bg-white border border-gray-100 rounded-xl shadow-lg py-2 min-w-[160px] z-50">
-                <div className="px-4 py-2 border-b border-gray-100">
-                  <p className="text-xs font-semibold text-gray-800 truncate">
-                    {user.displayName}
-                  </p>
-                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowUserMenu(false);
-                    logOut();
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  登出
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </header>
-
+    <>
       <div className="flex justify-center items-start p-4 md:p-10 pb-20 md:pb-10">
         <div className="w-full max-w-[1200px] flex flex-col md:flex-row gap-6 md:gap-10">
           {/* Sidebar */}
@@ -530,8 +488,71 @@ function MainApp({ user, logOut }) {
       </nav>
 
       <LevelUpEffect visible={showLevelUp} onComplete={handleLevelUpComplete} />
-    </div>
+    </>
   );
+}
+
+// ── Shared layout with header ─────────────────────────────────
+const navLinkClass = ({ isActive }) =>
+  `px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+    isActive
+      ? 'text-purple-600 bg-purple-50'
+      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+  }`
+
+function Layout({ user, signIn, logOut }) {
+  const [showUserMenu, setShowUserMenu] = useState(false)
+
+  return (
+    <div className="min-h-screen bg-stone-50 relative overflow-x-hidden">
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+        <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-12 flex items-center justify-between">
+          <nav className="flex items-center gap-1">
+            <NavLink to="/work" className={navLinkClass}>工作</NavLink>
+            <NavLink to="/gallery" className={navLinkClass}>世界圖庫</NavLink>
+          </nav>
+          <div className="relative">
+            <button
+              onClick={() => setShowUserMenu((v) => !v)}
+              className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors"
+            >
+              {user.photoURL ? (
+                <img src={user.photoURL} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-bold">
+                  {user.displayName?.[0] ?? "U"}
+                </div>
+              )}
+            </button>
+            {showUserMenu && (
+              <div className="absolute right-0 top-10 bg-white border border-gray-100 rounded-xl shadow-lg py-2 min-w-[160px] z-50">
+                <div className="px-4 py-2 border-b border-gray-100">
+                  <p className="text-xs font-semibold text-gray-800 truncate">{user.displayName}</p>
+                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowUserMenu(false)
+                    signIn({ selectAccount: true })
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                >
+                  登入其他 Google 帳號
+                </button>
+                <button
+                  onClick={() => { setShowUserMenu(false); logOut() }}
+                  className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  登出
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+      <Outlet />
+    </div>
+  )
 }
 
 export default function App() {
@@ -565,5 +586,13 @@ export default function App() {
     );
   }
 
-  return <MainApp user={user} logOut={logOut} />;
+  return (
+    <Routes>
+      <Route element={<Layout user={user} signIn={signIn} logOut={logOut} />}>
+        <Route path="/work" element={<MainApp />} />
+        <Route path="/gallery" element={<WorldGallery />} />
+      </Route>
+      <Route path="*" element={<Navigate to="/work" replace />} />
+    </Routes>
+  );
 }

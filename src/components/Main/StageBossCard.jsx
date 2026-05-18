@@ -2,7 +2,9 @@ import { useRef, useState, useEffect } from 'react'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
+import CollectionsIcon from '@mui/icons-material/Collections'
 import { resolveImg } from '../../utils/imageSrc'
+import GalleryImagePicker from '../common/GalleryImagePicker'
 
 const STAGE_COLORS = ['#a855f7', '#3b82f6', '#f97316', '#ef4444', '#10b981', '#f59e0b']
 
@@ -37,6 +39,7 @@ export default function StageBossCard({
 
   const [editingName, setEditingName] = useState(false)
   const [nameDraft,   setNameDraft]   = useState(bossName)
+  const [galleryOpen, setGalleryOpen] = useState(false)
   const nameInputRef  = useRef(null)
   const fileInputRef  = useRef(null)
 
@@ -135,14 +138,22 @@ export default function StageBossCard({
         )}
 
         {/* Edit-mode camera overlay */}
-        {bossAvatar && (
+        <div className="absolute bottom-2 right-2 flex gap-1 z-10">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20 z-10"
+            className="w-6 h-6 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20"
+            title="本地上傳"
           >
             <PhotoCameraIcon sx={{ fontSize: 13, color: 'white' }} />
           </button>
-        )}
+          <button
+            onClick={() => setGalleryOpen(true)}
+            className="w-6 h-6 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20"
+            title="從世界圖庫選擇"
+          >
+            <CollectionsIcon sx={{ fontSize: 13, color: 'white' }} />
+          </button>
+        </div>
 
         {/* Hunting glow overlay */}
         {isHunting && (
@@ -269,6 +280,12 @@ export default function StageBossCard({
         accept="image/*"
         className="hidden"
         onChange={(e) => { onBossAvatarChange(id, e.target.files[0]); e.target.value = '' }}
+      />
+      <GalleryImagePicker
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        initialTab="monster"
+        onSelect={(src) => onBossAvatarChange(id, src)}
       />
     </div>
   )

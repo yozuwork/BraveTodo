@@ -9,9 +9,12 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import FileUploadIcon from "@mui/icons-material/FileUpload";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import VolumeOffIcon from "@mui/icons-material/VolumeOff";
+import CollectionsIcon from "@mui/icons-material/Collections";
 import { isSoundEnabled, setSoundEnabled } from "../../utils/soundSettings";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase";
+import GalleryImagePicker from "../common/GalleryImagePicker";
+import { resolveImg } from "../../utils/imageSrc";
 
 const FAVICON_KEY = "brave-todo:favicon";
 const TITLE_KEY = "brave-todo:pageTitle";
@@ -81,6 +84,25 @@ function fileToFaviconPng(file) {
   });
 }
 
+function imageSrcToFaviconPng(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onerror = reject;
+    img.onload = () => {
+      const size = Math.min(img.width, img.height, 256);
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const sx = (img.width - size) / 2;
+      const sy = (img.height - size) / 2;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, size, size);
+      resolve(canvas.toDataURL("image/png"));
+    };
+    img.src = resolveImg(src);
+  });
+}
+
 function useFavicon() {
   const [faviconUrl, setFaviconUrl] = useState(
     () => localStorage.getItem(FAVICON_KEY) || null,
@@ -107,6 +129,16 @@ function useFavicon() {
   const uploadFavicon = async (file) => {
     if (!file) return;
     const dataUrl = await fileToFaviconPng(file);
+    await saveFaviconDataUrl(dataUrl);
+  };
+
+  const uploadFaviconFromGallery = async (src) => {
+    if (!src) return;
+    const dataUrl = await imageSrcToFaviconPng(src);
+    await saveFaviconDataUrl(dataUrl);
+  };
+
+  const saveFaviconDataUrl = async (dataUrl) => {
     setFaviconUrl(dataUrl);
     setSavedToDisk(false);
 
@@ -146,7 +178,7 @@ function useFavicon() {
     }
   };
 
-  return { faviconUrl, uploadFavicon, resetFavicon, savedToDisk };
+  return { faviconUrl, uploadFavicon, uploadFaviconFromGallery, resetFavicon, savedToDisk };
 }
 
 // 根據升級規則計算到達指定等級起點所需的累計經驗數
@@ -262,10 +294,12 @@ export default function OtherSettings({
   const {
     faviconUrl,
     uploadFavicon,
+    uploadFaviconFromGallery,
     resetFavicon,
     savedToDisk: faviconSaved,
   } = useFavicon();
   const faviconInputRef = useRef(null);
+  const [faviconGalleryOpen, setFaviconGalleryOpen] = useState(false);
   const {
     title: pageTitle,
     saveTitle,
@@ -449,6 +483,23 @@ export default function OtherSettings({
               >
                 上傳圖示
               </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<CollectionsIcon />}
+                onClick={() => setFaviconGalleryOpen(true)}
+                sx={{
+                  borderColor: "#a855f7",
+                  color: "#a855f7",
+                  borderRadius: 99,
+                  fontWeight: 600,
+                  fontSize: "0.75rem",
+                  textTransform: "none",
+                  "&:hover": { borderColor: "#9333ea", bgcolor: "#faf5ff" },
+                }}
+              >
+                從圖庫選擇
+              </Button>
               {faviconUrl && (
                 <Button
                   variant="text"
@@ -488,6 +539,12 @@ export default function OtherSettings({
             uploadFavicon(e.target.files[0]);
             e.target.value = "";
           }}
+        />
+        <GalleryImagePicker
+          open={faviconGalleryOpen}
+          onClose={() => setFaviconGalleryOpen(false)}
+          initialTab="character"
+          onSelect={uploadFaviconFromGallery}
         />
       </div>
 

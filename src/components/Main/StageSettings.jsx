@@ -9,7 +9,9 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import CollectionsIcon from '@mui/icons-material/Collections'
 import defaultAvatar from '../../assets/hero.jpg'
+import GalleryImagePicker from '../common/GalleryImagePicker'
 
 
 // ── Mobile edit modal ────────────────────────────────────────
@@ -21,6 +23,7 @@ function StageEditModal({
   const fileInputRef = useRef(null)
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [localPositions, setLocalPositions] = useState(stage?.avatarPositions ?? [])
+  const [galleryOpen, setGalleryOpen] = useState(false)
   const modalDragRef = useRef(null)
 
   useEffect(() => {
@@ -155,8 +158,17 @@ function StageEditModal({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="shrink-0 w-14 h-14 rounded-lg border-2 border-dashed border-purple-200 flex items-center justify-center text-purple-400 hover:border-purple-400 hover:bg-purple-50 transition-colors cursor-pointer bg-transparent"
+                title="本地上傳"
               >
                 <AddIcon sx={{ fontSize: 22 }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setGalleryOpen(true)}
+                className="shrink-0 w-14 h-14 rounded-lg border-2 border-dashed border-purple-200 flex items-center justify-center text-purple-400 hover:border-purple-400 hover:bg-purple-50 transition-colors cursor-pointer bg-transparent"
+                title="從世界圖庫選擇"
+              >
+                <CollectionsIcon sx={{ fontSize: 21 }} />
               </button>
             </div>
 
@@ -170,6 +182,13 @@ function StageEditModal({
                 onAvatarChange(stage.id, e.target.files)
                 e.target.value = ''
               }}
+            />
+            <GalleryImagePicker
+              open={galleryOpen}
+              onClose={() => setGalleryOpen(false)}
+              initialTab="character"
+              multiple
+              onSelect={(srcs) => onAvatarChange(stage.id, srcs)}
             />
           </div>
 
@@ -449,6 +468,7 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
         onReplaceAvatar={onReplaceAvatar}
         onRemoveAvatar={onRemoveAvatar}
         onLevelChange={onLevelChange}
+        onPositionChange={onPositionChange}
       />
     </div>
   )

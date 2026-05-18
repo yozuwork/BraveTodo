@@ -5,7 +5,9 @@ import OpenWithIcon from '@mui/icons-material/OpenWith'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import VisibilityIcon from '@mui/icons-material/Visibility'
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
+import CollectionsIcon from '@mui/icons-material/Collections'
 import defaultAvatar from '../../assets/hero.jpg'
+import GalleryImagePicker from '../common/GalleryImagePicker'
 
 function useFallbackImage() {
   return (e) => {
@@ -33,6 +35,7 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
   })
   const [avatarVisible, setAvatarVisible] = useState(true)
   const [selectedAvatarIndex, setSelectedAvatarIndex] = useState(0)
+  const [galleryOpen, setGalleryOpen] = useState(false)
   const effectiveAvatars = avatars?.length ? avatars : (avatar ? [avatar] : [])
   const avatarCount = effectiveAvatars.length
   const avatarKey = effectiveAvatars.join('|')
@@ -191,6 +194,14 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
             : <VisibilityOffIcon sx={{ color: 'rgba(255,255,255,0.75)', fontSize: 16 }} />
           }
         </button>
+        <button
+          className="absolute bottom-2 left-10 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/75 transition-colors z-10"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); setGalleryOpen(true) }}
+          title="從世界圖庫選擇"
+        >
+          <CollectionsIcon sx={{ color: 'rgba(255,255,255,0.75)', fontSize: 15 }} />
+        </button>
 
         <div
           className="absolute bottom-0 right-0 w-6 h-6 flex items-center justify-center cursor-se-resize z-10"
@@ -233,6 +244,13 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
         multiple
         className="hidden"
         onChange={handleFileChange}
+      />
+      <GalleryImagePicker
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        initialTab="character"
+        multiple
+        onSelect={(srcs) => onAvatarChange(srcs)}
       />
     </div>
   )

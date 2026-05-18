@@ -130,13 +130,16 @@ export default function useStages() {
   }, [])
 
   const updateStageAvatar = useCallback((id, filesLike) => {
-    const files = Array.from(filesLike?.length !== undefined ? filesLike : [filesLike]).filter(Boolean)
-    if (files.length === 0) return
+    const items = Array.from(filesLike?.length !== undefined && typeof filesLike !== 'string' ? filesLike : [filesLike]).filter(Boolean)
+    if (items.length === 0) return
+    const imageValues = items.filter((item) => typeof item === 'string')
+    const files = items.filter((item) => typeof item !== 'string')
     Promise.all(files.map((file) => compressImage(file))).then((dataUrls) => {
+      const nextImages = [...imageValues, ...dataUrls]
       setStages((prev) => prev.map((s) => {
         if (s.id !== id) return s
         const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
-        const avatars = [...current, ...dataUrls]
+        const avatars = [...current, ...nextImages]
         return { ...s, avatar: avatars[0] ?? null, avatars }
       }))
     })
@@ -144,6 +147,16 @@ export default function useStages() {
 
   const replaceStageAvatar = useCallback((id, avatarIndex, file) => {
     if (!file || avatarIndex < 0) return
+    if (typeof file === 'string') {
+      setStages((prev) => prev.map((s) => {
+        if (s.id !== id) return s
+        const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
+        if (!current[avatarIndex]) return s
+        const avatars = current.map((a, i) => i === avatarIndex ? file : a)
+        return { ...s, avatar: avatars[0] ?? null, avatars }
+      }))
+      return
+    }
     compressImage(file).then((dataUrl) => {
       setStages((prev) => prev.map((s) => {
         if (s.id !== id) return s
@@ -173,6 +186,13 @@ export default function useStages() {
 
   const updateStageBossAvatar = useCallback((stageId, file) => {
     if (!file) return
+    if (typeof file === 'string') {
+      setBossHunts((prev) => ({
+        ...prev,
+        [stageId]: { ...(prev[stageId] ?? { huntStatus: null, huntTasks: [] }), bossAvatar: file },
+      }))
+      return
+    }
     compressImage(file).then((dataUrl) => {
       setBossHunts((prev) => ({
         ...prev,

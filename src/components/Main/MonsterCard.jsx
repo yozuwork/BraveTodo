@@ -2,8 +2,10 @@ import { useRef, useState, useEffect } from 'react'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
+import CollectionsIcon from '@mui/icons-material/Collections'
 import { MONSTER_TYPES, TYPE_CONFIG } from '../../hooks/useMonsters'
 import { resolveImg } from '../../utils/imageSrc'
+import GalleryImagePicker from '../common/GalleryImagePicker'
 
 const MIN_CARD_W = 130
 const MAX_CARD_W = 420
@@ -21,6 +23,7 @@ export default function MonsterCard({
   const [editingLevel, setEditingLevel] = useState(false)
   const [nameDraft, setNameDraft] = useState(name)
   const [levelDraft, setLevelDraft] = useState(String(recommendedLevel))
+  const [galleryOpen, setGalleryOpen] = useState(false)
 
   const fileInputRef = useRef(null)
   const nameInputRef = useRef(null)
@@ -160,8 +163,16 @@ export default function MonsterCard({
             <button
               onClick={() => fileInputRef.current?.click()}
               className="w-7 h-7 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20"
+              title="本地上傳"
             >
               <PhotoCameraIcon sx={{ fontSize: 14, color: 'white' }} />
+            </button>
+            <button
+              onClick={() => setGalleryOpen(true)}
+              className="w-7 h-7 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20"
+              title="從世界圖庫選擇"
+            >
+              <CollectionsIcon sx={{ fontSize: 14, color: 'white' }} />
             </button>
             <button
               onClick={() => onRemove(id)}
@@ -263,6 +274,12 @@ export default function MonsterCard({
         accept="image/*"
         className="hidden"
         onChange={(e) => { onAvatarChange(id, e.target.files[0]); e.target.value = '' }}
+      />
+      <GalleryImagePicker
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        initialTab="monster"
+        onSelect={(src) => onAvatarChange(id, src)}
       />
     </div>
   )

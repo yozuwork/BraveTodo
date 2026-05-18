@@ -84,6 +84,10 @@ export default function useMonsters() {
 
   const updateMonsterAvatar = useCallback((id, file) => {
     if (!file) return
+    if (typeof file === 'string') {
+      setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: file } : m)))
+      return
+    }
     compressImage(file).then((dataUrl) => {
       setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: dataUrl } : m)))
     })

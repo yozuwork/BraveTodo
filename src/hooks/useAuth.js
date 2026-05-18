@@ -2,7 +2,13 @@ import { useState, useEffect } from 'react'
 import { onAuthStateChanged, signInWithPopup, signOut, GoogleAuthProvider } from 'firebase/auth'
 import { auth } from '../firebase'
 
-const provider = new GoogleAuthProvider()
+function createGoogleProvider({ selectAccount = false } = {}) {
+  const provider = new GoogleAuthProvider()
+  if (selectAccount) {
+    provider.setCustomParameters({ prompt: 'select_account' })
+  }
+  return provider
+}
 
 export default function useAuth() {
   const [user, setUser] = useState(null)
@@ -16,7 +22,7 @@ export default function useAuth() {
     return unsub
   }, [])
 
-  const signIn = () => signInWithPopup(auth, provider)
+  const signIn = (options) => signInWithPopup(auth, createGoogleProvider(options))
   const logOut = () => signOut(auth)
 
   return { user, loading, signIn, logOut }

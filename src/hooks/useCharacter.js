@@ -71,6 +71,10 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
 
   const updateAvatar = useCallback((file) => {
     if (!file) return
+    if (typeof file === 'string') {
+      setAvatar(file)
+      return
+    }
     compressImage(file).then((dataUrl) => {
       setAvatar(dataUrl)
     })
