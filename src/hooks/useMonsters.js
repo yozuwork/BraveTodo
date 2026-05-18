@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
-import { saveImageToDisk } from '../utils/imageSrc'
 
 const MONSTERS_DOC = doc(db, 'meta', 'monsters')
 
@@ -85,10 +84,8 @@ export default function useMonsters() {
 
   const updateMonsterAvatar = useCallback((id, file) => {
     if (!file) return
-    compressImage(file).then(async (dataUrl) => {
-      const relPath = await saveImageToDisk(dataUrl, `uploads/monsters/${id}.jpg`)
-      const stored = relPath ?? dataUrl
-      setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: stored } : m)))
+    compressImage(file).then((dataUrl) => {
+      setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, avatar: dataUrl } : m)))
     })
   }, [])
 
@@ -100,6 +97,14 @@ export default function useMonsters() {
     setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, huntStatus: null } : m)))
   }, [])
 
+  const resetMonsterHunts = useCallback(() => {
+    setMonsters((prev) => prev.map((m) => ({
+      ...m,
+      huntStatus: null,
+      huntTasks: (m.huntTasks ?? []).map((task) => ({ ...task, completed: false })),
+    })))
+  }, [])
+
   const addHuntTask = useCallback((monsterId, text, taskId = Date.now()) => {
     setMonsters((prev) =>
       prev.map((m) => {
@@ -107,10 +112,7 @@ export default function useMonsters() {
         if (m.huntTasks.length >= 10) return m
         return {
           ...m,
-          huntTasks: [
-            ...m.huntTasks,
-            { id: taskId, text, completed: false },
-          ],
+          huntTasks: [...m.huntTasks, { id: taskId, text, completed: false }],
         }
       })
     )
@@ -122,9 +124,7 @@ export default function useMonsters() {
         if (m.id !== monsterId) return m
         return {
           ...m,
-          huntTasks: m.huntTasks.map((t) =>
-            t.id === taskId ? { ...t, completed: !t.completed } : t
-          ),
+          huntTasks: m.huntTasks.map((t) => t.id === taskId ? { ...t, completed: !t.completed } : t),
         }
       })
     )
@@ -134,10 +134,7 @@ export default function useMonsters() {
     setMonsters((prev) =>
       prev.map((m) => {
         if (m.id !== monsterId) return m
-        return {
-          ...m,
-          huntTasks: m.huntTasks.filter((t) => t.id !== taskId),
-        }
+        return { ...m, huntTasks: m.huntTasks.filter((t) => t.id !== taskId) }
       })
     )
   }, [])
@@ -148,9 +145,7 @@ export default function useMonsters() {
         if (m.id !== monsterId) return m
         return {
           ...m,
-          huntTasks: m.huntTasks.map((t) =>
-            t.id === taskId ? { ...t, text } : t
-          ),
+          huntTasks: m.huntTasks.map((t) => t.id === taskId ? { ...t, text } : t),
         }
       })
     )
@@ -164,6 +159,7 @@ export default function useMonsters() {
     updateMonsterAvatar,
     startHunt,
     stopHunt,
+    resetMonsterHunts,
     addHuntTask,
     toggleHuntTask,
     removeHuntTask,

@@ -12,6 +12,7 @@ export default function StageBossCard({
   currentLevel,
   onStartHunt,
   onStopHunt,
+  onCompleteHunt,
   onBossNameChange,
   onBossAvatarChange,
   onStageLevelChange,
@@ -220,12 +221,14 @@ export default function StageBossCard({
 
         {/* Defeated badge */}
         {isDefeated && (
-          <span
-            className="text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5"
+          <button
+            onClick={() => onStopHunt(id)}
+            className="w-full mt-1 py-1 rounded-lg text-[10px] font-bold transition-all duration-200"
             style={{ background: `${accent}22`, color: accent }}
+            title="解除討伐狀態"
           >
-            ✓ 已討伐
-          </span>
+            解除討伐
+          </button>
         )}
 
         {/* Hunt button */}
@@ -241,6 +244,21 @@ export default function StageBossCard({
             }}
           >
             {isHunting ? '⚔ 討伐中' : '⚔ 可討伐'}
+          </button>
+        )}
+
+        {!isDefeated && (
+          <button
+            onClick={() => onCompleteHunt(id)}
+            className="w-full mt-1 py-1 rounded-lg text-[10px] font-bold transition-all duration-200 border"
+            style={{
+              borderColor: `${accent}66`,
+              color: accent,
+              background: '#ffffff',
+            }}
+            title="手動標記為已討伐"
+          >
+            完成討伐
           </button>
         )}
       </div>

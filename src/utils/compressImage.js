@@ -1,11 +1,28 @@
+const DEFAULT_MAX_PX = 1600
+const DEFAULT_QUALITY = 0.95
+
+function getOutputType(file) {
+  if (file?.type === 'image/png' || file?.type === 'image/webp') return file.type
+  return 'image/jpeg'
+}
+
+export function getCompressedImageExtension(file) {
+  const outputType = getOutputType(file)
+  if (outputType === 'image/png') return 'png'
+  if (outputType === 'image/webp') return 'webp'
+  return 'jpg'
+}
+
 /**
- * Compress an image File to a smaller base64 JPEG.
+ * Resize an image File to a high-quality base64 data URL.
+ * Keeps PNG/WebP when possible; other formats become JPEG.
+ *
  * @param {File} file      - the original image file
- * @param {number} maxPx   - max width or height in pixels (default 600)
- * @param {number} quality - JPEG quality 0-1 (default 0.72)
+ * @param {number} maxPx   - max width or height in pixels (default 1600)
+ * @param {number} quality - JPEG/WebP quality 0-1 (default 0.95)
  * @returns {Promise<string>} base64 data URL
  */
-export function compressImage(file, maxPx = 600, quality = 0.72) {
+export function compressImage(file, maxPx = DEFAULT_MAX_PX, quality = DEFAULT_QUALITY) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = reject
@@ -22,8 +39,11 @@ export function compressImage(file, maxPx = 600, quality = 0.72) {
         const canvas = document.createElement('canvas')
         canvas.width  = width
         canvas.height = height
-        canvas.getContext('2d').drawImage(img, 0, 0, width, height)
-        resolve(canvas.toDataURL('image/jpeg', quality))
+        const ctx = canvas.getContext('2d')
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL(getOutputType(file), quality))
       }
       img.src = e.target.result
     }

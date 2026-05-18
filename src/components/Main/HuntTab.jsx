@@ -4,7 +4,7 @@ import StageBossCard from './StageBossCard'
 
 export default function HuntTab({
   currentLevel,
-  stages, onStartStageBossHunt, onStopStageBossHunt,
+  stages, onStartStageBossHunt, onStopStageBossHunt, onCompleteStageBossHunt,
   onStageBossNameChange, onStageBossAvatarChange,
   onStageLevelChange, onAddStage, onRemoveStage,
 }) {
@@ -45,6 +45,7 @@ export default function HuntTab({
               currentLevel={currentLevel}
               onStartHunt={onStartStageBossHunt}
               onStopHunt={onStopStageBossHunt}
+              onCompleteHunt={onCompleteStageBossHunt}
               onBossNameChange={onStageBossNameChange}
               onBossAvatarChange={onStageBossAvatarChange}
               onStageLevelChange={onStageLevelChange}

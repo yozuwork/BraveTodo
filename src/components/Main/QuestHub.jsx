@@ -15,7 +15,7 @@ export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
-  stages, onStageName, onStageAvatar, onStageLevel, onAddStage, onRemoveStage, onReorderStages,
+  stages, onStageName, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
   levelingRules, onUpdateExpPerLevel,
   atk,
@@ -23,7 +23,7 @@ export default function QuestHub({
   currentLevel, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
   onStartHunt, onStopHunt,
-  onStartStageBossHunt, onStopStageBossHunt,
+  onStartStageBossHunt, onStopStageBossHunt, onCompleteStageBossHunt,
   onStageBossNameChange, onStageBossAvatarChange,
   activeHuntTarget, huntTaskHandlers,
   onReorderInbox,
@@ -259,6 +259,8 @@ export default function QuestHub({
           stages={stages}
           onNameChange={onStageName}
           onAvatarChange={onStageAvatar}
+          onReplaceAvatar={onStageAvatarReplace}
+          onRemoveAvatar={onStageAvatarRemove}
           onLevelChange={onStageLevel}
           onAddStage={onAddStage}
           onRemoveStage={onRemoveStage}
@@ -294,6 +296,7 @@ export default function QuestHub({
           stages={stages}
           onStartStageBossHunt={onStartStageBossHunt}
           onStopStageBossHunt={onStopStageBossHunt}
+          onCompleteStageBossHunt={onCompleteStageBossHunt}
           onStageBossNameChange={onStageBossNameChange}
           onStageBossAvatarChange={onStageBossAvatarChange}
           onStageLevelChange={onStageLevel}
