@@ -15,7 +15,7 @@ export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
-  stages, onStageName, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages,
+  stages, onStageName, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
   levelingRules, onUpdateExpPerLevel,
   atk,
@@ -265,6 +265,7 @@ export default function QuestHub({
           onAddStage={onAddStage}
           onRemoveStage={onRemoveStage}
           onReorderStages={onReorderStages}
+          onPositionChange={onStageAvatarPosition}
         />
       )}
 

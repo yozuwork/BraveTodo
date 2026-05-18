@@ -197,8 +197,7 @@ async function exportSave(currentLevel) {
   };
   for (const key of LOCAL_SAVE_KEYS) {
     const val = localStorage.getItem(key);
-    if (val !== null)
-      save[key] = await inlineImagesInStorageValue(val, imageCache);
+    if (val !== null) save[key] = val;
   }
   const blob = new Blob([JSON.stringify(save, null, 2)], {
     type: "application/json",

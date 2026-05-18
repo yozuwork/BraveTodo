@@ -47,7 +47,7 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
         onChange={onToggle}
         size="small"
         sx={{
-          p: 0.3,
+          p: { xs: 0.75, sm: 0.3 },
           color: '#d1d5db',
           '&.Mui-checked': { color: '#a855f7' },
         }}
@@ -84,12 +84,14 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
       <IconButton
         size="small"
         onClick={onRemove}
-        className="opacity-0 group-hover/sub:opacity-100"
         sx={{
-          p: 0.3,
+          p: { xs: 0.75, sm: 0.3 },
+          minWidth: { xs: 36, sm: 'auto' },
+          minHeight: { xs: 36, sm: 'auto' },
           color: '#d1d5db',
           opacity: 0,
           '.group\\/sub:hover &': { opacity: 1 },
+          '@media (hover: none)': { opacity: 1 },
           '&:hover': { color: '#ef4444' },
           transition: 'opacity 0.15s, color 0.15s',
         }}
@@ -331,7 +333,7 @@ export default function QuestItem({
         <Checkbox
           checked={quest.completed || animatingComplete}
           onChange={handleToggle}
-          sx={{ p: 0, color: '#d1d5db', '&.Mui-checked': { color: '#a855f7' } }}
+          sx={{ p: { xs: 0.75, sm: 0 }, color: '#d1d5db', '&.Mui-checked': { color: '#a855f7' } }}
         />
       </div>
 
@@ -407,6 +409,8 @@ export default function QuestItem({
               sx={{
                 display: 'inline-flex',
                 order: { xs: 4, sm: 0 },
+                minWidth: { xs: 44, sm: 32 },
+                minHeight: { xs: 44, sm: 32 },
                 color: '#d1d5db',
                 '&:hover': { color: '#a855f7' },
               }}
@@ -507,6 +511,8 @@ export default function QuestItem({
             sx={{
               display: 'inline-flex',
               order: { xs: 6, sm: 0 },
+              minWidth: { xs: 44, sm: 32 },
+              minHeight: { xs: 44, sm: 32 },
               color: quest.pinned ? '#a855f7' : '#d1d5db',
               '&:hover': { color: '#a855f7' },
               transform: quest.pinned ? 'rotate(0deg)' : 'rotate(45deg)',
@@ -521,6 +527,8 @@ export default function QuestItem({
             sx={{
               display: 'inline-flex',
               order: { xs: 7, sm: 0 },
+              minWidth: { xs: 44, sm: 32 },
+              minHeight: { xs: 44, sm: 32 },
               color: quest.isCore ? '#f59e0b' : '#d1d5db',
               '&:hover': { color: '#f59e0b' },
             }}
@@ -533,6 +541,8 @@ export default function QuestItem({
             sx={{
               display: 'inline-flex',
               order: { xs: 8, sm: 0 },
+              minWidth: { xs: 44, sm: 32 },
+              minHeight: { xs: 44, sm: 32 },
               color: '#d1d5db',
               '&:hover': { color: '#ef4444' },
             }}

@@ -1,88 +1,293 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import IconButton from '@mui/material/IconButton'
 import Button from '@mui/material/Button'
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
+import DialogActions from '@mui/material/DialogActions'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import defaultAvatar from '../../assets/hero.jpg'
 
-function StageAvatarThumb({ stage, src, index, onReplaceAvatar, onRemoveAvatar }) {
-  const replaceInputRef = useRef(null)
-  const openReplacePicker = () => replaceInputRef.current?.click()
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      openReplacePicker()
+// ── Mobile edit modal ────────────────────────────────────────
+function StageEditModal({
+  stage, open, onClose,
+  onNameChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange,
+  onPositionChange,
+}) {
+  const fileInputRef = useRef(null)
+  const [selectedIdx, setSelectedIdx] = useState(0)
+  const [localPositions, setLocalPositions] = useState(stage?.avatarPositions ?? [])
+  const modalDragRef = useRef(null)
+
+  useEffect(() => {
+    setLocalPositions(stage?.avatarPositions ?? [])
+  }, [stage?.id])
+
+  if (!stage) return null
+
+  const avatarSrcs = (stage.avatarSrcs ?? (stage.avatarSrc ? [stage.avatarSrc] : [])).slice(
+    0,
+    stage.avatars?.length ?? (stage.avatar ? 1 : 0),
+  )
+
+  const clampedIdx = Math.min(selectedIdx, Math.max(0, avatarSrcs.length - 1))
+  const mainSrc = avatarSrcs.length > 0 ? avatarSrcs[clampedIdx] : stage.avatarSrc
+  const currentPos = localPositions[clampedIdx] ?? { x: 50, y: 50 }
+
+  const handleMainImagePointerDown = (e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startY = e.clientY
+    const posAtStart = localPositions[clampedIdx] ?? { x: 50, y: 50 }
+
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max)
+
+    const onMove = (me) => {
+      const dx = me.clientX - startX
+      const dy = me.clientY - startY
+      const newX = clamp(posAtStart.x - dx * 0.3, 0, 100)
+      const newY = clamp(posAtStart.y - dy * 0.3, 0, 100)
+      setLocalPositions((prev) => {
+        const next = [...prev]
+        next[clampedIdx] = { x: newX, y: newY }
+        return next
+      })
+      modalDragRef.current = { x: newX, y: newY }
     }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      if (modalDragRef.current) {
+        onPositionChange?.(stage.id, clampedIdx, modalDragRef.current.x, modalDragRef.current.y)
+        modalDragRef.current = null
+      }
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  const handleRemove = (index) => {
+    if (clampedIdx > 0 && index <= clampedIdx) setSelectedIdx(clampedIdx - 1)
+    onRemoveAvatar(stage.id, index)
   }
 
   return (
-    <div className="relative shrink-0 group/thumb">
-      <img
-        src={src}
-        alt={`${stage.className} ${index + 1}`}
-        tabIndex={0}
-        role="button"
-        title="點兩下替換圖片"
-        onDoubleClick={openReplacePicker}
-        onKeyDown={handleKeyDown}
-        onError={(e) => {
-          if (!e.currentTarget.dataset.fallbackApplied) {
-            e.currentTarget.dataset.fallbackApplied = 'true'
-            e.currentTarget.src = defaultAvatar
-          }
-        }}
-        className="w-8 h-8 rounded-full object-cover border border-gray-200 cursor-pointer outline-none focus:ring-2 focus:ring-purple-300 focus:ring-offset-1"
-      />
-      <input
-        ref={replaceInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          onReplaceAvatar(stage.id, index, e.target.files?.[0])
-          e.target.value = ''
-        }}
-      />
-      <button
-        type="button"
-        onClick={() => onRemoveAvatar(stage.id, index)}
-        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-black/70 text-white border-0 p-0 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity cursor-pointer"
-        title="移除此圖片"
-      >
-        <DeleteOutlineIcon sx={{ fontSize: 12 }} />
-      </button>
-    </div>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="xs"
+      PaperProps={{ sx: { borderRadius: 3, mx: 2 } }}
+    >
+      <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700, pb: 1 }}>
+        編輯階段
+      </DialogTitle>
+      <DialogContent sx={{ pt: 1 }}>
+        <div className="flex flex-col gap-5">
+
+          {/* Slideshow */}
+          <div>
+            {/* Main image */}
+            <div
+              className="w-full rounded-xl overflow-hidden bg-stone-900 border border-gray-200 cursor-grab"
+              style={{ aspectRatio: '4/3' }}
+              title="拖移調整顯示位置"
+            >
+              <img
+                src={mainSrc}
+                alt={stage.className}
+                draggable={false}
+                onPointerDown={handleMainImagePointerDown}
+                onError={(e) => {
+                  if (!e.currentTarget.dataset.fallbackApplied) {
+                    e.currentTarget.dataset.fallbackApplied = 'true'
+                    e.currentTarget.src = defaultAvatar
+                  }
+                }}
+                className="w-full h-full object-contain select-none"
+                style={{ objectPosition: `${currentPos.x}% ${currentPos.y}%` }}
+              />
+            </div>
+            <p className="text-center text-xs text-gray-400 mt-1 m-0">拖移圖片調整顯示位置</p>
+
+            {/* Thumbnail row */}
+            <div className="flex items-center gap-2 mt-2 overflow-x-auto pb-1">
+              {avatarSrcs.map((src, index) => (
+                <button
+                  key={`${src}-${index}`}
+                  type="button"
+                  onClick={() => setSelectedIdx(index)}
+                  className={`relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors cursor-pointer bg-transparent p-0 ${
+                    clampedIdx === index ? 'border-purple-400' : 'border-gray-200'
+                  }`}
+                >
+                  <img
+                    src={src}
+                    alt={`${stage.className} ${index + 1}`}
+                    onError={(e) => {
+                      if (!e.currentTarget.dataset.fallbackApplied) {
+                        e.currentTarget.dataset.fallbackApplied = 'true'
+                        e.currentTarget.src = defaultAvatar
+                      }
+                    }}
+                    className="w-full h-full object-cover"
+                  />
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); handleRemove(index) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleRemove(index) } }}
+                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center cursor-pointer"
+                  >
+                    <DeleteOutlineIcon sx={{ fontSize: 11 }} />
+                  </span>
+                </button>
+              ))}
+
+              {/* Add button as last thumbnail */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="shrink-0 w-14 h-14 rounded-lg border-2 border-dashed border-purple-200 flex items-center justify-center text-purple-400 hover:border-purple-400 hover:bg-purple-50 transition-colors cursor-pointer bg-transparent"
+              >
+                <AddIcon sx={{ fontSize: 22 }} />
+              </button>
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                onAvatarChange(stage.id, e.target.files)
+                e.target.value = ''
+              }}
+            />
+          </div>
+
+          {/* Stage name */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">階段名稱</label>
+            <input
+              type="text"
+              value={stage.className}
+              onChange={(e) => onNameChange(stage.id, e.target.value)}
+              className="w-full text-sm font-semibold text-black bg-stone-50 border border-gray-200 rounded-lg px-3 py-2.5 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200 transition-colors"
+            />
+          </div>
+
+          {/* Level range */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">等級範圍</label>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-400 font-mono shrink-0">LV</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={stage.minLevel}
+                onChange={(e) => onLevelChange(stage.id, 'minLevel', e.target.value)}
+                className="w-full text-center text-sm font-mono text-gray-600 bg-stone-50 border border-gray-200 rounded-lg px-2 py-2.5 outline-none focus:border-purple-400 transition-colors"
+              />
+              <span className="text-gray-400 shrink-0">—</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={stage.maxLevel}
+                onChange={(e) => onLevelChange(stage.id, 'maxLevel', e.target.value)}
+                className="w-full text-center text-sm font-mono text-gray-600 bg-stone-50 border border-gray-200 rounded-lg px-2 py-2.5 outline-none focus:border-purple-400 transition-colors"
+              />
+            </div>
+          </div>
+
+        </div>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button
+          variant="contained"
+          onClick={onClose}
+          sx={{
+            bgcolor: '#a855f7',
+            borderRadius: 99,
+            textTransform: 'none',
+            fontWeight: 700,
+            px: 3,
+            '&:hover': { bgcolor: '#9333ea' },
+          }}
+        >
+          完成
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 
+// ── Stage row ────────────────────────────────────────────────
 function StageRow({
-  stage, canDelete,
-  onNameChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onRemove,
+  stage, canDelete, onRemove, onEdit,
   isDragOver, insertBefore,
   onDragStart, onDragOver, onDrop, onDragEnd,
+  onPositionChange,
 }) {
-  const fileInputRef = useRef(null)
   const customAvatarCount = stage.avatars?.length ?? (stage.avatar ? 1 : 0)
   const avatarSrcs = customAvatarCount > 0
     ? (stage.avatarSrcs ?? (stage.avatarSrc ? [stage.avatarSrc] : [])).slice(0, customAvatarCount)
     : []
-  const openFilePicker = () => fileInputRef.current?.click()
+
+  const [thumbPos, setThumbPos] = useState(stage.avatarPositions?.[0] ?? { x: 50, y: 50 })
+  const thumbDragRef = useRef(null)
+
+  const handleThumbPointerDown = useCallback((e) => {
+    e.preventDefault()
+    const startX = e.clientX
+    const startY = e.clientY
+    const posAtStart = { ...thumbPos }
+
+    const clamp = (v, min, max) => Math.min(Math.max(v, min), max)
+
+    const onMove = (me) => {
+      const dx = me.clientX - startX
+      const dy = me.clientY - startY
+      const newX = clamp(posAtStart.x - dx * 0.5, 0, 100)
+      const newY = clamp(posAtStart.y - dy * 0.5, 0, 100)
+      setThumbPos({ x: newX, y: newY })
+      thumbDragRef.current = { x: newX, y: newY }
+    }
+
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      if (thumbDragRef.current) {
+        onPositionChange?.(stage.id, 0, thumbDragRef.current.x, thumbDragRef.current.y)
+        thumbDragRef.current = null
+      }
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }, [thumbPos, stage.id, onPositionChange])
 
   return (
     <div
       onDragOver={(e) => onDragOver(e, stage.id)}
       onDrop={(e) => onDrop(e, stage.id)}
       onDragEnd={onDragEnd}
-      className={`bg-white rounded-xl px-4 py-4 flex items-center gap-3 border transition-colors relative
+      className={`bg-white rounded-xl px-4 py-5 flex items-center gap-3 border transition-colors relative
         ${isDragOver && insertBefore ? 'border-t-2 border-t-purple-400 border-x-gray-100 border-b-gray-100' : ''}
         ${isDragOver && !insertBefore ? 'border-b-2 border-b-purple-400 border-x-gray-100 border-t-gray-100' : ''}
         ${!isDragOver ? 'border-gray-100 hover:border-gray-200' : ''}
       `}
     >
-      {/* Drag handle — only this element is draggable */}
+      {/* Drag handle */}
       <div
         draggable
         onDragStart={(e) => onDragStart(e, stage.id)}
@@ -92,123 +297,51 @@ function StageRow({
       </div>
 
       {/* Avatar */}
-      <div className="shrink-0 flex items-center gap-2">
-        <div className="relative shrink-0">
-          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-purple-200">
-            <img
-              src={stage.avatarSrc}
-              alt={stage.className}
-              onError={(e) => {
-                if (!e.currentTarget.dataset.fallbackApplied) {
-                  e.currentTarget.dataset.fallbackApplied = 'true'
-                  e.currentTarget.src = defaultAvatar
-                }
-              }}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <IconButton
-            size="small"
-            onClick={openFilePicker}
-            title="新增圖片（可一次選多張）"
-            aria-label="新增階段圖片"
-            sx={{
-              position: 'absolute',
-              bottom: -4,
-              right: -4,
-              bgcolor: '#a855f7',
-              color: 'white',
-              width: 24,
-              height: 24,
-              '&:hover': { bgcolor: '#9333ea' },
-            }}
-          >
-            <AddIcon sx={{ fontSize: 15 }} />
-          </IconButton>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              onAvatarChange(stage.id, e.target.files)
-              e.target.value = ''
-            }}
-          />
-        </div>
-        <div className="flex items-center gap-2 min-w-0">
-          {avatarSrcs.length > 0 && (
-            <div className="flex items-center gap-1 max-w-24 md:max-w-32 overflow-x-auto py-1">
-              {avatarSrcs.map((src, index) => (
-                <StageAvatarThumb
-                  key={`${src}-${index}`}
-                  stage={stage}
-                  src={src}
-                  index={index}
-                  onReplaceAvatar={onReplaceAvatar}
-                  onRemoveAvatar={onRemoveAvatar}
-                />
-              ))}
-            </div>
-          )}
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<PhotoCameraIcon sx={{ fontSize: 14 }} />}
-            onClick={openFilePicker}
-            sx={{
-              borderColor: '#e9d5ff',
-              color: '#a855f7',
-              borderRadius: 99,
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              textTransform: 'none',
-              whiteSpace: 'nowrap',
-              minWidth: 0,
-              px: 1.25,
-              py: 0.45,
-              '& .MuiButton-startIcon': { mr: 0.5 },
-              '&:hover': { borderColor: '#a855f7', bgcolor: '#faf5ff' },
-            }}
-          >
-            新增圖片
-          </Button>
-          {avatarSrcs.length > 0 && (
-            <span className="text-[0.65rem] text-gray-400 whitespace-nowrap">{avatarSrcs.length} 張</span>
-          )}
-        </div>
-      </div>
-
-      {/* Level range */}
-      <div className="shrink-0 flex items-center gap-1 text-xs font-mono text-gray-400">
-        <span>LV</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={stage.minLevel}
-          onChange={(e) => onLevelChange(stage.id, 'minLevel', e.target.value)}
-          className="w-12 text-center text-xs font-mono text-gray-600 bg-stone-50 border border-gray-200 rounded px-1 py-1 outline-none focus:border-purple-400 transition-colors"
-        />
-        <span>—</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={stage.maxLevel}
-          onChange={(e) => onLevelChange(stage.id, 'maxLevel', e.target.value)}
-          className="w-12 text-center text-xs font-mono text-gray-600 bg-stone-50 border border-gray-200 rounded px-1 py-1 outline-none focus:border-purple-400 transition-colors"
+      <div
+        className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-purple-200 cursor-grab"
+        title="拖移調整顯示位置"
+      >
+        <img
+          src={stage.avatarSrc}
+          alt={stage.className}
+          draggable={false}
+          onPointerDown={handleThumbPointerDown}
+          onError={(e) => {
+            if (!e.currentTarget.dataset.fallbackApplied) {
+              e.currentTarget.dataset.fallbackApplied = 'true'
+              e.currentTarget.src = defaultAvatar
+            }
+          }}
+          className="w-full h-full object-cover select-none"
+          style={{ objectPosition: `${thumbPos.x}% ${thumbPos.y}%` }}
         />
       </div>
 
-      {/* Editable class name */}
-      <input
-        type="text"
-        value={stage.className}
-        onChange={(e) => onNameChange(stage.id, e.target.value)}
-        className="flex-1 text-sm font-semibold text-black bg-stone-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200 transition-colors min-w-0"
-      />
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold text-black truncate m-0">{stage.className}</p>
+        <p className="text-xs text-gray-400 font-mono m-0 mt-0.5">
+          LV {stage.minLevel} — {stage.maxLevel}
+          {avatarSrcs.length > 0 && <span className="ml-2">{avatarSrcs.length} 張</span>}
+        </p>
+      </div>
+
+      {/* Edit */}
+      <IconButton
+        size="small"
+        onClick={onEdit}
+        aria-label="編輯階段"
+        sx={{
+          minWidth: 40,
+          minHeight: 40,
+          color: '#a855f7',
+          bgcolor: '#faf5ff',
+          borderRadius: 2,
+          '&:hover': { bgcolor: '#f3e8ff' },
+        }}
+      >
+        <EditOutlinedIcon fontSize="small" />
+      </IconButton>
 
       {/* Delete */}
       <IconButton
@@ -216,6 +349,8 @@ function StageRow({
         onClick={() => onRemove(stage.id)}
         disabled={!canDelete}
         sx={{
+          minWidth: 40,
+          minHeight: 40,
           color: canDelete ? '#d1d5db' : 'transparent',
           '&:hover': { color: '#ef4444' },
           transition: 'color 0.15s',
@@ -227,10 +362,13 @@ function StageRow({
   )
 }
 
-export default function StageSettings({ stages, onNameChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onAddStage, onRemoveStage, onReorderStages }) {
+export default function StageSettings({ stages, onNameChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onAddStage, onRemoveStage, onReorderStages, onPositionChange }) {
   const dragId = useRef(null)
   const [dragOverId, setDragOverId] = useState(null)
   const [insertBefore, setInsertBefore] = useState(true)
+  const [editingStageId, setEditingStageId] = useState(null)
+
+  const editingStage = stages.find((s) => s.id === editingStageId) ?? null
 
   const handleDragStart = useCallback((e, id) => {
     dragId.current = id
@@ -271,18 +409,15 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
             key={stage.id}
             stage={stage}
             canDelete={stages.length > 1}
-            onNameChange={onNameChange}
-            onAvatarChange={onAvatarChange}
-            onReplaceAvatar={onReplaceAvatar}
-            onRemoveAvatar={onRemoveAvatar}
-            onLevelChange={onLevelChange}
             onRemove={onRemoveStage}
+            onEdit={() => setEditingStageId(stage.id)}
             isDragOver={dragOverId === stage.id}
             insertBefore={insertBefore}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onDragEnd={handleDragEnd}
+            onPositionChange={onPositionChange}
           />
         ))}
       </div>
@@ -304,6 +439,17 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
       >
         新增階段
       </Button>
+
+      <StageEditModal
+        stage={editingStage}
+        open={editingStageId !== null}
+        onClose={() => setEditingStageId(null)}
+        onNameChange={onNameChange}
+        onAvatarChange={onAvatarChange}
+        onReplaceAvatar={onReplaceAvatar}
+        onRemoveAvatar={onRemoveAvatar}
+        onLevelChange={onLevelChange}
+      />
     </div>
   )
 }

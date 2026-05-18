@@ -70,6 +70,7 @@ function MainApp({ user, logOut }) {
     toggleStageBossHuntTask,
     removeStageBossHuntTask,
     updateStageBossHuntTask,
+    updateStageAvatarPosition,
   } = useStages();
   const {
     inboxItems,
@@ -482,6 +483,7 @@ function MainApp({ user, logOut }) {
               onCompleteStageBossHunt={completeStageBossHunt}
               onStageBossNameChange={updateStageBossName}
               onStageBossAvatarChange={updateStageBossAvatar}
+              onStageAvatarPosition={updateStageAvatarPosition}
               activeHuntTarget={activeHuntTarget}
               huntTaskHandlers={huntTaskHandlers}
               onBindQuestToActiveHuntTask={handleBindQuestToActiveHuntTask}

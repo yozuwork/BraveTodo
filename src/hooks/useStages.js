@@ -25,7 +25,7 @@ function normalizeStageImages(stage) {
   const avatars = Array.isArray(stage.avatars)
     ? stage.avatars.filter(Boolean)
     : (stage.avatar ? [stage.avatar] : [])
-  return { ...stage, avatar: avatars[0] ?? null, avatars }
+  return { ...stage, avatar: avatars[0] ?? null, avatars, avatarPositions: Array.isArray(stage.avatarPositions) ? stage.avatarPositions : [] }
 }
 
 export function resolveCurrentStage(stages, level) {
@@ -77,9 +77,10 @@ export default function useStages() {
       skipWriteRef.current = false
       return
     }
-    const toSave = stages.map(({ id, minLevel, maxLevel, className, avatar, avatars }) => ({
+    const toSave = stages.map(({ id, minLevel, maxLevel, className, avatar, avatars, avatarPositions }) => ({
       id, minLevel, maxLevel, className, avatar,
       avatars: Array.isArray(avatars) ? avatars : (avatar ? [avatar] : []),
+      avatarPositions: Array.isArray(avatarPositions) ? avatarPositions : [],
     }))
     setDoc(STAGES_DOC, { items: toSave, bossHunts }).catch(console.error)
   }, [stages, bossHunts, loaded])
@@ -262,6 +263,15 @@ export default function useStages() {
     })
   }, [])
 
+  const updateStageAvatarPosition = useCallback((id, avatarIndex, x, y) => {
+    setStages((prev) => prev.map((s) => {
+      if (s.id !== id) return s
+      const positions = Array.isArray(s.avatarPositions) ? [...s.avatarPositions] : []
+      positions[avatarIndex] = { x, y }
+      return { ...s, avatarPositions: positions }
+    }))
+  }, [])
+
   const reorderStages = useCallback((dragId, dropId, insertBefore) => {
     setStages((prev) => {
       const items = [...prev]
@@ -280,14 +290,15 @@ export default function useStages() {
     const avatars = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
     return {
       ...s,
-      avatarSrc:      getStageAvatar(s),
-      avatarSrcs:     getStageAvatars(s),
-      avatar:         avatars[0] ?? null,
+      avatarSrc:       getStageAvatar(s),
+      avatarSrcs:      getStageAvatars(s),
+      avatar:          avatars[0] ?? null,
       avatars,
-      bossName:       boss.bossName   ?? DEFAULT_BOSS_NAMES[s.id] ?? `${s.className} Boss`,
-      bossAvatar:     boss.bossAvatar ?? null,
-      bossHuntStatus: boss.huntStatus  ?? null,
-      bossHuntTasks:  boss.huntTasks   ?? [],
+      avatarPositions: Array.isArray(s.avatarPositions) ? s.avatarPositions : [],
+      bossName:        boss.bossName   ?? DEFAULT_BOSS_NAMES[s.id] ?? `${s.className} Boss`,
+      bossAvatar:      boss.bossAvatar ?? null,
+      bossHuntStatus:  boss.huntStatus  ?? null,
+      bossHuntTasks:   boss.huntTasks   ?? [],
     }
   })
 
@@ -311,6 +322,7 @@ export default function useStages() {
     toggleStageBossHuntTask,
     removeStageBossHuntTask,
     updateStageBossHuntTask,
+    updateStageAvatarPosition,
     loaded,
   }
 }

@@ -39,7 +39,7 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
         onChange={onToggle}
         size="small"
         sx={{
-          p: 0.3,
+          p: { xs: 0.75, sm: 0.3 },
           color: '#d1d5db',
           '&.Mui-checked': { color: '#a855f7' },
         }}
@@ -75,10 +75,13 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
         size="small"
         onClick={onRemove}
         sx={{
-          p: 0.3,
+          p: { xs: 0.75, sm: 0.3 },
+          minWidth: { xs: 36, sm: 'auto' },
+          minHeight: { xs: 36, sm: 'auto' },
           color: '#d1d5db',
           opacity: 0,
           '.group\\/sub:hover &': { opacity: 1 },
+          '@media (hover: none)': { opacity: 1 },
           '&:hover': { color: '#ef4444' },
           transition: 'opacity 0.15s, color 0.15s',
         }}
@@ -227,7 +230,12 @@ export default function InboxItem({
               size="small"
               onClick={() => setEditing(true)}
               aria-label="編輯"
-              sx={{ color: '#d1d5db', '&:hover': { color: '#a855f7' } }}
+              sx={{
+                minWidth: { xs: 44, sm: 32 },
+                minHeight: { xs: 44, sm: 32 },
+                color: '#d1d5db',
+                '&:hover': { color: '#a855f7' },
+              }}
             >
               <EditOutlinedIcon fontSize="small" />
             </IconButton>
@@ -235,7 +243,12 @@ export default function InboxItem({
           <IconButton
             size="small"
             onClick={() => onRemove(item.id)}
-            sx={{ color: '#d1d5db', '&:hover': { color: '#ef4444' } }}
+            sx={{
+              minWidth: { xs: 44, sm: 32 },
+              minHeight: { xs: 44, sm: 32 },
+              color: '#d1d5db',
+              '&:hover': { color: '#ef4444' },
+            }}
           >
             <DeleteOutlineIcon fontSize="small" />
           </IconButton>
