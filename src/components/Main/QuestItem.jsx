@@ -351,16 +351,16 @@ export default function QuestItem({
       </div>
 
       {/* Checkbox — align to top */}
-      <div className="order-1 md:order-none shrink-0 mt-0.5" onClick={(e) => e.stopPropagation()}>
+      <div className="order-1 md:order-none shrink-0 max-md:-mt-0.5 md:mt-0.5" onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={quest.completed || animatingComplete}
           onChange={handleToggle}
-          sx={{ p: { xs: 0.75, sm: 0 }, color: '#d1d5db', '&.Mui-checked': { color: '#a855f7' } }}
+          sx={{ p: 0, color: '#d1d5db', '&.Mui-checked': { color: '#a855f7' } }}
         />
       </div>
 
       {/* Content */}
-      <div className={`order-2 ${mobileContentBasis} sm:basis-auto sm:order-none flex-1 flex flex-col gap-2 min-w-0`}>
+      <div className={`order-2 ${mobileContentBasis} sm:basis-auto sm:order-none flex-1 flex flex-col gap-2 max-md:gap-0 min-w-0`}>
 
         {/* Main quest title row */}
         <div className="flex flex-wrap items-start sm:items-center gap-2">
@@ -420,6 +420,24 @@ export default function QuestItem({
                 </span>
               )}
             </p>
+          )}
+
+          {!editing && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onTogglePin(quest.id)
+              }}
+              aria-label={quest.pinned ? '取消置頂任務' : '置頂任務'}
+              className="md:hidden order-2 shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full bg-transparent border-none p-0 ml-auto"
+            >
+              {quest.pinned ? (
+                <PushPinIcon sx={{ fontSize: 20, color: '#a855f7' }} />
+              ) : (
+                <PushPinOutlinedIcon sx={{ fontSize: 20, color: '#cbd5e1', transform: 'rotate(45deg)' }} />
+              )}
+            </button>
           )}
 
           {/* Action buttons */}
@@ -791,10 +809,10 @@ export default function QuestItem({
             </button>
           </div>
 
-          {subTasks.length > 0 && (
-            <div className="mobile-quest-detail-subtasks mt-6 border-t pt-4">
-              <p className="mobile-quest-detail-label text-xs font-semibold mb-2">子任務</p>
-              <div className="flex flex-col gap-1">
+          <div className="mobile-quest-detail-subtasks mt-6 border-t pt-4">
+            <p className="mobile-quest-detail-label text-xs font-semibold mb-2">子任務</p>
+            {subTasks.length > 0 && (
+              <div className="flex flex-col gap-1 mb-3">
                 {subTasks.map((sub) => (
                   <SubTaskItem
                     key={sub.id}
@@ -805,8 +823,35 @@ export default function QuestItem({
                   />
                 ))}
               </div>
-            </div>
-          )}
+            )}
+            {addingSubTask ? (
+              <div className="flex items-center gap-2">
+                <input
+                  ref={subInputRef}
+                  className="flex-1 text-sm text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400"
+                  placeholder="輸入子任務..."
+                  value={subDraft}
+                  onChange={(e) => setSubDraft(e.target.value)}
+                  onCompositionStart={() => { subComposingRef.current = true }}
+                  onCompositionEnd={() => { subComposingRef.current = false }}
+                  onBlur={commitSubTask}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !subComposingRef.current) { e.preventDefault(); commitSubTask() }
+                    if (e.key === 'Escape') { e.preventDefault(); cancelSubTask() }
+                  }}
+                />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingSubTask(true)}
+                className="mobile-quest-detail-action inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-semibold"
+              >
+                <AddIcon sx={{ fontSize: 16 }} />
+                新增子任務
+              </button>
+            )}
+          </div>
         </div>
       </div>
     )}
