@@ -545,12 +545,18 @@ const mobileNavLinkClass = ({ isActive }) =>
     isActive ? 'is-active text-purple-btn bg-purple-50' : 'text-gray-500'
   }`
 
+const mobileNavItemClass = (isActive) =>
+  `mobile-bottom-nav-item flex-1 min-w-0 py-2 flex flex-col items-center justify-center gap-0.5 rounded-full transition-colors ${
+    isActive ? 'is-active text-purple-btn bg-purple-50' : 'text-gray-500'
+  }`
+
 const WORK_TABS = [
   { tab: "Tasks", label: "任務", icon: <TaskAltIcon sx={{ fontSize: 18 }} /> },
   { tab: "Hunt", label: "討伐", icon: <SportsMartialArtsIcon sx={{ fontSize: 18 }} /> },
   { tab: "Skills", label: "SKILL", icon: <StarBorderIcon sx={{ fontSize: 18 }} /> },
   { tab: "Inbox", label: "收集箱", icon: <Inventory2OutlinedIcon sx={{ fontSize: 18 }} /> },
 ]
+const WORK_MORE_TABS = WORK_TABS.filter((item) => item.tab !== "Tasks")
 
 function UserAvatar({ user }) {
   return user.photoURL ? (
@@ -603,7 +609,10 @@ function Layout({ user, signIn, logOut }) {
   const [appTheme, setAppThemeState] = useState(getAppTheme)
   const location = useLocation()
   const activeWorkTab = new URLSearchParams(location.search).get("tab") || "Tasks"
-  const moreMenuActive = location.pathname === "/work" && WORK_TABS.some((item) => item.tab === activeWorkTab)
+  const tasksActive = location.pathname === "/work" && activeWorkTab === "Tasks"
+  const moreMenuActive =
+    location.pathname === "/system-settings" ||
+    (location.pathname === "/work" && WORK_MORE_TABS.some((item) => item.tab === activeWorkTab))
 
   const closeMenus = () => {
     setShowUserMenu(false)
@@ -655,6 +664,10 @@ function Layout({ user, signIn, logOut }) {
       </header>
       <Outlet />
       <nav className="mobile-bottom-nav fixed bottom-4 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-16 rounded-full p-1.5 backdrop-blur">
+        <NavLink to="/work" className={() => mobileNavItemClass(tasksActive)} onClick={closeMenus}>
+          <TaskAltIcon sx={{ fontSize: 20 }} />
+          <span className="text-[0.65rem] font-semibold">任務</span>
+        </NavLink>
         <NavLink to="/character" className={mobileNavLinkClass} onClick={closeMenus}>
           <PersonIcon sx={{ fontSize: 20 }} />
           <span className="text-[0.65rem] font-semibold">角色</span>
@@ -666,10 +679,6 @@ function Layout({ user, signIn, logOut }) {
         <NavLink to="/character-settings" className={mobileNavLinkClass} onClick={closeMenus}>
           <TuneIcon sx={{ fontSize: 20 }} />
           <span className="text-[0.65rem] font-semibold">設置</span>
-        </NavLink>
-        <NavLink to="/system-settings" className={mobileNavLinkClass} onClick={closeMenus}>
-          <SettingsIcon sx={{ fontSize: 20 }} />
-          <span className="text-[0.65rem] font-semibold">系統</span>
         </NavLink>
         <button
           type="button"
@@ -687,10 +696,10 @@ function Layout({ user, signIn, logOut }) {
       </nav>
       {showMoreMenu && (
         <div className="mobile-more-menu fixed right-5 bottom-24 z-50 md:hidden bg-white border border-gray-100 rounded-3xl shadow-lg p-2 min-w-[190px]">
-          {WORK_TABS.map((item) => (
+          {WORK_MORE_TABS.map((item) => (
             <NavLink
               key={item.tab}
-              to={item.tab === "Tasks" ? "/work" : `/work?tab=${item.tab}`}
+              to={`/work?tab=${item.tab}`}
               onClick={closeMenus}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
                 location.pathname === "/work" && activeWorkTab === item.tab
@@ -702,6 +711,18 @@ function Layout({ user, signIn, logOut }) {
               {item.label}
             </NavLink>
           ))}
+          <NavLink
+            to="/system-settings"
+            onClick={closeMenus}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              location.pathname === "/system-settings"
+                ? "text-purple-btn bg-purple-50"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            <SettingsIcon sx={{ fontSize: 18 }} />
+            系統
+          </NavLink>
         </div>
       )}
       {showUserMenu && (
