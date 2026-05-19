@@ -5,9 +5,6 @@ import Button from '@mui/material/Button'
 import TabNav from './TabNav'
 import QuestItem from './QuestItem'
 import InboxItem from './InboxItem'
-import StageSettings from './StageSettings'
-import LevelingSettings from './LevelingSettings'
-import OtherSettings from './OtherSettings'
 import HuntTab from './HuntTab'
 import HuntMission from './HuntMission'
 
@@ -35,8 +32,10 @@ export default function QuestHub({
 }) {
   const [inputValue, setInputValue] = useState('')
   const [inboxInput, setInboxInput] = useState('')
+  const [mobileComposerOpen, setMobileComposerOpen] = useState(false)
   const isComposingRef = useRef(false)
   const isInboxComposingRef = useRef(false)
+  const mobileInputRef = useRef(null)
 
   // ── Drag-and-drop state ──
   const questDragId = useRef(null)
@@ -104,15 +103,31 @@ export default function QuestHub({
   const hasActiveHunt = activeHuntTarget !== null
 
   useEffect(() => {
+    if (mobileComposerOpen) {
+      requestAnimationFrame(() => mobileInputRef.current?.focus())
+    }
+  }, [mobileComposerOpen])
+
+  useEffect(() => {
     if (!hasActiveHunt && activeTab === 'HuntMission') {
+      onTabChange('Tasks')
+    }
+    if (activeTab === 'Stages' || activeTab === 'Leveling' || activeTab === 'CharacterSettings' || activeTab === 'Other') {
       onTabChange('Tasks')
     }
   }, [hasActiveHunt, activeTab, onTabChange])
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !isComposingRef.current && inputValue.trim()) {
+  const submitQuestInput = () => {
+    if (inputValue.trim()) {
       onAdd(inputValue.trim())
       setInputValue('')
+      setMobileComposerOpen(false)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !isComposingRef.current && inputValue.trim()) {
+      submitQuestInput()
     }
   }
 
@@ -126,28 +141,30 @@ export default function QuestHub({
   const hasCompleted = quests.some((q) => q.completed)
 
   return (
-    <div className="flex-1 flex flex-col gap-5">
-      <div className="flex flex-col gap-4 mb-5">
-        <h1 className="text-black text-2xl md:text-4xl font-extrabold uppercase m-0 tracking-tight">
+    <div className="mobile-work-hub flex-1 flex flex-col gap-5">
+      <div className="hidden md:flex flex-col gap-4 mb-5">
+        <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight">
           米莉亞
         </h1>
-        <TabNav
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-          hasActiveHunt={hasActiveHunt}
-        />
+        <div>
+          <TabNav
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+            hasActiveHunt={hasActiveHunt}
+          />
+        </div>
       </div>
 
       {activeTab === 'Tasks' && (
         <div className="flex flex-col gap-4">
-          <div className="relative">
+          <div className="hidden md:block relative">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-btn pointer-events-none">
               <AddIcon fontSize="small" />
             </span>
             <input
               type="text"
-              className="w-full bg-white text-black border border-gray-200 rounded-xl py-4 pl-12 pr-20 text-sm focus:outline-none focus:border-purple-400 transition-colors"
-              placeholder="Add new quest..."
+              className="w-full bg-white text-black border border-gray-200 rounded-xl max-md:rounded-2xl py-4 pl-12 pr-20 text-sm max-md:text-base focus:outline-none focus:border-purple-400 transition-colors placeholder:text-gray-400"
+              placeholder="輸入任務?"
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onCompositionStart={() => { isComposingRef.current = true }}
@@ -177,7 +194,7 @@ export default function QuestHub({
             </div>
           )}
 
-          <div className="flex flex-col gap-3">
+          <div className="mobile-task-list-panel flex flex-col gap-3 max-md:bg-transparent max-md:border-0 max-md:rounded-none max-md:p-0 max-md:gap-0 max-md:shadow-none">
             {quests.length === 0 ? (
               <div className="text-center py-16 text-gray-300">
                 <p className="text-lg font-semibold">No quests yet</p>
@@ -239,6 +256,68 @@ export default function QuestHub({
                 })
             )}
           </div>
+          <button
+            type="button"
+            onClick={() => setMobileComposerOpen(true)}
+            className="mobile-fab fixed right-6 bottom-28 z-40 md:hidden w-16 h-16 rounded-full bg-purple-btn text-white shadow-[0_18px_35px_rgba(168,85,247,0.28)] flex items-center justify-center"
+            aria-label="新增任務"
+          >
+            <AddIcon sx={{ fontSize: 34 }} />
+          </button>
+
+          <div
+            className={`mobile-composer-backdrop fixed inset-0 z-[60] md:hidden transition-colors ${
+              mobileComposerOpen ? 'bg-black/65 pointer-events-auto' : 'bg-black/0 pointer-events-none'
+            }`}
+            onClick={() => setMobileComposerOpen(false)}
+          >
+            <div
+              className={`mobile-composer-panel absolute left-0 right-0 bottom-0 rounded-t-[32px] bg-white border-t border-gray-100 px-6 pt-8 pb-8 shadow-[0_-20px_60px_rgba(0,0,0,0.16)] transition-transform duration-300 ${
+                mobileComposerOpen ? 'translate-y-0' : 'translate-y-full'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex flex-col gap-5">
+                <input
+                  ref={mobileInputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onCompositionStart={() => { isComposingRef.current = true }}
+                  onCompositionEnd={() => { isComposingRef.current = false }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !isComposingRef.current) {
+                      e.preventDefault()
+                      submitQuestInput()
+                    }
+                    if (e.key === 'Escape') setMobileComposerOpen(false)
+                  }}
+                  className="mobile-composer-input w-full bg-transparent text-black text-2xl font-semibold outline-none placeholder:text-gray-400 border-l-4 border-purple-btn pl-3"
+                  placeholder="輸入任務?"
+                />
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-gray-400">按 Enter 新增</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setMobileComposerOpen(false)}
+                      className="px-4 py-2 rounded-full bg-gray-100 text-gray-600 text-sm font-semibold"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      onClick={submitQuestInput}
+                      disabled={!inputValue.trim()}
+                      className="px-5 py-2 rounded-full bg-purple-btn text-white text-sm font-bold disabled:opacity-40"
+                    >
+                      新增
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -251,36 +330,6 @@ export default function QuestHub({
           onUpdateHuntTask={huntTaskHandlers.onUpdateHuntTask}
           onStopHunt={huntTaskHandlers.onStopHunt}
           onCompleteHunt={huntTaskHandlers.onCompleteHunt}
-        />
-      )}
-
-      {activeTab === 'Stages' && (
-        <StageSettings
-          stages={stages}
-          onNameChange={onStageName}
-          onAvatarChange={onStageAvatar}
-          onReplaceAvatar={onStageAvatarReplace}
-          onRemoveAvatar={onStageAvatarRemove}
-          onLevelChange={onStageLevel}
-          onAddStage={onAddStage}
-          onRemoveStage={onRemoveStage}
-          onReorderStages={onReorderStages}
-          onPositionChange={onStageAvatarPosition}
-        />
-      )}
-
-      {activeTab === 'Leveling' && (
-        <LevelingSettings
-          rules={levelingRules}
-          onUpdateExpPerLevel={onUpdateExpPerLevel}
-        />
-      )}
-
-      {activeTab === 'Other' && (
-        <OtherSettings
-          currentLevel={currentLevel}
-          levelingRules={levelingRules}
-          onResetLevel={onResetLevel}
         />
       )}
 
@@ -308,13 +357,13 @@ export default function QuestHub({
 
       {activeTab === 'Inbox' && (
         <div className="flex flex-col gap-4">
-          <div className="relative">
+          <div className="relative max-md:bg-white max-md:border max-md:border-gray-100 max-md:rounded-[28px] max-md:p-3">
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
               <AddIcon fontSize="small" />
             </span>
             <input
               type="text"
-              className="w-full bg-white text-black border border-gray-200 rounded-xl py-4 pl-12 pr-20 text-sm focus:outline-none focus:border-gray-400 transition-colors"
+              className="w-full bg-white max-md:bg-transparent text-black border border-gray-200 max-md:border-transparent rounded-xl py-4 pl-12 pr-20 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
               placeholder="新增到收集箱..."
               value={inboxInput}
               onChange={(e) => setInboxInput(e.target.value)}
@@ -327,7 +376,7 @@ export default function QuestHub({
             </span>
           </div>
 
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 max-md:bg-white max-md:border max-md:border-gray-100 max-md:rounded-[28px] max-md:p-4 max-md:gap-0 max-md:shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
             {inboxItems.length === 0 ? (
               <div className="text-center py-16 text-gray-300">
                 <p className="text-lg font-semibold">收集箱是空的</p>

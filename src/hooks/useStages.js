@@ -21,6 +21,9 @@ const DEFAULT_BOSS_NAMES = {
   4: '終焉魔王',
 }
 
+let cachedStages = null
+let cachedBossHunts = null
+
 function normalizeStageImages(stage) {
   const avatars = Array.isArray(stage.avatars)
     ? stage.avatars.filter(Boolean)
@@ -49,24 +52,34 @@ export function resolveCurrentStage(stages, level) {
 }
 
 export default function useStages() {
-  const [stages, setStages] = useState(DEFAULT_STAGES)
-  const [bossHunts, setBossHunts] = useState({})
+  const [stages, setStages] = useState(() => cachedStages ?? DEFAULT_STAGES)
+  const [bossHunts, setBossHunts] = useState(() => cachedBossHunts ?? {})
   const [loaded, setLoaded] = useState(false)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
     getDoc(STAGES_DOC).then((snap) => {
+      let nextStages = DEFAULT_STAGES
+      let nextBossHunts = {}
+
       if (snap.exists()) {
         const data = snap.data()
         const saved = (data.items ?? []).filter((s) => s.id <= 9999).map(normalizeStageImages)
-        setStages(saved.length > 0 ? saved : DEFAULT_STAGES)
-        setBossHunts(data.bossHunts ?? {})
-      } else {
-        setStages(DEFAULT_STAGES)
+        nextStages = saved.length > 0 ? saved : DEFAULT_STAGES
+        nextBossHunts = data.bossHunts ?? {}
       }
+
+      cachedStages = nextStages
+      cachedBossHunts = nextBossHunts
+      setStages(nextStages)
+      setBossHunts(nextBossHunts)
       setLoaded(true)
     }).catch(() => {
-      setStages(DEFAULT_STAGES)
+      const nextStages = cachedStages ?? DEFAULT_STAGES
+      const nextBossHunts = cachedBossHunts ?? {}
+
+      setStages(nextStages)
+      setBossHunts(nextBossHunts)
       setLoaded(true)
     })
   }, [])
@@ -77,6 +90,8 @@ export default function useStages() {
       skipWriteRef.current = false
       return
     }
+    cachedStages = stages
+    cachedBossHunts = bossHunts
     const toSave = stages.map(({ id, minLevel, maxLevel, className, avatar, avatars, avatarPositions }) => ({
       id, minLevel, maxLevel, className, avatar,
       avatars: Array.isArray(avatars) ? avatars : (avatar ? [avatar] : []),

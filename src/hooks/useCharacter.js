@@ -7,6 +7,8 @@ import levelUpSfxUrl from '../assets/music/Key Item Get (The Legend of Zelda Bre
 import { isSoundEnabled } from '../utils/soundSettings'
 
 const CHARACTER_DOC = doc(db, 'meta', 'character')
+let cachedAvatar = null
+let cachedImagePosition = null
 
 function playLevelUpSound() {
   if (!isSoundEnabled()) return
@@ -38,20 +40,28 @@ function calcLevelInfo(lifetimeCompletions, rules) {
 }
 
 export default function useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules) {
-  const [avatar, setAvatar] = useState(defaultAvatar)
+  const [avatar, setAvatar] = useState(() => cachedAvatar ?? defaultAvatar)
   const [isEditMode, setIsEditMode] = useState(false)
-  const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 })
+  const [imagePosition, setImagePosition] = useState(() => cachedImagePosition ?? { x: 50, y: 50 })
   const [loaded, setLoaded] = useState(false)
   const skipWriteRef = useRef(true)
   const prevLevelRef = useRef(null)
 
   useEffect(() => {
     getDoc(CHARACTER_DOC).then((snap) => {
+      let nextAvatar = cachedAvatar ?? defaultAvatar
+      let nextImagePosition = cachedImagePosition ?? { x: 50, y: 50 }
+
       if (snap.exists()) {
         const data = snap.data()
-        if (data.avatar) setAvatar(data.avatar)
-        if (data.imagePosition) setImagePosition(data.imagePosition)
+        if (data.avatar) nextAvatar = data.avatar
+        if (data.imagePosition) nextImagePosition = data.imagePosition
       }
+
+      cachedAvatar = nextAvatar
+      cachedImagePosition = nextImagePosition
+      setAvatar(nextAvatar)
+      setImagePosition(nextImagePosition)
       setLoaded(true)
     }).catch(() => setLoaded(true))
   }, [])
@@ -62,6 +72,8 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
       skipWriteRef.current = false
       return
     }
+    cachedAvatar = avatar
+    cachedImagePosition = imagePosition
     setDoc(CHARACTER_DOC, { avatar, imagePosition }).catch(console.error)
   }, [avatar, imagePosition, loaded])
 
@@ -72,15 +84,18 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
   const updateAvatar = useCallback((file) => {
     if (!file) return
     if (typeof file === 'string') {
+      cachedAvatar = file
       setAvatar(file)
       return
     }
     compressImage(file).then((dataUrl) => {
+      cachedAvatar = dataUrl
       setAvatar(dataUrl)
     })
   }, [])
 
   const updateImagePosition = useCallback((pos) => {
+    cachedImagePosition = pos
     setImagePosition(pos)
   }, [])
 

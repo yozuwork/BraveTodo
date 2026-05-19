@@ -2,9 +2,6 @@ const ALL_TABS = [
   { key: 'Tasks',       label: '任務' },
   { key: 'HuntMission', label: '討伐任務', huntOnly: true },
   { key: 'Hunt',        label: '討伐' },
-  { key: 'Stages',      label: '階段設置',  editOnly: true },
-  { key: 'Leveling',    label: '升級設定',  editOnly: true },
-  { key: 'Other',       label: '其他',      editOnly: true },
   { key: 'Skills',      label: 'Skills' },
   { key: 'Inbox',       label: '收集箱' },
 ]

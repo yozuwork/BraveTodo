@@ -5,16 +5,14 @@ import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import ImageIcon from "@mui/icons-material/Image";
 import RestoreIcon from "@mui/icons-material/Restore";
 import TitleIcon from "@mui/icons-material/Title";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import FileUploadIcon from "@mui/icons-material/FileUpload";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import CollectionsIcon from "@mui/icons-material/Collections";
+import PaletteIcon from "@mui/icons-material/Palette";
 import { isSoundEnabled, setSoundEnabled } from "../../utils/soundSettings";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "../../firebase";
 import GalleryImagePicker from "../common/GalleryImagePicker";
 import { resolveImg } from "../../utils/imageSrc";
+import { getAppTheme, setAppTheme, THEME_EVENT } from "../../utils/themeSettings";
 
 const FAVICON_KEY = "brave-todo:favicon";
 const TITLE_KEY = "brave-todo:pageTitle";
@@ -194,56 +192,6 @@ function calcCompletionsForLevel(targetLevel, rules) {
   return total;
 }
 
-// localStorage keys that are NOT in Firestore
-const LOCAL_SAVE_KEYS = [
-  "brave-todo:leveling-rules",
-  "brave-todo:levelingRules",
-  "brave-todo:soundEnabled",
-  "characterCardSize",
-  "brave-todo:favicon",
-  "brave-todo:pageTitle",
-];
-
-const FIRESTORE_DOCS = [
-  "quests",
-  "monsters",
-  "inbox",
-  "stages",
-  "character",
-  "levelingRules",
-];
-
-async function exportSave(currentLevel) {
-  const firestoreData = {};
-  await Promise.all(
-    FIRESTORE_DOCS.map(async (name) => {
-      const snap = await getDoc(doc(db, "meta", name));
-      if (snap.exists()) firestoreData[name] = snap.data();
-    }),
-  );
-  const save = {
-    _version: 2,
-    _exportedAt: new Date().toISOString(),
-    _snapshot: { level: currentLevel },
-    firestore: firestoreData,
-  };
-  for (const key of LOCAL_SAVE_KEYS) {
-    const val = localStorage.getItem(key);
-    if (val !== null) save[key] = val;
-  }
-  const blob = new Blob([JSON.stringify(save, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `braveTodo-save-${Date.now()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 function SoundToggleCard() {
   const [enabled, setEnabled] = useState(isSoundEnabled);
 
@@ -283,6 +231,59 @@ function SoundToggleCard() {
   );
 }
 
+function ThemeSettingsCard() {
+  const [theme, setTheme] = useState(getAppTheme);
+
+  useEffect(() => {
+    const handleThemeChange = (event) => setTheme(event.detail || getAppTheme());
+    window.addEventListener(THEME_EVENT, handleThemeChange);
+    return () => window.removeEventListener(THEME_EVENT, handleThemeChange);
+  }, []);
+
+  const updateTheme = (nextTheme) => {
+    setTheme(nextTheme);
+    setAppTheme(nextTheme);
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
+      <div>
+        <p className="text-sm font-semibold text-black m-0">外觀主題</p>
+        <p className="text-xs text-gray-400 mt-0.5 m-0">
+          調整電腦版與手機版的黑色 / 白色主題
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <PaletteIcon sx={{ fontSize: 20, color: "#a855f7" }} />
+        <div className="inline-flex rounded-lg border border-gray-200 bg-stone-50 p-1">
+          <button
+            type="button"
+            onClick={() => updateTheme("light")}
+            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${
+              theme === "light"
+                ? "bg-white text-purple-600 shadow-sm"
+                : "text-gray-500 hover:text-gray-800"
+            }`}
+          >
+            白色
+          </button>
+          <button
+            type="button"
+            onClick={() => updateTheme("dark")}
+            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${
+              theme === "dark"
+                ? "bg-zinc-900 text-orange-400 shadow-sm"
+                : "text-gray-500 hover:text-gray-800"
+            }`}
+          >
+            黑色
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OtherSettings({
   currentLevel,
   levelingRules,
@@ -307,89 +308,6 @@ export default function OtherSettings({
     savedToDisk: titleSaved,
   } = usePageTitle();
   const [titleDraft, setTitleDraft] = useState(pageTitle);
-  const importInputRef = useRef(null);
-  const [importStatus, setImportStatus] = useState(null); // null | 'success' | 'error'
-  const [importError, setImportError] = useState("");
-  const [exporting, setExporting] = useState(false);
-
-  const handleExport = async () => {
-    setExporting(true);
-    try {
-      await exportSave(currentLevel);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  const handleImport = (file) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const save = JSON.parse(e.target.result);
-        if (typeof save !== "object" || Array.isArray(save))
-          throw new Error("格式錯誤");
-
-        if (save._version === 2 && save.firestore) {
-          // 新格式：寫入 Firestore
-          await Promise.all(
-            Object.entries(save.firestore).map(([name, data]) =>
-              setDoc(doc(db, "meta", name), data),
-            ),
-          );
-          for (const [key, val] of Object.entries(save)) {
-            if (key.startsWith("_") || key === "firestore") continue;
-            if (typeof val === "string") localStorage.setItem(key, val);
-          }
-        } else {
-          // 舊格式（v1）：轉換 localStorage 資料寫入 Firestore
-          const parse = (key) => {
-            try {
-              return JSON.parse(save[key]);
-            } catch {
-              return null;
-            }
-          };
-
-          const quests = parse("brave-todo:quests") ?? [];
-          const lifetimeCompletions =
-            Number(save["brave-todo:lifetimeCompletions"]) || 0;
-          const monsters = parse("brave-todo:monsters") ?? [];
-          const inbox = parse("brave-todo:inbox") ?? [];
-          const stageItems = parse("brave-todo:stages") ?? [];
-          const bossHunts = parse("brave-todo:stageBossHunts") ?? {};
-          const avatar = save["brave-todo:avatar"] ?? null;
-          const imagePosition = parse("brave-todo:imagePosition") ?? {
-            x: 50,
-            y: 50,
-          };
-
-          await Promise.all([
-            setDoc(doc(db, "meta", "quests"), {
-              items: quests,
-              lifetimeCompletions,
-            }),
-            setDoc(doc(db, "meta", "monsters"), { items: monsters }),
-            setDoc(doc(db, "meta", "inbox"), { items: inbox }),
-            setDoc(doc(db, "meta", "stages"), { items: stageItems, bossHunts }),
-            setDoc(doc(db, "meta", "character"), { avatar, imagePosition }),
-          ]);
-
-          // 保留 localStorage 設定類資料
-          for (const key of LOCAL_SAVE_KEYS) {
-            if (save[key] != null) localStorage.setItem(key, save[key]);
-          }
-        }
-
-        setImportStatus("success");
-        setTimeout(() => window.location.reload(), 800);
-      } catch (err) {
-        setImportStatus("error");
-        setImportError(err.message);
-      }
-    };
-    reader.readAsText(file);
-  };
 
   const handleInput = (e) => {
     const val = parseInt(e.target.value, 10);
@@ -419,6 +337,8 @@ export default function OtherSettings({
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-base font-bold text-black m-0">其他設定</h2>
       </div>
+
+      <ThemeSettingsCard />
 
       {/* Favicon card */}
       <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
@@ -688,89 +608,6 @@ export default function OtherSettings({
       {/* Sound toggle card */}
       <SoundToggleCard />
 
-      {/* Save data management card */}
-      <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
-        <div>
-          <p className="text-sm font-semibold text-black m-0">存檔管理</p>
-          <p className="text-xs text-gray-400 mt-0.5 m-0">
-            匯出本機所有設定為 JSON 檔案，可匯入到其他裝置或線上版本來覆蓋設定
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          {/* Export */}
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outlined"
-              startIcon={<FileDownloadIcon />}
-              onClick={handleExport}
-              disabled={exporting}
-              sx={{
-                borderColor: "#a855f7",
-                color: "#a855f7",
-                borderRadius: 99,
-                fontWeight: 600,
-                fontSize: "0.75rem",
-                textTransform: "none",
-                "&:hover": { borderColor: "#9333ea", bgcolor: "#faf5ff" },
-              }}
-            >
-              {exporting ? "匯出中..." : "匯出存檔"}
-            </Button>
-            <span className="text-xs text-gray-400">
-              下載 JSON 檔案，會包含上傳圖片
-            </span>
-          </div>
-
-          {/* Import */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              variant="outlined"
-              startIcon={<FileUploadIcon />}
-              onClick={() => {
-                setImportStatus(null);
-                importInputRef.current?.click();
-              }}
-              sx={{
-                borderColor: "#6b7280",
-                color: "#6b7280",
-                borderRadius: 99,
-                fontWeight: 600,
-                fontSize: "0.75rem",
-                textTransform: "none",
-                "&:hover": { borderColor: "#4b5563", bgcolor: "#f9fafb" },
-              }}
-            >
-              匯入存檔
-            </Button>
-            <span className="text-xs text-gray-400">
-              選取 JSON 檔案，匯入後自動重新載入
-            </span>
-          </div>
-
-          {importStatus === "success" && (
-            <p className="text-xs font-medium m-0" style={{ color: "#10b981" }}>
-              ✓ 匯入成功，正在重新載入...
-            </p>
-          )}
-          {importStatus === "error" && (
-            <p className="text-xs font-medium text-red-500 m-0">
-              ✗ 匯入失敗：{importError}
-            </p>
-          )}
-        </div>
-
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={(e) => {
-            handleImport(e.target.files[0]);
-            e.target.value = "";
-          }}
-        />
-      </div>
     </div>
   );
 }

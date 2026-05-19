@@ -151,6 +151,7 @@ export default function QuestItem({
   const [subDraft, setSubDraft] = useState('')
   const [tagOpen, setTagOpen] = useState(false)
   const [huntBindOpen, setHuntBindOpen] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
   const inputRef = useRef(null)
   const subInputRef = useRef(null)
   const pendingToggleRef = useRef(false)
@@ -178,9 +179,9 @@ export default function QuestItem({
   const completedSubs = subTasks.filter((s) => s.completed).length
   const effectiveExp = normalizeExpValue(quest.expValue)
   const requiredSubs = SUBTASK_REQUIREMENT[effectiveExp] ?? 0
-  const mobileEditOnlyBlock = ''
-  const mobileEditOnlyInline = 'inline-flex'
-  const mobileContentBasis = 'basis-full'
+  const mobileEditOnlyBlock = 'hidden md:block'
+  const mobileEditOnlyInline = 'hidden md:inline-flex'
+  const mobileContentBasis = 'max-md:basis-auto'
   const canCompleteBySubs = requiredSubs === 0
     ? true
     : (subTasks.length >= requiredSubs && completedSubs >= requiredSubs)
@@ -259,10 +260,31 @@ export default function QuestItem({
   const boundTaskText = isActiveTargetBound
     ? (activeHuntTarget.huntTasks.find((t) => t.id === quest.huntBinding.taskId)?.text ?? null)
     : null
+  const mobileSummaryParts = [
+    PRIORITY_LABEL[quest.priority ?? 'normal'],
+    `${EXP_LABEL[effectiveExp]} ${EXP_POINTS[effectiveExp]}`,
+    subTasks.length > 0 ? `${completedSubs}/${subTasks.length}` : null,
+    boundTarget && !boundTarget.isMissing ? boundTarget.name : null,
+  ].filter(Boolean)
+  const openMobileDetail = () => {
+    if (window.matchMedia('(max-width: 767px)').matches && !editing) {
+      setDetailOpen(true)
+    }
+  }
+  const mobileDetailSelectSx = {
+    color: 'var(--mobile-detail-text)',
+    bgcolor: 'var(--mobile-detail-field-bg)',
+    borderRadius: 2,
+    '.MuiOutlinedInput-notchedOutline': { borderColor: 'var(--mobile-detail-border)' },
+    '.MuiSvgIcon-root': { color: 'var(--mobile-detail-muted)' },
+    '&.Mui-disabled': { opacity: 0.55 },
+  }
 
   return (
+    <>
     <div
-      className={`bg-white rounded-xl px-4 py-4 sm:px-5 flex flex-wrap sm:flex-nowrap gap-3 sm:gap-4 border transition-colors group relative overflow-hidden ${
+      onClick={openMobileDetail}
+      className={`mobile-quest-item bg-white max-md:bg-transparent rounded-xl max-md:rounded-none px-4 py-4 sm:px-5 max-md:px-0 max-md:py-5 flex flex-wrap max-md:flex-nowrap max-md:items-start sm:flex-nowrap gap-3 sm:gap-4 border max-md:border-0 max-md:border-b max-md:border-gray-100 last:max-md:border-b-0 transition-colors group relative overflow-hidden max-md:cursor-pointer ${
         quest.completed || animatingComplete ? 'opacity-50' : ''
       } ${shaking ? 'quest-shake' : ''} ${
         quest.pinned && !quest.completed ? 'border-purple-200 hover:border-purple-300' : 'border-transparent hover:border-gray-200'
@@ -329,7 +351,7 @@ export default function QuestItem({
       </div>
 
       {/* Checkbox — align to top */}
-      <div className="order-2 sm:order-none shrink-0 mt-0.5">
+      <div className="order-1 md:order-none shrink-0 mt-0.5" onClick={(e) => e.stopPropagation()}>
         <Checkbox
           checked={quest.completed || animatingComplete}
           onChange={handleToggle}
@@ -338,7 +360,7 @@ export default function QuestItem({
       </div>
 
       {/* Content */}
-      <div className={`order-3 ${mobileContentBasis} sm:basis-auto sm:order-none flex-1 flex flex-col gap-2 min-w-0`}>
+      <div className={`order-2 ${mobileContentBasis} sm:basis-auto sm:order-none flex-1 flex flex-col gap-2 min-w-0`}>
 
         {/* Main quest title row */}
         <div className="flex flex-wrap items-start sm:items-center gap-2">
@@ -383,7 +405,7 @@ export default function QuestItem({
             <p
               role="button"
               tabIndex={0}
-              className={`order-1 sm:order-none basis-full sm:basis-auto flex-1 text-sm sm:text-sm leading-5 text-black font-semibold sm:font-medium m-0 text-left cursor-text rounded px-1 -mx-1 hover:bg-stone-100 break-words ${
+              className={`mobile-quest-title order-1 sm:order-none basis-full max-md:basis-auto sm:basis-auto flex-1 text-sm sm:text-sm max-md:text-lg leading-5 max-md:leading-6 text-black font-semibold sm:font-medium m-0 text-left cursor-text rounded px-1 -mx-1 hover:bg-stone-100 max-md:hover:bg-transparent break-words ${
                 quest.completed || animatingComplete ? 'line-through text-gray-400' : ''
               }`}
               onDoubleClick={() => setEditing(true)}
@@ -408,6 +430,7 @@ export default function QuestItem({
               aria-label="編輯任務"
               sx={{
                 display: 'inline-flex',
+                '@media (max-width: 767px)': { display: 'none' },
                 order: { xs: 4, sm: 0 },
                 minWidth: { xs: 44, sm: 32 },
                 minHeight: { xs: 44, sm: 32 },
@@ -471,6 +494,7 @@ export default function QuestItem({
             }}
             sx={{
               display: 'inline-flex',
+              '@media (max-width: 767px)': { display: 'none' },
               order: { xs: 5, sm: 0 },
               width: { xs: '100%', sm: 'auto' },
               minWidth: 96,
@@ -510,6 +534,7 @@ export default function QuestItem({
             aria-label="置頂任務"
             sx={{
               display: 'inline-flex',
+              '@media (max-width: 767px)': { display: 'none' },
               order: { xs: 6, sm: 0 },
               minWidth: { xs: 44, sm: 32 },
               minHeight: { xs: 44, sm: 32 },
@@ -526,6 +551,7 @@ export default function QuestItem({
             onClick={() => onToggleCore(quest.id)}
             sx={{
               display: 'inline-flex',
+              '@media (max-width: 767px)': { display: 'none' },
               order: { xs: 7, sm: 0 },
               minWidth: { xs: 44, sm: 32 },
               minHeight: { xs: 44, sm: 32 },
@@ -540,6 +566,7 @@ export default function QuestItem({
             onClick={() => onRemove(quest.id)}
             sx={{
               display: 'inline-flex',
+              '@media (max-width: 767px)': { display: 'none' },
               order: { xs: 8, sm: 0 },
               minWidth: { xs: 44, sm: 32 },
               minHeight: { xs: 44, sm: 32 },
@@ -551,9 +578,24 @@ export default function QuestItem({
           </IconButton>
         </div>
 
+        {!editing && (
+          <div className="md:hidden flex flex-col gap-1 pl-1">
+            {mobileSummaryParts.length > 0 && (
+              <p className="mobile-quest-summary text-sm text-gray-500 m-0 truncate">
+                {mobileSummaryParts.join(' ・ ')}
+              </p>
+            )}
+            {subTasks.length > 0 && (
+              <p className="mobile-quest-preview text-sm text-gray-400 m-0 truncate">
+                {subTasks[0].text}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Sub-task list */}
         {subTasks.length > 0 && (
-          <div className="flex flex-col gap-0.5 pl-1 border-l-2 border-gray-100 ml-1">
+          <div className="flex max-md:hidden flex-col gap-0.5 pl-1 border-l-2 border-gray-100 ml-1">
             {subTasks.map((sub) => (
               <SubTaskItem
                 key={sub.id}
@@ -568,7 +610,7 @@ export default function QuestItem({
 
         {/* Add sub-task */}
         {addingSubTask ? (
-          <div className="flex items-center gap-2 pl-2 ml-1">
+          <div className="flex max-md:hidden items-center gap-2 pl-2 ml-1">
             <input
               ref={subInputRef}
               className="flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
@@ -587,7 +629,7 @@ export default function QuestItem({
         ) : (
             <button
               onClick={() => setAddingSubTask(true)}
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-purple-500 transition-colors cursor-pointer bg-transparent border-none p-0 w-fit pl-2 ml-1"
+              className="flex max-md:hidden items-center gap-1 text-xs text-gray-400 hover:text-purple-500 transition-colors cursor-pointer bg-transparent border-none p-0 w-fit pl-2 ml-1"
             >
               <AddIcon sx={{ fontSize: 13 }} />
               新增子任務
@@ -595,5 +637,179 @@ export default function QuestItem({
         )}
       </div>
     </div>
+    {detailOpen && (
+      <div
+        className="mobile-quest-detail-backdrop fixed inset-0 z-[70] md:hidden"
+        onClick={() => setDetailOpen(false)}
+      >
+        <div
+          className="mobile-quest-detail-panel absolute left-0 right-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[32px] px-6 pt-7 pb-8"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-4 mb-6">
+            <div className="min-w-0">
+              <p className="mobile-quest-detail-eyebrow text-xs font-bold m-0 mb-2">
+                任務詳情
+              </p>
+              {editing ? (
+                <input
+                  ref={inputRef}
+                  type="text"
+                  className="mobile-quest-detail-title-input w-full text-2xl font-bold bg-transparent border-b px-0 py-2 outline-none"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onBlur={commitEdit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
+                    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+                  }}
+                />
+              ) : (
+                <h2 className="mobile-quest-detail-title text-3xl font-bold leading-tight m-0 break-words">
+                  {quest.text}
+                </h2>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setDetailOpen(false)}
+              className="mobile-quest-detail-close shrink-0 w-10 h-10 rounded-full text-xl"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            <label className="flex flex-col gap-2">
+              <span className="mobile-quest-detail-label text-xs font-semibold">任務分類</span>
+              <Select
+                value="task"
+                onChange={(e) => {
+                  if (e.target.value === 'inbox') {
+                    onDemoteToInbox(quest.id)
+                    setDetailOpen(false)
+                  }
+                }}
+                size="small"
+                sx={mobileDetailSelectSx}
+              >
+                <MenuItem value="task">任務</MenuItem>
+                <MenuItem value="inbox">移到收集箱</MenuItem>
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-2">
+              <span className="mobile-quest-detail-label text-xs font-semibold">優先級</span>
+              <Select
+                value={quest.priority ?? 'normal'}
+                onChange={(e) => onSetPriority(quest.id, e.target.value)}
+                size="small"
+                sx={mobileDetailSelectSx}
+              >
+                <MenuItem value="high">{PRIORITY_LABEL.high}</MenuItem>
+                <MenuItem value="normal">{PRIORITY_LABEL.normal}</MenuItem>
+                <MenuItem value="low">{PRIORITY_LABEL.low}</MenuItem>
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-2">
+              <span className="mobile-quest-detail-label text-xs font-semibold">經驗級別</span>
+              <Select
+                value={effectiveExp}
+                onChange={(e) => onSetExp(quest.id, Number(e.target.value))}
+                size="small"
+                sx={mobileDetailSelectSx}
+              >
+                {[1, 3, 5, 10].map((value) => (
+                  <MenuItem key={value} value={value}>
+                    {EXP_LABEL[value]} {EXP_POINTS[value]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </label>
+
+            <label className="flex flex-col gap-2">
+              <span className="mobile-quest-detail-label text-xs font-semibold">討伐綁定</span>
+              <Select
+                value={isActiveTargetBound ? String(quest.huntBinding.taskId) : ''}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val === '__none__') onUnbindQuestFromHuntTask?.(quest.id)
+                  else if (val === '__create__') onCreateAndBindQuestToActiveHunt?.(quest.id)
+                  else if (val) onBindQuestToActiveHuntTask?.(quest.id, Number(val))
+                }}
+                displayEmpty
+                size="small"
+                disabled={!activeHuntTarget}
+                sx={mobileDetailSelectSx}
+              >
+                <MenuItem value="">未綁定</MenuItem>
+                <MenuItem value="__none__">取消綁定</MenuItem>
+                <MenuItem value="__create__" disabled={!activeHuntTarget}>
+                  以此任務新增討伐任務並綁定
+                </MenuItem>
+                {(activeHuntTarget?.huntTasks ?? []).map((t) => (
+                  <MenuItem key={t.id} value={String(t.id)}>
+                    {t.completed ? '✅ ' : '⬜ '} {t.text}
+                  </MenuItem>
+                ))}
+              </Select>
+            </label>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-6">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="mobile-quest-detail-action px-4 py-2 rounded-full text-sm font-semibold"
+            >
+              編輯標題
+            </button>
+            <button
+              type="button"
+              onClick={() => onTogglePin(quest.id)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold ${quest.pinned ? 'bg-purple-btn text-white' : 'mobile-quest-detail-action'}`}
+            >
+              {quest.pinned ? '已置頂' : '置頂'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggleCore(quest.id)}
+              className={`px-4 py-2 rounded-full text-sm font-semibold ${quest.isCore ? 'bg-purple-btn text-white' : 'mobile-quest-detail-action'}`}
+            >
+              {quest.isCore ? '核心任務' : '設為核心'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onRemove(quest.id)
+                setDetailOpen(false)
+              }}
+              className="px-4 py-2 rounded-full bg-red-50 text-red-500 text-sm font-semibold"
+            >
+              刪除
+            </button>
+          </div>
+
+          {subTasks.length > 0 && (
+            <div className="mobile-quest-detail-subtasks mt-6 border-t pt-4">
+              <p className="mobile-quest-detail-label text-xs font-semibold mb-2">子任務</p>
+              <div className="flex flex-col gap-1">
+                {subTasks.map((sub) => (
+                  <SubTaskItem
+                    key={sub.id}
+                    sub={sub}
+                    onToggle={() => onToggleSubTask(quest.id, sub.id)}
+                    onRemove={() => onRemoveSubTask(quest.id, sub.id)}
+                    onUpdate={(text) => onUpdateSubTask(quest.id, sub.id, text)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   )
 }

@@ -1,7 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Routes, Route, Navigate, NavLink, Outlet } from "react-router-dom";
+import { Routes, Route, Navigate, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import PersonIcon from "@mui/icons-material/Person";
-import FormatListBulletedIcon from "@mui/icons-material/FormatListBulleted";
+import PublicIcon from "@mui/icons-material/Public";
+import SettingsIcon from "@mui/icons-material/Settings";
+import TuneIcon from "@mui/icons-material/Tune";
+import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import TaskAltIcon from "@mui/icons-material/TaskAlt";
+import SportsMartialArtsIcon from "@mui/icons-material/SportsMartialArts";
+import StarBorderIcon from "@mui/icons-material/StarBorder";
+import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import CharacterCard from "./components/Sidebar/CharacterCard";
 import HuntSideCard from "./components/Sidebar/HuntSideCard";
 import StatsCard from "./components/Sidebar/StatsCard";
@@ -16,8 +23,12 @@ import useMonsters from "./hooks/useMonsters";
 import useAuth from "./hooks/useAuth";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
+import CharacterSettingsPage from "./pages/CharacterSettingsPage";
+import SystemSettingsPage from "./pages/SystemSettingsPage";
+import { getAppTheme, THEME_EVENT } from "./utils/themeSettings";
 
 function MainApp() {
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const {
     quests,
@@ -117,8 +128,21 @@ function MainApp() {
     [quests, addInboxItem, removeQuest],
   );
 
-  const [mobileTab, setMobileTab] = useState("character");
-  const [activeTab, setActiveTab] = useState("Tasks");
+  const tabFromUrl = searchParams.get("tab");
+  const [activeTab, setActiveTab] = useState(tabFromUrl || "Tasks");
+
+  useEffect(() => {
+    if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
+    if (!tabFromUrl && activeTab !== "Tasks") setActiveTab("Tasks");
+  }, [tabFromUrl, activeTab]);
+
+  const handleTabChange = useCallback(
+    (tab) => {
+      setActiveTab(tab);
+      setSearchParams(tab === "Tasks" ? {} : { tab });
+    },
+    [setSearchParams],
+  );
 
   const handleResetLevel = useCallback(
     (completions) => {
@@ -364,11 +388,11 @@ function MainApp() {
 
   return (
     <>
-      <div className="flex justify-center items-start p-4 md:p-10 pb-20 md:pb-10">
+      <div className="mobile-page-surface flex justify-center items-start bg-stone-50 md:bg-transparent p-5 md:p-10 pb-6 md:pb-10 min-h-screen md:min-h-0">
         <div className="w-full max-w-[1200px] flex flex-col md:flex-row gap-6 md:gap-10">
           {/* Sidebar */}
           <aside
-            className={`w-full md:w-[380px] md:shrink-0 flex flex-col gap-6 md:gap-8 ${mobileTab === "quests" ? "hidden md:flex" : "flex"}`}
+            className="hidden md:flex w-full md:w-[380px] md:shrink-0 flex-col gap-6 md:gap-8"
           >
             {isOnHuntMission ? (
               <HuntSideCard target={activeHuntTarget} />
@@ -394,9 +418,7 @@ function MainApp() {
           </aside>
 
           {/* Quest Hub */}
-          <div
-            className={`w-full flex-1 ${mobileTab === "character" ? "hidden md:block" : "block"}`}
-          >
+          <div className="w-full flex-1">
             <QuestHub
               quests={quests}
               onAdd={addQuest}
@@ -459,36 +481,54 @@ function MainApp() {
               onInboxUpdateSubTask={updateInboxSubTask}
               onPromoteToQuest={handlePromoteToQuest}
               activeTab={activeTab}
-              onTabChange={setActiveTab}
+              onTabChange={handleTabChange}
             />
           </div>
         </div>
       </div>
 
-      {/* Mobile bottom tab bar */}
-      <nav className="fixed bottom-0 left-0 right-0 md:hidden bg-white border-t border-gray-200 flex z-40">
-        <button
-          onClick={() => setMobileTab("character")}
-          className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition-colors cursor-pointer border-none bg-transparent ${
-            mobileTab === "character" ? "text-purple-500" : "text-gray-400"
-          }`}
-        >
-          <PersonIcon fontSize="small" />
-          <span className="text-[0.65rem] font-semibold">角色</span>
-        </button>
-        <button
-          onClick={() => setMobileTab("quests")}
-          className={`flex-1 py-3 flex flex-col items-center gap-0.5 transition-colors cursor-pointer border-none bg-transparent ${
-            mobileTab === "quests" ? "text-purple-500" : "text-gray-400"
-          }`}
-        >
-          <FormatListBulletedIcon fontSize="small" />
-          <span className="text-[0.65rem] font-semibold">任務</span>
-        </button>
-      </nav>
-
       <LevelUpEffect visible={showLevelUp} onComplete={handleLevelUpComplete} />
     </>
+  );
+}
+
+function CharacterPage() {
+  const {
+    lifetimeCompletions,
+    coreTaskCompleted,
+  } = useQuests();
+  const { rules: levelingRules } = useLevelingRules();
+  const {
+    imagePosition,
+    updateImagePosition,
+    level,
+    expProgress,
+    coreTaskProgress,
+    stats,
+  } = useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules);
+  const { stages, updateStageAvatar } = useStages();
+  const currentStage = resolveCurrentStage(stages, level);
+
+  return (
+    <main className="mobile-page-surface flex justify-center bg-stone-50 md:bg-transparent p-5 md:p-10 min-h-screen md:min-h-0">
+      <div className="w-full max-w-[430px] flex flex-col gap-6 md:gap-8">
+        <CharacterCard
+          level={level}
+          avatar={currentStage.avatarSrc}
+          avatars={currentStage.avatarSrcs}
+          onAvatarChange={(file) => updateStageAvatar(currentStage.id, file)}
+          imagePosition={imagePosition}
+          onImagePositionChange={updateImagePosition}
+        />
+        <StatsCard
+          expProgress={expProgress}
+          coreTaskProgress={coreTaskProgress}
+          stats={stats}
+          level={level}
+          currentStage={currentStage}
+        />
+      </div>
+    </main>
   );
 }
 
@@ -500,63 +540,187 @@ const navLinkClass = ({ isActive }) =>
       : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
   }`
 
+const mobileNavLinkClass = ({ isActive }) =>
+  `mobile-bottom-nav-item flex-1 min-w-0 py-2 flex flex-col items-center justify-center gap-0.5 rounded-full transition-colors ${
+    isActive ? 'is-active text-purple-btn bg-purple-50' : 'text-gray-500'
+  }`
+
+const WORK_TABS = [
+  { tab: "Tasks", label: "任務", icon: <TaskAltIcon sx={{ fontSize: 18 }} /> },
+  { tab: "Hunt", label: "討伐", icon: <SportsMartialArtsIcon sx={{ fontSize: 18 }} /> },
+  { tab: "Skills", label: "SKILL", icon: <StarBorderIcon sx={{ fontSize: 18 }} /> },
+  { tab: "Inbox", label: "收集箱", icon: <Inventory2OutlinedIcon sx={{ fontSize: 18 }} /> },
+]
+
+function UserAvatar({ user }) {
+  return user.photoURL ? (
+    <img src={user.photoURL} alt="avatar" className="w-full h-full object-cover" />
+  ) : (
+    <div className="w-full h-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-bold">
+      {user.displayName?.[0] ?? "U"}
+    </div>
+  )
+}
+
+function UserMenu({ user, signIn, logOut, onClose, mobile = false }) {
+  return (
+    <div
+      className={`mobile-user-menu rounded-xl shadow-lg py-2 min-w-[180px] z-50 ${
+        mobile
+          ? 'fixed right-5 bottom-24 bg-white border border-gray-100'
+          : 'absolute right-0 top-10 bg-white border border-gray-100'
+      }`}
+    >
+      <div className="px-4 py-2 border-b border-gray-100">
+        <p className="text-xs font-semibold truncate text-gray-800">{user.displayName}</p>
+        <p className="text-xs text-gray-400 truncate">{user.email}</p>
+      </div>
+      <button
+        onClick={() => {
+          onClose()
+          signIn({ selectAccount: true })
+        }}
+        className="w-full text-left px-4 py-2 text-sm transition-colors text-gray-700 hover:bg-purple-50 hover:text-purple-600"
+      >
+        登入其他 Google 帳號
+      </button>
+      <button
+        onClick={() => {
+          onClose()
+          logOut()
+        }}
+        className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+      >
+        登出
+      </button>
+    </div>
+  )
+}
+
 function Layout({ user, signIn, logOut }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [appTheme, setAppThemeState] = useState(getAppTheme)
+  const location = useLocation()
+  const activeWorkTab = new URLSearchParams(location.search).get("tab") || "Tasks"
+  const moreMenuActive = location.pathname === "/work" && WORK_TABS.some((item) => item.tab === activeWorkTab)
+
+  const closeMenus = () => {
+    setShowUserMenu(false)
+    setShowMoreMenu(false)
+  }
+
+  useEffect(() => {
+    document.documentElement.dataset.appTheme = appTheme
+  }, [appTheme])
+
+  useEffect(() => {
+    const handleThemeChange = (event) => setAppThemeState(event.detail || getAppTheme())
+    window.addEventListener(THEME_EVENT, handleThemeChange)
+    window.addEventListener('storage', handleThemeChange)
+    return () => {
+      window.removeEventListener(THEME_EVENT, handleThemeChange)
+      window.removeEventListener('storage', handleThemeChange)
+    }
+  }, [])
 
   return (
-    <div className="min-h-screen bg-stone-50 relative overflow-x-hidden">
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+    <div className="app-shell min-h-screen bg-stone-50 relative overflow-x-hidden pb-24 md:pb-0">
+      <header className="hidden md:block sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
         <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-12 flex items-center justify-between">
           <nav className="flex items-center gap-1">
+            <NavLink to="/character" className={navLinkClass}>角色</NavLink>
             <NavLink to="/work" className={navLinkClass}>工作</NavLink>
             <NavLink to="/gallery" className={navLinkClass}>世界圖庫</NavLink>
+            <NavLink to="/character-settings" className={navLinkClass}>角色設定</NavLink>
+            <NavLink to="/system-settings" className={navLinkClass}>系統設置</NavLink>
           </nav>
           <div className="relative">
             <button
               onClick={() => setShowUserMenu((v) => !v)}
               className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors"
             >
-              {user.photoURL ? (
-                <img src={user.photoURL} alt="avatar" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-purple-100 flex items-center justify-center text-purple-600 text-xs font-bold">
-                  {user.displayName?.[0] ?? "U"}
-                </div>
-              )}
+              <UserAvatar user={user} />
             </button>
             {showUserMenu && (
-              <div className="absolute right-0 top-10 bg-white border border-gray-100 rounded-xl shadow-lg py-2 min-w-[160px] z-50">
-                <div className="px-4 py-2 border-b border-gray-100">
-                  <p className="text-xs font-semibold text-gray-800 truncate">{user.displayName}</p>
-                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowUserMenu(false)
-                    signIn({ selectAccount: true })
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-600 transition-colors"
-                >
-                  登入其他 Google 帳號
-                </button>
-                <button
-                  onClick={() => { setShowUserMenu(false); logOut() }}
-                  className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                >
-                  登出
-                </button>
-              </div>
+              <UserMenu
+                user={user}
+                signIn={signIn}
+                logOut={logOut}
+                onClose={() => setShowUserMenu(false)}
+              />
             )}
           </div>
         </div>
       </header>
       <Outlet />
+      <nav className="mobile-bottom-nav fixed bottom-4 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-16 rounded-full p-1.5 backdrop-blur">
+        <NavLink to="/character" className={mobileNavLinkClass} onClick={closeMenus}>
+          <PersonIcon sx={{ fontSize: 20 }} />
+          <span className="text-[0.65rem] font-semibold">角色</span>
+        </NavLink>
+        <NavLink to="/gallery" className={mobileNavLinkClass} onClick={closeMenus}>
+          <PublicIcon sx={{ fontSize: 20 }} />
+          <span className="text-[0.65rem] font-semibold">圖庫</span>
+        </NavLink>
+        <NavLink to="/character-settings" className={mobileNavLinkClass} onClick={closeMenus}>
+          <TuneIcon sx={{ fontSize: 20 }} />
+          <span className="text-[0.65rem] font-semibold">設置</span>
+        </NavLink>
+        <NavLink to="/system-settings" className={mobileNavLinkClass} onClick={closeMenus}>
+          <SettingsIcon sx={{ fontSize: 20 }} />
+          <span className="text-[0.65rem] font-semibold">系統</span>
+        </NavLink>
+        <button
+          type="button"
+          onClick={() => {
+            setShowUserMenu(false)
+            setShowMoreMenu((v) => !v)
+          }}
+          className={`mobile-bottom-nav-item flex-1 min-w-0 py-2 flex flex-col items-center justify-center gap-0.5 rounded-full transition-colors bg-transparent border-none ${
+            showMoreMenu || moreMenuActive ? 'is-active text-purple-btn bg-purple-50' : 'text-gray-500'
+          }`}
+        >
+          <MoreHorizIcon sx={{ fontSize: 24 }} />
+          <span className="text-[0.65rem] font-semibold">更多</span>
+        </button>
+      </nav>
+      {showMoreMenu && (
+        <div className="mobile-more-menu fixed right-5 bottom-24 z-50 md:hidden bg-white border border-gray-100 rounded-3xl shadow-lg p-2 min-w-[190px]">
+          {WORK_TABS.map((item) => (
+            <NavLink
+              key={item.tab}
+              to={item.tab === "Tasks" ? "/work" : `/work?tab=${item.tab}`}
+              onClick={closeMenus}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                location.pathname === "/work" && activeWorkTab === item.tab
+                  ? "text-purple-btn bg-purple-50"
+                  : "text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+      {showUserMenu && (
+        <div className="md:hidden">
+          <UserMenu
+            user={user}
+            signIn={signIn}
+            logOut={logOut}
+            onClose={() => setShowUserMenu(false)}
+            mobile
+          />
+        </div>
+      )}
     </div>
   )
 }
 
 export default function App() {
-  const { user, loading, signIn, logOut } = useAuth();
+  const { user, loading, signIn, logOut, authError } = useAuth();
 
   if (loading) {
     return (
@@ -571,8 +735,13 @@ export default function App() {
       <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-6">
         <h1 className="text-2xl font-bold text-gray-800">Vanguard Hub</h1>
         <p className="text-gray-500 text-sm">請登入以繼續</p>
+        {authError && (
+          <p className="max-w-xs text-center text-sm font-medium text-red-500">
+            {authError}
+          </p>
+        )}
         <button
-          onClick={signIn}
+          onClick={() => signIn()}
           className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-shadow text-sm font-medium text-gray-700"
         >
           <img
@@ -589,8 +758,11 @@ export default function App() {
   return (
     <Routes>
       <Route element={<Layout user={user} signIn={signIn} logOut={logOut} />}>
+        <Route path="/character" element={<CharacterPage />} />
         <Route path="/work" element={<MainApp />} />
         <Route path="/gallery" element={<WorldGallery />} />
+        <Route path="/character-settings" element={<CharacterSettingsPage />} />
+        <Route path="/system-settings" element={<SystemSettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/work" replace />} />
     </Routes>
