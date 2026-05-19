@@ -9,6 +9,7 @@ import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import SportsMartialArtsIcon from "@mui/icons-material/SportsMartialArts";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import LogoutIcon from "@mui/icons-material/Logout";
 import CharacterCard from "./components/Sidebar/CharacterCard";
 import HuntSideCard from "./components/Sidebar/HuntSideCard";
 import StatsCard from "./components/Sidebar/StatsCard";
@@ -723,6 +724,22 @@ function Layout({ user, signIn, logOut }) {
             <SettingsIcon sx={{ fontSize: 18 }} />
             系統
           </NavLink>
+          <div className="my-2 border-t border-gray-100" />
+          <div className="px-3 py-2">
+            <p className="text-xs font-semibold text-gray-800 truncate">{user.displayName}</p>
+            <p className="text-[0.7rem] text-gray-400 truncate">{user.email}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              closeMenus()
+              logOut()
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors bg-transparent border-none"
+          >
+            <LogoutIcon sx={{ fontSize: 18 }} />
+            登出
+          </button>
         </div>
       )}
       {showUserMenu && (
