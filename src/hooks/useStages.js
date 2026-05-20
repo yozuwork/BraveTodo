@@ -23,6 +23,7 @@ const DEFAULT_BOSS_NAMES = {
 
 let cachedStages = null
 let cachedBossHunts = null
+let cachedImageSrcs = {}
 
 function sanitize(val) {
   if (val === undefined) return null
@@ -55,7 +56,7 @@ export function resolveCurrentStage(stages, level) {
 export default function useStages() {
   const [stages, setStages] = useState(() => cachedStages ?? DEFAULT_STAGES)
   const [bossHunts, setBossHunts] = useState(() => cachedBossHunts ?? {})
-  const [imageSrcs, setImageSrcs] = useState({})
+  const [imageSrcs, setImageSrcs] = useState(() => cachedImageSrcs)
   const [loaded, setLoaded] = useState(false)
   const skipWriteRef = useRef(true)
 
@@ -134,6 +135,7 @@ export default function useStages() {
 
       cachedStages = nextStages
       cachedBossHunts = nextBossHunts
+      cachedImageSrcs = newImageSrcs
       setStages(nextStages)
       setBossHunts(nextBossHunts)
       setImageSrcs(newImageSrcs)
@@ -234,6 +236,7 @@ export default function useStages() {
       setImageSrcs((prev) => {
         const next = { ...prev }
         results.forEach(({ imageId, src }) => { next[imageId] = src })
+        cachedImageSrcs = next
         return next
       })
       setStages((prev) => prev.map((s) => {
@@ -249,7 +252,7 @@ export default function useStages() {
     const getDataUrl = typeof file === 'string' ? Promise.resolve(file) : compressImage(file, 1000, 0.85)
     getDataUrl.then(async (src) => {
       const newId = await storeImage(src)
-      setImageSrcs((prev) => ({ ...prev, [newId]: src }))
+      setImageSrcs((prev) => { const next = { ...prev, [newId]: src }; cachedImageSrcs = next; return next })
       setStages((prev) => prev.map((s) => {
         if (s.id !== id) return s
         const current = Array.isArray(s.avatarIds) ? s.avatarIds : []
@@ -281,7 +284,7 @@ export default function useStages() {
     const getDataUrl = typeof file === 'string' ? Promise.resolve(file) : compressImage(file, 1000, 0.85)
     getDataUrl.then(async (src) => {
       const newId = await storeImage(src)
-      setImageSrcs((prev) => ({ ...prev, [newId]: src }))
+      setImageSrcs((prev) => { const next = { ...prev, [newId]: src }; cachedImageSrcs = next; return next })
       setBossHunts((prev) => {
         const cur = prev[stageId] ?? { huntStatus: null, huntTasks: [] }
         if (cur.bossAvatarId) removeStoredImage(cur.bossAvatarId)
