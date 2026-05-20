@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import defaultAvatar from '../assets/hero.jpg'
 import { compressImage } from '../utils/compressImage'
-import { resolveImg } from '../utils/imageSrc'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { storeImage, fetchImageSrcs, removeStoredImage } from '../utils/imageStorage'
 
 const STAGES_DOC = doc(db, 'meta', 'stages')
 
@@ -24,11 +24,13 @@ const DEFAULT_BOSS_NAMES = {
 let cachedStages = null
 let cachedBossHunts = null
 
-function normalizeStageImages(stage) {
-  const avatars = Array.isArray(stage.avatars)
-    ? stage.avatars.filter(Boolean)
-    : (stage.avatar ? [stage.avatar] : [])
-  return { ...stage, avatar: avatars[0] ?? null, avatars, avatarPositions: Array.isArray(stage.avatarPositions) ? stage.avatarPositions : [] }
+function sanitize(val) {
+  if (val === undefined) return null
+  if (Array.isArray(val)) return val.map((v) => sanitize(v === undefined ? null : v))
+  if (val !== null && typeof val === 'object') {
+    return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, sanitize(v)]))
+  }
+  return val
 }
 
 export function resolveCurrentStage(stages, level) {
@@ -40,8 +42,7 @@ export function resolveCurrentStage(stages, level) {
     if (i === 0) {
       displayStage = s
     } else {
-      const prev = sorted[i - 1]
-      if (prev.bossHuntStatus === 'defeated') {
+      if (sorted[i - 1].bossHuntStatus === 'defeated') {
         displayStage = s
       } else {
         break
@@ -54,71 +55,141 @@ export function resolveCurrentStage(stages, level) {
 export default function useStages() {
   const [stages, setStages] = useState(() => cachedStages ?? DEFAULT_STAGES)
   const [bossHunts, setBossHunts] = useState(() => cachedBossHunts ?? {})
+  const [imageSrcs, setImageSrcs] = useState({})
   const [loaded, setLoaded] = useState(false)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
-    getDoc(STAGES_DOC).then((snap) => {
+    getDoc(STAGES_DOC).then(async (snap) => {
       let nextStages = DEFAULT_STAGES
       let nextBossHunts = {}
+      const newImageSrcs = {}
 
       if (snap.exists()) {
         const data = snap.data()
-        const saved = (data.items ?? []).filter((s) => s.id <= 9999).map(normalizeStageImages)
-        nextStages = saved.length > 0 ? saved : DEFAULT_STAGES
+        const rawItems = (data.items ?? []).filter((s) => s.id <= 9999)
         nextBossHunts = data.bossHunts ?? {}
+
+        // Collect all refs — can be imageIds (img_*) or legacy base64 (data:*)
+        const allRefs = [
+          ...rawItems.flatMap((s) => [
+            ...(s.avatarIds ?? []),
+            ...(s.avatars ?? []),
+            s.avatar,
+          ]),
+          ...Object.values(nextBossHunts).flatMap((h) => [h.bossAvatarId, h.bossAvatar]),
+        ].filter((r) => typeof r === 'string' && r.length > 0)
+
+        // Fetch existing imageIds
+        const fetched = await fetchImageSrcs(allRefs.filter((r) => r.startsWith('img_')))
+        Object.assign(newImageSrcs, fetched)
+
+        // Migrate legacy base64 → upload to images collection once
+        const uniqueBase64 = [...new Set(allRefs.filter((r) => r.startsWith('data:')))]
+        const base64ToId = {}
+        if (uniqueBase64.length > 0) {
+          const ids = await Promise.all(uniqueBase64.map(storeImage))
+          uniqueBase64.forEach((src, i) => {
+            base64ToId[src] = ids[i]
+            newImageSrcs[ids[i]] = src
+          })
+        }
+
+        const migrateRef = (ref) => {
+          if (!ref) return null
+          if (ref.startsWith('data:')) return base64ToId[ref] ?? null
+          return ref
+        }
+
+        // Build normalized stages with avatarIds only
+        nextStages = rawItems.map((s) => {
+          const rawAvatars = Array.isArray(s.avatarIds) ? s.avatarIds
+            : Array.isArray(s.avatars) ? s.avatars
+            : s.avatar ? [s.avatar] : []
+          return {
+            id: s.id,
+            minLevel: s.minLevel,
+            maxLevel: s.maxLevel,
+            className: s.className,
+            avatarIds: rawAvatars.filter(Boolean).map(migrateRef).filter(Boolean),
+            avatarPositions: Array.isArray(s.avatarPositions) ? s.avatarPositions : [],
+          }
+        })
+
+        // Build normalized bossHunts with bossAvatarId only
+        const migratedBoss = {}
+        for (const [stageId, hunt] of Object.entries(nextBossHunts)) {
+          const rawRef = hunt.bossAvatarId ?? hunt.bossAvatar ?? null
+          migratedBoss[stageId] = {
+            bossName: hunt.bossName,
+            bossAvatarId: migrateRef(rawRef),
+            huntStatus: hunt.huntStatus ?? null,
+            huntTasks: hunt.huntTasks ?? [],
+          }
+        }
+        nextBossHunts = migratedBoss
+
+        if (nextStages.length === 0) nextStages = DEFAULT_STAGES
       }
 
       cachedStages = nextStages
       cachedBossHunts = nextBossHunts
       setStages(nextStages)
       setBossHunts(nextBossHunts)
+      setImageSrcs(newImageSrcs)
       setLoaded(true)
     }).catch(() => {
-      const nextStages = cachedStages ?? DEFAULT_STAGES
-      const nextBossHunts = cachedBossHunts ?? {}
-
-      setStages(nextStages)
-      setBossHunts(nextBossHunts)
+      setStages(cachedStages ?? DEFAULT_STAGES)
+      setBossHunts(cachedBossHunts ?? {})
       setLoaded(true)
     })
   }, [])
 
   useEffect(() => {
     if (!loaded) return
-    if (skipWriteRef.current) {
-      skipWriteRef.current = false
-      return
-    }
+    if (skipWriteRef.current) { skipWriteRef.current = false; return }
     cachedStages = stages
     cachedBossHunts = bossHunts
-    const toSave = stages.map(({ id, minLevel, maxLevel, className, avatar, avatars, avatarPositions }) => ({
-      id, minLevel, maxLevel, className, avatar,
-      avatars: Array.isArray(avatars) ? avatars : (avatar ? [avatar] : []),
-      avatarPositions: Array.isArray(avatarPositions) ? avatarPositions : [],
+    const toSave = stages.map(({ id, minLevel, maxLevel, className, avatarIds, avatarPositions }) => ({
+      id, minLevel, maxLevel, className,
+      avatarIds: (Array.isArray(avatarIds) ? avatarIds : []).filter(Boolean),
+      avatarPositions: sanitize(Array.isArray(avatarPositions) ? avatarPositions : []),
     }))
-    setDoc(STAGES_DOC, { items: toSave, bossHunts }).catch(console.error)
+    setDoc(STAGES_DOC, { items: toSave, bossHunts: sanitize(bossHunts) }).catch(console.error)
   }, [stages, bossHunts, loaded])
 
+  // Resolve imageId → src (supports legacy base64 passthrough)
+  const resolveId = useCallback((id) => {
+    if (!id) return null
+    if (id.startsWith('data:')) return id
+    return imageSrcs[id] ?? null
+  }, [imageSrcs])
+
   const getStageAvatar = useCallback((stage) => {
-    const avatars = Array.isArray(stage.avatars) ? stage.avatars : (stage.avatar ? [stage.avatar] : [])
-    return resolveImg(avatars[0]) || defaultAvatar
-  }, [])
+    const ids = Array.isArray(stage.avatarIds) ? stage.avatarIds : []
+    for (const id of ids) {
+      const src = resolveId(id)
+      if (src) return src
+    }
+    return defaultAvatar
+  }, [resolveId])
 
   const getStageAvatars = useCallback((stage) => {
-    const avatars = Array.isArray(stage.avatars) ? stage.avatars : (stage.avatar ? [stage.avatar] : [])
-    const resolved = avatars.map(resolveImg).filter(Boolean)
+    const ids = Array.isArray(stage.avatarIds) ? stage.avatarIds : []
+    const resolved = ids.map(resolveId).filter(Boolean)
     return resolved.length > 0 ? resolved : [defaultAvatar]
-  }, [])
+  }, [resolveId])
+
+  // ── Mutations ────────────────────────────────────────────────
 
   const updateStageName = useCallback((id, newName) => {
-    setStages((prev) => prev.map((s) => (s.id === id ? { ...s, className: newName } : s)))
+    setStages((prev) => prev.map((s) => s.id === id ? { ...s, className: newName } : s))
   }, [])
 
   const updateStageLevel = useCallback((id, field, value) => {
     const num = parseInt(value, 10)
     if (isNaN(num) || num < 0) return
-    setStages((prev) => prev.map((s) => (s.id === id ? { ...s, [field]: num } : s)))
+    setStages((prev) => prev.map((s) => s.id === id ? { ...s, [field]: num } : s))
   }, [])
 
   const addStage = useCallback(() => {
@@ -126,18 +197,21 @@ export default function useStages() {
       const sorted = [...prev].sort((a, b) => a.minLevel - b.minLevel)
       const last = sorted[sorted.length - 1]
       const newMin = last ? last.maxLevel : 1
-      const newMax = newMin + 10
       const newId = Math.max(0, ...prev.map((s) => s.id)) + 1
-      return [...prev, { id: newId, minLevel: newMin, maxLevel: newMax, className: '新階段' }]
+      return [...prev, { id: newId, minLevel: newMin, maxLevel: newMin + 10, className: '新階段', avatarIds: [], avatarPositions: [] }]
     })
   }, [])
 
   const removeStage = useCallback((id) => {
     setStages((prev) => {
       if (prev.length <= 1) return prev
+      const stage = prev.find((s) => s.id === id)
+      if (stage) (stage.avatarIds ?? []).forEach(removeStoredImage)
       return prev.filter((s) => s.id !== id)
     })
     setBossHunts((prev) => {
+      const boss = prev[id]
+      if (boss?.bossAvatarId) removeStoredImage(boss.bossAvatarId)
       const next = { ...prev }
       delete next[id]
       return next
@@ -145,40 +219,43 @@ export default function useStages() {
   }, [])
 
   const updateStageAvatar = useCallback((id, filesLike) => {
-    const items = Array.from(filesLike?.length !== undefined && typeof filesLike !== 'string' ? filesLike : [filesLike]).filter(Boolean)
-    if (items.length === 0) return
-    const imageValues = items.filter((item) => typeof item === 'string')
-    const files = items.filter((item) => typeof item !== 'string')
-    Promise.all(files.map((file) => compressImage(file))).then((dataUrls) => {
-      const nextImages = [...imageValues, ...dataUrls]
+    const items = Array.from(
+      filesLike?.length !== undefined && typeof filesLike !== 'string' ? filesLike : [filesLike]
+    ).filter(Boolean)
+    if (!items.length) return
+
+    const uploads = items.map(async (item) => {
+      const src = typeof item === 'string' ? item : await compressImage(item, 1000, 0.85)
+      const imageId = await storeImage(src)
+      return { imageId, src }
+    })
+
+    Promise.all(uploads).then((results) => {
+      setImageSrcs((prev) => {
+        const next = { ...prev }
+        results.forEach(({ imageId, src }) => { next[imageId] = src })
+        return next
+      })
       setStages((prev) => prev.map((s) => {
         if (s.id !== id) return s
-        const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
-        const avatars = [...current, ...nextImages]
-        return { ...s, avatar: avatars[0] ?? null, avatars }
+        const current = Array.isArray(s.avatarIds) ? s.avatarIds : []
+        return { ...s, avatarIds: [...current, ...results.map((r) => r.imageId)] }
       }))
     })
   }, [])
 
   const replaceStageAvatar = useCallback((id, avatarIndex, file) => {
     if (!file || avatarIndex < 0) return
-    if (typeof file === 'string') {
+    const getDataUrl = typeof file === 'string' ? Promise.resolve(file) : compressImage(file, 1000, 0.85)
+    getDataUrl.then(async (src) => {
+      const newId = await storeImage(src)
+      setImageSrcs((prev) => ({ ...prev, [newId]: src }))
       setStages((prev) => prev.map((s) => {
         if (s.id !== id) return s
-        const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
-        if (!current[avatarIndex]) return s
-        const avatars = current.map((a, i) => i === avatarIndex ? file : a)
-        return { ...s, avatar: avatars[0] ?? null, avatars }
-      }))
-      return
-    }
-    compressImage(file).then((dataUrl) => {
-      setStages((prev) => prev.map((s) => {
-        if (s.id !== id) return s
-        const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
-        if (!current[avatarIndex]) return s
-        const avatars = current.map((a, i) => i === avatarIndex ? dataUrl : a)
-        return { ...s, avatar: avatars[0] ?? null, avatars }
+        const current = Array.isArray(s.avatarIds) ? s.avatarIds : []
+        if (avatarIndex >= current.length) return s
+        removeStoredImage(current[avatarIndex])
+        return { ...s, avatarIds: current.map((a, i) => i === avatarIndex ? newId : a) }
       }))
     })
   }, [])
@@ -186,9 +263,9 @@ export default function useStages() {
   const removeStageAvatar = useCallback((id, avatarIndex) => {
     setStages((prev) => prev.map((s) => {
       if (s.id !== id) return s
-      const current = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
-      const avatars = current.filter((_, i) => i !== avatarIndex)
-      return { ...s, avatar: avatars[0] ?? null, avatars }
+      const current = Array.isArray(s.avatarIds) ? s.avatarIds : []
+      removeStoredImage(current[avatarIndex])
+      return { ...s, avatarIds: current.filter((_, i) => i !== avatarIndex) }
     }))
   }, [])
 
@@ -201,18 +278,15 @@ export default function useStages() {
 
   const updateStageBossAvatar = useCallback((stageId, file) => {
     if (!file) return
-    if (typeof file === 'string') {
-      setBossHunts((prev) => ({
-        ...prev,
-        [stageId]: { ...(prev[stageId] ?? { huntStatus: null, huntTasks: [] }), bossAvatar: file },
-      }))
-      return
-    }
-    compressImage(file).then((dataUrl) => {
-      setBossHunts((prev) => ({
-        ...prev,
-        [stageId]: { ...(prev[stageId] ?? { huntStatus: null, huntTasks: [] }), bossAvatar: dataUrl },
-      }))
+    const getDataUrl = typeof file === 'string' ? Promise.resolve(file) : compressImage(file, 1000, 0.85)
+    getDataUrl.then(async (src) => {
+      const newId = await storeImage(src)
+      setImageSrcs((prev) => ({ ...prev, [newId]: src }))
+      setBossHunts((prev) => {
+        const cur = prev[stageId] ?? { huntStatus: null, huntTasks: [] }
+        if (cur.bossAvatarId) removeStoredImage(cur.bossAvatarId)
+        return { ...prev, [stageId]: { ...cur, bossAvatarId: newId } }
+      })
     })
   }, [])
 
@@ -237,7 +311,7 @@ export default function useStages() {
         next[stageId] = {
           ...hunt,
           huntStatus: null,
-          huntTasks: (hunt.huntTasks ?? []).map((task) => ({ ...task, completed: false })),
+          huntTasks: (hunt.huntTasks ?? []).map((t) => ({ ...t, completed: false })),
         }
       })
       return next
@@ -255,46 +329,28 @@ export default function useStages() {
     setBossHunts((prev) => {
       const cur = prev[stageId] ?? { huntStatus: null, huntTasks: [] }
       if (cur.huntTasks.length >= 10) return prev
-      return {
-        ...prev,
-        [stageId]: { ...cur, huntTasks: [...cur.huntTasks, { id: taskId, text, completed: false }] },
-      }
+      return { ...prev, [stageId]: { ...cur, huntTasks: [...cur.huntTasks, { id: taskId, text, completed: false }] } }
     })
   }, [])
 
   const toggleStageBossHuntTask = useCallback((stageId, taskId) => {
     setBossHunts((prev) => {
       const cur = prev[stageId] ?? { huntStatus: null, huntTasks: [] }
-      return {
-        ...prev,
-        [stageId]: {
-          ...cur,
-          huntTasks: cur.huntTasks.map((t) => t.id === taskId ? { ...t, completed: !t.completed } : t),
-        },
-      }
+      return { ...prev, [stageId]: { ...cur, huntTasks: cur.huntTasks.map((t) => t.id === taskId ? { ...t, completed: !t.completed } : t) } }
     })
   }, [])
 
   const removeStageBossHuntTask = useCallback((stageId, taskId) => {
     setBossHunts((prev) => {
       const cur = prev[stageId] ?? { huntStatus: null, huntTasks: [] }
-      return {
-        ...prev,
-        [stageId]: { ...cur, huntTasks: cur.huntTasks.filter((t) => t.id !== taskId) },
-      }
+      return { ...prev, [stageId]: { ...cur, huntTasks: cur.huntTasks.filter((t) => t.id !== taskId) } }
     })
   }, [])
 
   const updateStageBossHuntTask = useCallback((stageId, taskId, text) => {
     setBossHunts((prev) => {
       const cur = prev[stageId] ?? { huntStatus: null, huntTasks: [] }
-      return {
-        ...prev,
-        [stageId]: {
-          ...cur,
-          huntTasks: cur.huntTasks.map((t) => t.id === taskId ? { ...t, text } : t),
-        },
-      }
+      return { ...prev, [stageId]: { ...cur, huntTasks: cur.huntTasks.map((t) => t.id === taskId ? { ...t, text } : t) } }
     })
   }, [])
 
@@ -320,20 +376,26 @@ export default function useStages() {
     })
   }, [])
 
+  // ── Derived state ────────────────────────────────────────────
+
   const stagesWithDefaults = stages.map((s) => {
     const boss = bossHunts[s.id] ?? {}
-    const avatars = Array.isArray(s.avatars) ? s.avatars : (s.avatar ? [s.avatar] : [])
+    const avatarIds = Array.isArray(s.avatarIds) ? s.avatarIds : []
+    const resolvedSrcs = avatarIds.map(resolveId).filter(Boolean)
+    const avatarSrc = resolvedSrcs[0] ?? defaultAvatar
     return {
       ...s,
-      avatarSrc:       getStageAvatar(s),
-      avatarSrcs:      getStageAvatars(s),
-      avatar:          avatars[0] ?? null,
-      avatars,
+      avatarSrc,
+      avatarSrcs: resolvedSrcs.length > 0 ? resolvedSrcs : [defaultAvatar],
+      // Keep avatar/avatars as resolved srcs for backward compat (SaveManagement etc.)
+      avatar: resolvedSrcs[0] ?? null,
+      avatars: resolvedSrcs,
+      avatarIds,
       avatarPositions: Array.isArray(s.avatarPositions) ? s.avatarPositions : [],
-      bossName:        boss.bossName   ?? DEFAULT_BOSS_NAMES[s.id] ?? `${s.className} Boss`,
-      bossAvatar:      boss.bossAvatar ?? null,
-      bossHuntStatus:  boss.huntStatus  ?? null,
-      bossHuntTasks:   boss.huntTasks   ?? [],
+      bossName:       boss.bossName   ?? DEFAULT_BOSS_NAMES[s.id] ?? `${s.className} Boss`,
+      bossAvatar:     boss.bossAvatarId ? (imageSrcs[boss.bossAvatarId] ?? null) : null,
+      bossHuntStatus: boss.huntStatus  ?? null,
+      bossHuntTasks:  boss.huntTasks   ?? [],
     }
   })
 

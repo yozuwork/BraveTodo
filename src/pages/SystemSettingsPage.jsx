@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import OtherSettings from '../components/Main/OtherSettings'
 import SaveManagement from '../components/Main/SaveManagement'
+import StorageUsage from '../components/Main/StorageUsage'
 import useQuests from '../hooks/useQuests'
 import useCharacter from '../hooks/useCharacter'
 import useStages, { resolveCurrentStage } from '../hooks/useStages'
@@ -63,11 +64,14 @@ export default function SystemSettingsPage() {
           </div>
 
           {activeTab === 'general' && (
-            <OtherSettings
-              currentLevel={level}
-              levelingRules={levelingRules}
-              onResetLevel={handleResetLevel}
-            />
+            <>
+              <OtherSettings
+                currentLevel={level}
+                levelingRules={levelingRules}
+                onResetLevel={handleResetLevel}
+              />
+              <StorageUsage />
+            </>
           )}
 
           {activeTab === 'saves' && (
