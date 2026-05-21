@@ -6,6 +6,8 @@ import { isSoundEnabled } from '../utils/soundSettings'
 
 const QUESTS_DOC = doc(db, 'meta', 'quests')
 
+let cachedLifetimeCompletions = null
+
 const _questCompleteAudio = new Audio(coinSfxUrl)
 _questCompleteAudio.volume = 0.65
 
@@ -23,7 +25,7 @@ export function playQuestCompleteSound() {
 
 export default function useQuests() {
   const [quests, setQuests] = useState([])
-  const [lifetimeCompletions, setLifetimeCompletions] = useState(0)
+  const [lifetimeCompletions, setLifetimeCompletions] = useState(() => cachedLifetimeCompletions ?? 0)
   const [loaded, setLoaded] = useState(false)
   const skipWriteRef = useRef(true)
 
@@ -32,7 +34,8 @@ export default function useQuests() {
       if (snap.exists()) {
         const data = snap.data()
         setQuests(data.items ?? [])
-        setLifetimeCompletions(data.lifetimeCompletions ?? 0)
+        cachedLifetimeCompletions = data.lifetimeCompletions ?? 0
+        setLifetimeCompletions(cachedLifetimeCompletions)
       }
       setLoaded(true)
     }).catch(() => setLoaded(true))
@@ -82,7 +85,11 @@ export default function useQuests() {
       return prev.map((q) => (q.id === id ? { ...q, completed } : q))
     })
     if (completionDelta !== 0) {
-      setLifetimeCompletions((c) => Math.max(0, c + completionDelta))
+      setLifetimeCompletions((c) => {
+        const next = Math.max(0, c + completionDelta)
+        cachedLifetimeCompletions = next
+        return next
+      })
     }
   }, [])
 
@@ -194,7 +201,9 @@ export default function useQuests() {
   }, [])
 
   const resetLifetimeCompletions = useCallback((value) => {
-    setLifetimeCompletions(Math.max(0, value))
+    const next = Math.max(0, value)
+    cachedLifetimeCompletions = next
+    setLifetimeCompletions(next)
   }, [])
 
   const coreQuest = quests.find((q) => q.isCore) ?? null

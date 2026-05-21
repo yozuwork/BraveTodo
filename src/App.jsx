@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Routes, Route, Navigate, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import PersonIcon from "@mui/icons-material/Person";
 import PublicIcon from "@mui/icons-material/Public";
@@ -376,13 +376,18 @@ function MainApp() {
         };
 
   const [showLevelUp, setShowLevelUp] = useState(false);
-  const prevLevelRef = useRef(null);
 
   useEffect(() => {
-    if (prevLevelRef.current !== null && level > prevLevelRef.current) {
-      setShowLevelUp(true);
+    const stored = localStorage.getItem('_lastSeenLevel');
+    if (stored === null) {
+      localStorage.setItem('_lastSeenLevel', String(level));
+      return;
     }
-    prevLevelRef.current = level;
+    const lastSeen = parseInt(stored, 10);
+    if (level > lastSeen) {
+      setShowLevelUp(true);
+      localStorage.setItem('_lastSeenLevel', String(level));
+    }
   }, [level]);
 
   const handleLevelUpComplete = useCallback(() => setShowLevelUp(false), []);

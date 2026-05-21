@@ -107,7 +107,7 @@ export default function WorldGallery() {
   const openReplacePicker = () => replaceInputRef.current?.click()
 
   const buildGalleryImage = async (file, index, id = null) => {
-    const dataUrl = await compressImage(file)
+    const dataUrl = await compressImage(file, 1000, 0.85, true)
     const suffix = id ?? `${Date.now()}-${index}-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
     const ext = getCompressedImageExtension(file)
     const path = `uploads/gallery/${suffix}.${ext}`

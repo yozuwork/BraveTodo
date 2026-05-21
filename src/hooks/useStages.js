@@ -227,7 +227,7 @@ export default function useStages() {
     if (!items.length) return
 
     const uploads = items.map(async (item) => {
-      const src = typeof item === 'string' ? item : await compressImage(item, 1000, 0.85)
+      const src = typeof item === 'string' ? item : await compressImage(item, 1000, 0.85, true)
       const imageId = await storeImage(src)
       return { imageId, src }
     })
