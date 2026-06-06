@@ -9,6 +9,7 @@ import HuntTab from './HuntTab'
 import HuntMission from './HuntMission'
 import StoryTab from './StoryTab'
 import MapTab from './MapTab'
+import NpcTab from './NpcTab'
 
 export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
@@ -31,6 +32,7 @@ export default function QuestHub({
   onCreateAndBindQuestToActiveHunt,
   stories, onStoryAdd, onStoryUpdate, onStoryRemove, onStoryCoverChange, onStoryTogglePin,
   maps, onMapAdd, onMapUpdate, onMapRemove, onMapCoverChange,
+  npcs, onNpcAdd, onNpcUpdate, onNpcRemove, onNpcCoverChange,
   // lifted tab state
   activeTab, onTabChange,
 }) {
@@ -377,6 +379,16 @@ export default function QuestHub({
           onUpdate={onMapUpdate}
           onRemove={onMapRemove}
           onCoverChange={onMapCoverChange}
+        />
+      )}
+
+      {activeTab === 'Npc' && (
+        <NpcTab
+          npcs={npcs}
+          onAdd={onNpcAdd}
+          onUpdate={onNpcUpdate}
+          onRemove={onNpcRemove}
+          onCoverChange={onNpcCoverChange}
         />
       )}
 

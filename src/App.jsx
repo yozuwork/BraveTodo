@@ -12,6 +12,7 @@ import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import CharacterCard from "./components/Sidebar/CharacterCard";
 import HuntSideCard from "./components/Sidebar/HuntSideCard";
 import StatsCard from "./components/Sidebar/StatsCard";
@@ -26,6 +27,7 @@ import useLevelingRules from "./hooks/useLevelingRules";
 import useMonsters from "./hooks/useMonsters";
 import useStories from "./hooks/useStories";
 import useMaps from "./hooks/useMaps";
+import useNpcs from "./hooks/useNpcs";
 import useAuth from "./hooks/useAuth";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
@@ -130,6 +132,13 @@ function MainApp() {
     removeMap,
     updateMapCover,
   } = useMaps();
+  const {
+    npcs,
+    addNpc,
+    updateNpc,
+    removeNpc,
+    updateNpcCover,
+  } = useNpcs();
 
   const handlePromoteToQuest = useCallback(
     (id, text) => {
@@ -517,6 +526,11 @@ function MainApp() {
               onMapUpdate={updateMap}
               onMapRemove={removeMap}
               onMapCoverChange={updateMapCover}
+              npcs={npcs}
+              onNpcAdd={addNpc}
+              onNpcUpdate={updateNpc}
+              onNpcRemove={removeNpc}
+              onNpcCoverChange={updateNpcCover}
               activeTab={activeTab}
               onTabChange={handleTabChange}
             />
@@ -591,6 +605,7 @@ const WORK_TABS = [
   { tab: "Tasks", label: "任務", icon: <TaskAltIcon sx={{ fontSize: 18 }} /> },
   { tab: "Hunt", label: "討伐", icon: <SportsMartialArtsIcon sx={{ fontSize: 18 }} /> },
   { tab: "Story", label: "故事", icon: <AutoStoriesOutlinedIcon sx={{ fontSize: 18 }} /> },
+  { tab: "Npc", label: "NPC", icon: <PersonOutlineIcon sx={{ fontSize: 18 }} /> },
   { tab: "Map", label: "地圖", icon: <MapOutlinedIcon sx={{ fontSize: 18 }} /> },
   { tab: "Skills", label: "SKILL", icon: <StarBorderIcon sx={{ fontSize: 18 }} /> },
   { tab: "Inbox", label: "收集箱", icon: <Inventory2OutlinedIcon sx={{ fontSize: 18 }} /> },

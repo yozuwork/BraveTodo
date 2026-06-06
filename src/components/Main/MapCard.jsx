@@ -19,7 +19,7 @@ export default function MapCard({
   onRemove,
   onCoverChange,
 }) {
-  const { id, name, description, cover, cardW = 560, cardH = 390 } = map
+  const { id, name, description, cover, coverPosition = { x: 50, y: 50 }, cardW = 560, cardH = 390 } = map
   const [open, setOpen] = useState(false)
   const [resizeMode, setResizeMode] = useState(false)
   const [nameDraft, setNameDraft] = useState(name)
@@ -27,6 +27,7 @@ export default function MapCard({
   const fileInputRef = useRef(null)
   const nameInputRef = useRef(null)
   const cardResizeRef = useRef(null)
+  const coverDragRef = useRef(null)
   const suppressOpenRef = useRef(false)
 
   const imageH = Math.max(154, cardH - TITLE_AREA_H)
@@ -118,6 +119,38 @@ export default function MapCard({
     cardResizeRef.current = null
   }
 
+  const handleCoverPointerDown = (e) => {
+    e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
+    coverDragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startPosX: coverPosition.x ?? 50,
+      startPosY: coverPosition.y ?? 50,
+      moved: false,
+    }
+  }
+
+  const handleCoverPointerMove = (e) => {
+    if (!coverDragRef.current || !cover) return
+    const dx = e.clientX - coverDragRef.current.startX
+    const dy = e.clientY - coverDragRef.current.startY
+    if (!coverDragRef.current.moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+    coverDragRef.current.moved = true
+    const rect = e.currentTarget.getBoundingClientRect()
+    onUpdate(id, {
+      coverPosition: {
+        x: Math.min(100, Math.max(0, coverDragRef.current.startPosX - (dx / rect.width) * 100)),
+        y: Math.min(100, Math.max(0, coverDragRef.current.startPosY - (dy / rect.height) * 100)),
+      },
+    })
+  }
+
+  const handleCoverPointerUp = () => {
+    if (!coverDragRef.current?.moved) fileInputRef.current?.click()
+    coverDragRef.current = null
+  }
+
   return (
     <>
       <div
@@ -134,17 +167,18 @@ export default function MapCard({
         <div
           className="relative overflow-hidden bg-emerald-950 w-full cursor-pointer"
           style={{ height: imageH, flexShrink: 0 }}
-          onClick={(e) => {
-            e.stopPropagation()
-            fileInputRef.current?.click()
-          }}
-          title="點擊上傳封面"
+          onPointerDown={handleCoverPointerDown}
+          onPointerMove={handleCoverPointerMove}
+          onPointerUp={handleCoverPointerUp}
+          onPointerCancel={() => { coverDragRef.current = null }}
+          title={cover ? '拖曳調整位置・點擊上傳封面' : '點擊上傳封面'}
         >
           {cover ? (
             <img
               src={resolveImg(cover)}
               alt={name}
               className="w-full h-full object-cover"
+              style={{ objectPosition: `${coverPosition.x ?? 50}% ${coverPosition.y ?? 50}%` }}
               draggable={false}
             />
           ) : (
@@ -159,6 +193,7 @@ export default function MapCard({
           <div className="absolute top-2 right-2 flex items-center gap-1 z-10">
             <button
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
                 setResizeMode((value) => !value)
@@ -172,6 +207,7 @@ export default function MapCard({
             </button>
             <button
               type="button"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
                 onRemove(id)
@@ -274,6 +310,19 @@ export default function MapCard({
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-4">
+              {cover && (
+                <div
+                  className="w-full shrink-0 rounded-2xl overflow-hidden bg-emerald-950 border border-gray-100 flex items-center justify-center"
+                  style={{ height: 'min(62vh, 620px)', minHeight: 420 }}
+                >
+                  <img
+                    src={resolveImg(cover)}
+                    alt={name}
+                    className="w-full h-full object-contain"
+                    draggable={false}
+                  />
+                </div>
+              )}
               <input
                 ref={nameInputRef}
                 value={nameDraft}
