@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
 
 const NPCS_DOC = doc(db, 'meta', 'npcs')
+let cachedNpcs = null
 
 const createNpc = () => {
   const now = Date.now()
@@ -21,14 +22,16 @@ const createNpc = () => {
 }
 
 export default function useNpcs() {
-  const [npcs, setNpcs] = useState([])
-  const [loaded, setLoaded] = useState(false)
+  const [npcs, setNpcs] = useState(() => cachedNpcs ?? [])
+  const [loaded, setLoaded] = useState(() => cachedNpcs !== null)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedNpcs !== null) return
     getDoc(NPCS_DOC).then((snap) => {
+      let nextNpcs = []
       if (snap.exists()) {
-        setNpcs((snap.data().items ?? []).map((npc) => ({
+        nextNpcs = (snap.data().items ?? []).map((npc) => ({
           name: '未命名 NPC',
           excerpt: '',
           content: '',
@@ -38,10 +41,15 @@ export default function useNpcs() {
           createdAt: npc.id ?? Date.now(),
           updatedAt: npc.id ?? Date.now(),
           ...npc,
-        })))
+        }))
       }
+      cachedNpcs = nextNpcs
+      setNpcs(nextNpcs)
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {
+      cachedNpcs = cachedNpcs ?? []
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -50,6 +58,7 @@ export default function useNpcs() {
       skipWriteRef.current = false
       return
     }
+    cachedNpcs = npcs
     setDoc(NPCS_DOC, { items: npcs }).catch(console.error)
   }, [npcs, loaded])
 

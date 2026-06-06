@@ -21,29 +21,33 @@ const DEFAULT_MONSTERS = [
   { id: 4, name: '天龍王',     recommendedLevel: 120, type: 'boss',       avatar: null, cardW: 160, cardH: 260, huntStatus: null, huntTasks: [] },
   { id: 5, name: '魔王',       recommendedLevel: 250, type: 'final_boss', avatar: null, cardW: 180, cardH: 280, huntStatus: null, huntTasks: [] },
 ]
+let cachedMonsters = null
 
 export default function useMonsters() {
-  const [monsters, setMonsters] = useState(DEFAULT_MONSTERS)
-  const [loaded, setLoaded] = useState(false)
+  const [monsters, setMonsters] = useState(() => cachedMonsters ?? DEFAULT_MONSTERS)
+  const [loaded, setLoaded] = useState(() => cachedMonsters !== null)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedMonsters !== null) return
     getDoc(MONSTERS_DOC).then((snap) => {
+      let nextMonsters = DEFAULT_MONSTERS
       if (snap.exists()) {
         const data = snap.data()
         const saved = data.items ?? []
-        setMonsters(saved.map((m) => ({
+        nextMonsters = saved.map((m) => ({
           ...DEFAULT_MONSTERS[0],
           huntStatus: null,
           huntTasks: [],
           ...m,
-        })))
-      } else {
-        setMonsters(DEFAULT_MONSTERS)
+        }))
       }
+      cachedMonsters = nextMonsters
+      setMonsters(nextMonsters)
       setLoaded(true)
     }).catch(() => {
-      setMonsters(DEFAULT_MONSTERS)
+      cachedMonsters = cachedMonsters ?? DEFAULT_MONSTERS
+      setMonsters(cachedMonsters)
       setLoaded(true)
     })
   }, [])
@@ -54,6 +58,7 @@ export default function useMonsters() {
       skipWriteRef.current = false
       return
     }
+    cachedMonsters = monsters
     setDoc(MONSTERS_DOC, { items: monsters }).catch(console.error)
   }, [monsters, loaded])
 

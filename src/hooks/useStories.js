@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
 
 const STORIES_DOC = doc(db, 'meta', 'stories')
+let cachedStories = null
 
 const createStory = () => {
   const now = Date.now()
@@ -22,14 +23,16 @@ const createStory = () => {
 }
 
 export default function useStories() {
-  const [stories, setStories] = useState([])
-  const [loaded, setLoaded] = useState(false)
+  const [stories, setStories] = useState(() => cachedStories ?? [])
+  const [loaded, setLoaded] = useState(() => cachedStories !== null)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedStories !== null) return
     getDoc(STORIES_DOC).then((snap) => {
+      let nextStories = []
       if (snap.exists()) {
-        setStories((snap.data().items ?? []).map((story) => ({
+        nextStories = (snap.data().items ?? []).map((story) => ({
           excerpt: '',
           content: '',
           cover: null,
@@ -39,10 +42,15 @@ export default function useStories() {
           createdAt: story.id ?? Date.now(),
           updatedAt: story.id ?? Date.now(),
           ...story,
-        })))
+        }))
       }
+      cachedStories = nextStories
+      setStories(nextStories)
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {
+      cachedStories = cachedStories ?? []
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -51,6 +59,7 @@ export default function useStories() {
       skipWriteRef.current = false
       return
     }
+    cachedStories = stories
     setDoc(STORIES_DOC, { items: stories }).catch(console.error)
   }, [stories, loaded])
 

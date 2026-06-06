@@ -3,19 +3,27 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 
 const INBOX_DOC = doc(db, 'meta', 'inbox')
+let cachedInboxItems = null
 
 export default function useInbox() {
-  const [inboxItems, setInboxItems] = useState([])
-  const [loaded, setLoaded] = useState(false)
+  const [inboxItems, setInboxItems] = useState(() => cachedInboxItems ?? [])
+  const [loaded, setLoaded] = useState(() => cachedInboxItems !== null)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedInboxItems !== null) return
     getDoc(INBOX_DOC).then((snap) => {
       if (snap.exists()) {
-        setInboxItems(snap.data().items ?? [])
+        cachedInboxItems = snap.data().items ?? []
+        setInboxItems(cachedInboxItems)
+      } else {
+        cachedInboxItems = []
       }
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {
+      cachedInboxItems = cachedInboxItems ?? []
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -24,6 +32,7 @@ export default function useInbox() {
       skipWriteRef.current = false
       return
     }
+    cachedInboxItems = inboxItems
     setDoc(INBOX_DOC, { items: inboxItems }).catch(console.error)
   }, [inboxItems, loaded])
 

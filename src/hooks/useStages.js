@@ -61,6 +61,10 @@ export default function useStages() {
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedStages !== null) {
+      setLoaded(true)
+      return
+    }
     getDoc(STAGES_DOC).then(async (snap) => {
       let nextStages = DEFAULT_STAGES
       let nextBossHunts = {}

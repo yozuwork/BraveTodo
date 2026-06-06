@@ -9,6 +9,7 @@ import { isSoundEnabled } from '../utils/soundSettings'
 const CHARACTER_DOC = doc(db, 'meta', 'character')
 let cachedAvatar = null
 let cachedImagePosition = null
+let cachedCharacterLoaded = false
 
 function playLevelUpSound() {
   if (!isSoundEnabled()) return
@@ -43,11 +44,12 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
   const [avatar, setAvatar] = useState(() => cachedAvatar ?? defaultAvatar)
   const [isEditMode, setIsEditMode] = useState(false)
   const [imagePosition, setImagePosition] = useState(() => cachedImagePosition ?? { x: 50, y: 50 })
-  const [loaded, setLoaded] = useState(false)
+  const [loaded, setLoaded] = useState(() => cachedCharacterLoaded)
   const skipWriteRef = useRef(true)
   const prevLevelRef = useRef(null)
 
   useEffect(() => {
+    if (cachedCharacterLoaded) return
     getDoc(CHARACTER_DOC).then((snap) => {
       let nextAvatar = cachedAvatar ?? defaultAvatar
       let nextImagePosition = cachedImagePosition ?? { x: 50, y: 50 }
@@ -60,10 +62,14 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
 
       cachedAvatar = nextAvatar
       cachedImagePosition = nextImagePosition
+      cachedCharacterLoaded = true
       setAvatar(nextAvatar)
       setImagePosition(nextImagePosition)
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {
+      cachedCharacterLoaded = true
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -74,6 +80,7 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
     }
     cachedAvatar = avatar
     cachedImagePosition = imagePosition
+    cachedCharacterLoaded = true
     setDoc(CHARACTER_DOC, { avatar, imagePosition }).catch(console.error)
   }, [avatar, imagePosition, loaded])
 

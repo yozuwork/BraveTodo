@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
 
 const MAPS_DOC = doc(db, 'meta', 'maps')
+let cachedMaps = null
 
 const createMap = () => {
   const now = Date.now()
@@ -21,14 +22,16 @@ const createMap = () => {
 }
 
 export default function useMaps() {
-  const [maps, setMaps] = useState([])
-  const [loaded, setLoaded] = useState(false)
+  const [maps, setMaps] = useState(() => cachedMaps ?? [])
+  const [loaded, setLoaded] = useState(() => cachedMaps !== null)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedMaps !== null) return
     getDoc(MAPS_DOC).then((snap) => {
+      let nextMaps = []
       if (snap.exists()) {
-        setMaps((snap.data().items ?? []).map((map) => ({
+        nextMaps = (snap.data().items ?? []).map((map) => ({
           name: '未命名地圖',
           description: '',
           cover: null,
@@ -38,10 +41,15 @@ export default function useMaps() {
           createdAt: map.id ?? Date.now(),
           updatedAt: map.id ?? Date.now(),
           ...map,
-        })))
+        }))
       }
+      cachedMaps = nextMaps
+      setMaps(nextMaps)
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {
+      cachedMaps = cachedMaps ?? []
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -50,6 +58,7 @@ export default function useMaps() {
       skipWriteRef.current = false
       return
     }
+    cachedMaps = maps
     setDoc(MAPS_DOC, { items: maps }).catch(console.error)
   }, [maps, loaded])
 

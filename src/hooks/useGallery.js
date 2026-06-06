@@ -5,15 +5,18 @@ import { storeImage, fetchImageSrcs, removeStoredImage } from '../utils/imageSto
 
 const GALLERY_DOC = doc(db, 'meta', 'gallery')
 const DEFAULTS = { character: [], monster: [] }
+let cachedImageRefs = null
+let cachedImageSrcs = null
 
 export default function useGallery() {
   // imageRefs: { character: [{ id, imageId }], monster: [...] }
-  const [imageRefs, setImageRefs] = useState(DEFAULTS)
-  const [imageSrcs, setImageSrcs] = useState({})
-  const [loaded, setLoaded] = useState(false)
+  const [imageRefs, setImageRefs] = useState(() => cachedImageRefs ?? DEFAULTS)
+  const [imageSrcs, setImageSrcs] = useState(() => cachedImageSrcs ?? {})
+  const [loaded, setLoaded] = useState(() => cachedImageRefs !== null && cachedImageSrcs !== null)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedImageRefs !== null && cachedImageSrcs !== null) return
     getDoc(GALLERY_DOC).then(async (snap) => {
       let nextRefs = DEFAULTS
       const newSrcs = {}
@@ -55,13 +58,20 @@ export default function useGallery() {
 
       setImageRefs(nextRefs)
       setImageSrcs(newSrcs)
+      cachedImageRefs = nextRefs
+      cachedImageSrcs = newSrcs
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {
+      cachedImageRefs = cachedImageRefs ?? DEFAULTS
+      cachedImageSrcs = cachedImageSrcs ?? {}
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
     if (!loaded) return
     if (skipWriteRef.current) { skipWriteRef.current = false; return }
+    cachedImageRefs = imageRefs
     setDoc(GALLERY_DOC, imageRefs).catch(console.error)
   }, [imageRefs, loaded])
 
@@ -82,27 +92,38 @@ export default function useGallery() {
     setImageSrcs((prev) => {
       const next = { ...prev }
       results.forEach(({ imageId, src }) => { next[imageId] = src })
+      cachedImageSrcs = next
       return next
     })
-    setImageRefs((prev) => ({
-      ...prev,
-      [tab]: [...prev[tab], ...results.map(({ id, imageId }) => ({ id, imageId }))],
-    }))
+    setImageRefs((prev) => {
+      const next = {
+        ...prev,
+        [tab]: [...prev[tab], ...results.map(({ id, imageId }) => ({ id, imageId }))],
+      }
+      cachedImageRefs = next
+      return next
+    })
   }, [])
 
   const deleteImage = useCallback((tab, id) => {
     setImageRefs((prev) => {
       const item = (prev[tab] ?? []).find((r) => r.id === id)
       if (item?.imageId) removeStoredImage(item.imageId)
-      return { ...prev, [tab]: prev[tab].filter((r) => r.id !== id) }
+      const next = { ...prev, [tab]: prev[tab].filter((r) => r.id !== id) }
+      cachedImageRefs = next
+      return next
     })
   }, [])
 
   const updateImage = useCallback((tab, id, changes) => {
-    setImageRefs((prev) => ({
-      ...prev,
-      [tab]: prev[tab].map((r) => r.id === id ? { ...r, ...changes } : r),
-    }))
+    setImageRefs((prev) => {
+      const next = {
+        ...prev,
+        [tab]: prev[tab].map((r) => r.id === id ? { ...r, ...changes } : r),
+      }
+      cachedImageRefs = next
+      return next
+    })
   }, [])
 
   return { images, addImages, deleteImage, updateImage, loaded }

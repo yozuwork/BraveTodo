@@ -158,20 +158,14 @@ function MainApp() {
     [quests, addInboxItem, removeQuest],
   );
 
-  const tabFromUrl = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState(tabFromUrl || "Tasks");
-
-  useEffect(() => {
-    if (tabFromUrl && tabFromUrl !== activeTab) setActiveTab(tabFromUrl);
-    if (!tabFromUrl && activeTab !== "Tasks") setActiveTab("Tasks");
-  }, [tabFromUrl, activeTab]);
+  const activeTab = searchParams.get("tab") || "Tasks";
 
   const handleTabChange = useCallback(
     (tab) => {
-      setActiveTab(tab);
+      if (tab === activeTab) return;
       setSearchParams(tab === "Tasks" ? {} : { tab });
     },
-    [setSearchParams],
+    [activeTab, setSearchParams],
   );
 
   const handleResetLevel = useCallback(

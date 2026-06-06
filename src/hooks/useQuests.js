@@ -6,6 +6,7 @@ import { isSoundEnabled } from '../utils/soundSettings'
 
 const QUESTS_DOC = doc(db, 'meta', 'quests')
 
+let cachedQuests = null
 let cachedLifetimeCompletions = null
 
 const _questCompleteAudio = new Audio(coinSfxUrl)
@@ -24,21 +25,30 @@ export function playQuestCompleteSound() {
 }
 
 export default function useQuests() {
-  const [quests, setQuests] = useState([])
+  const [quests, setQuests] = useState(() => cachedQuests ?? [])
   const [lifetimeCompletions, setLifetimeCompletions] = useState(() => cachedLifetimeCompletions ?? 0)
-  const [loaded, setLoaded] = useState(false)
+  const [loaded, setLoaded] = useState(() => cachedQuests !== null)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedQuests !== null) return
     getDoc(QUESTS_DOC).then((snap) => {
       if (snap.exists()) {
         const data = snap.data()
-        setQuests(data.items ?? [])
+        cachedQuests = data.items ?? []
         cachedLifetimeCompletions = data.lifetimeCompletions ?? 0
+        setQuests(cachedQuests)
         setLifetimeCompletions(cachedLifetimeCompletions)
+      } else {
+        cachedQuests = []
+        cachedLifetimeCompletions = 0
       }
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {
+      cachedQuests = cachedQuests ?? []
+      cachedLifetimeCompletions = cachedLifetimeCompletions ?? 0
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -47,6 +57,8 @@ export default function useQuests() {
       skipWriteRef.current = false
       return
     }
+    cachedQuests = quests
+    cachedLifetimeCompletions = lifetimeCompletions
     setDoc(QUESTS_DOC, { items: quests, lifetimeCompletions }).catch(console.error)
   }, [quests, lifetimeCompletions, loaded])
 

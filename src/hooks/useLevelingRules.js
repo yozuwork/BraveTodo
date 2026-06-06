@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 
 const RULES_DOC = doc(db, 'meta', 'levelingRules')
+let cachedRules = null
 
 export const DEFAULT_RULES = [
   { id: 1, minLevel: 1,   maxLevel: 10,  expPerLevel: 3 },
@@ -14,21 +15,28 @@ export const DEFAULT_RULES = [
 ]
 
 export default function useLevelingRules() {
-  const [rules, setRules] = useState(DEFAULT_RULES)
-  const [loaded, setLoaded] = useState(false)
+  const [rules, setRules] = useState(() => cachedRules ?? DEFAULT_RULES)
+  const [loaded, setLoaded] = useState(() => cachedRules !== null)
   const skipWriteRef = useRef(true)
 
   useEffect(() => {
+    if (cachedRules !== null) return
     getDoc(RULES_DOC).then((snap) => {
+      let nextRules = DEFAULT_RULES
       if (snap.exists()) {
         const saved = snap.data().items ?? []
-        setRules(DEFAULT_RULES.map((def) => {
+        nextRules = DEFAULT_RULES.map((def) => {
           const s = saved.find((x) => x.id === def.id)
           return s ? { ...def, expPerLevel: Math.max(1, s.expPerLevel) } : def
-        }))
+        })
       }
+      cachedRules = nextRules
+      setRules(nextRules)
       setLoaded(true)
-    }).catch(() => setLoaded(true))
+    }).catch(() => {
+      cachedRules = cachedRules ?? DEFAULT_RULES
+      setLoaded(true)
+    })
   }, [])
 
   useEffect(() => {
@@ -37,6 +45,7 @@ export default function useLevelingRules() {
       skipWriteRef.current = false
       return
     }
+    cachedRules = rules
     const toSave = rules.map(({ id, expPerLevel }) => ({ id, expPerLevel }))
     setDoc(RULES_DOC, { items: toSave }).catch(console.error)
   }, [rules, loaded])
