@@ -10,17 +10,22 @@ import SportsMartialArtsIcon from "@mui/icons-material/SportsMartialArts";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import LogoutIcon from "@mui/icons-material/Logout";
+import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
+import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import CharacterCard from "./components/Sidebar/CharacterCard";
 import HuntSideCard from "./components/Sidebar/HuntSideCard";
 import StatsCard from "./components/Sidebar/StatsCard";
 import QuestHub from "./components/Main/QuestHub";
 import LevelUpEffect from "./components/LevelUpEffect/LevelUpEffect";
+import ImageUploadFeedback from "./components/common/ImageUploadFeedback";
 import useQuests from "./hooks/useQuests";
 import useCharacter from "./hooks/useCharacter";
 import useStages, { resolveCurrentStage } from "./hooks/useStages";
 import useInbox from "./hooks/useInbox";
 import useLevelingRules from "./hooks/useLevelingRules";
 import useMonsters from "./hooks/useMonsters";
+import useStories from "./hooks/useStories";
+import useMaps from "./hooks/useMaps";
 import useAuth from "./hooks/useAuth";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
@@ -110,6 +115,21 @@ function MainApp() {
     updateHuntTask,
     resetMonsterHunts,
   } = useMonsters();
+  const {
+    stories,
+    addStory,
+    updateStory,
+    removeStory,
+    updateStoryCover,
+    toggleStoryPin,
+  } = useStories();
+  const {
+    maps,
+    addMap,
+    updateMap,
+    removeMap,
+    updateMapCover,
+  } = useMaps();
 
   const handlePromoteToQuest = useCallback(
     (id, text) => {
@@ -486,6 +506,17 @@ function MainApp() {
               onInboxRemoveSubTask={removeInboxSubTask}
               onInboxUpdateSubTask={updateInboxSubTask}
               onPromoteToQuest={handlePromoteToQuest}
+              stories={stories}
+              onStoryAdd={addStory}
+              onStoryUpdate={updateStory}
+              onStoryRemove={removeStory}
+              onStoryCoverChange={updateStoryCover}
+              onStoryTogglePin={toggleStoryPin}
+              maps={maps}
+              onMapAdd={addMap}
+              onMapUpdate={updateMap}
+              onMapRemove={removeMap}
+              onMapCoverChange={updateMapCover}
               activeTab={activeTab}
               onTabChange={handleTabChange}
             />
@@ -559,6 +590,8 @@ const mobileNavItemClass = (isActive) =>
 const WORK_TABS = [
   { tab: "Tasks", label: "任務", icon: <TaskAltIcon sx={{ fontSize: 18 }} /> },
   { tab: "Hunt", label: "討伐", icon: <SportsMartialArtsIcon sx={{ fontSize: 18 }} /> },
+  { tab: "Story", label: "故事", icon: <AutoStoriesOutlinedIcon sx={{ fontSize: 18 }} /> },
+  { tab: "Map", label: "地圖", icon: <MapOutlinedIcon sx={{ fontSize: 18 }} /> },
   { tab: "Skills", label: "SKILL", icon: <StarBorderIcon sx={{ fontSize: 18 }} /> },
   { tab: "Inbox", label: "收集箱", icon: <Inventory2OutlinedIcon sx={{ fontSize: 18 }} /> },
 ]
@@ -758,6 +791,7 @@ function Layout({ user, signIn, logOut }) {
           />
         </div>
       )}
+      <ImageUploadFeedback />
     </div>
   )
 }

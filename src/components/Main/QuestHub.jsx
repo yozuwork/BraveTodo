@@ -7,6 +7,8 @@ import QuestItem from './QuestItem'
 import InboxItem from './InboxItem'
 import HuntTab from './HuntTab'
 import HuntMission from './HuntMission'
+import StoryTab from './StoryTab'
+import MapTab from './MapTab'
 
 export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
@@ -27,6 +29,8 @@ export default function QuestHub({
   onBindQuestToActiveHuntTask,
   onUnbindQuestFromHuntTask,
   onCreateAndBindQuestToActiveHunt,
+  stories, onStoryAdd, onStoryUpdate, onStoryRemove, onStoryCoverChange, onStoryTogglePin,
+  maps, onMapAdd, onMapUpdate, onMapRemove, onMapCoverChange,
   // lifted tab state
   activeTab, onTabChange,
 }) {
@@ -352,6 +356,27 @@ export default function QuestHub({
           onStageLevelChange={onStageLevel}
           onAddStage={onAddStage}
           onRemoveStage={onRemoveStage}
+        />
+      )}
+
+      {activeTab === 'Story' && (
+        <StoryTab
+          stories={stories}
+          onAdd={onStoryAdd}
+          onUpdate={onStoryUpdate}
+          onRemove={onStoryRemove}
+          onCoverChange={onStoryCoverChange}
+          onTogglePin={onStoryTogglePin}
+        />
+      )}
+
+      {activeTab === 'Map' && (
+        <MapTab
+          maps={maps}
+          onAdd={onMapAdd}
+          onUpdate={onMapUpdate}
+          onRemove={onMapRemove}
+          onCoverChange={onMapCoverChange}
         />
       )}
 

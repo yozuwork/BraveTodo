@@ -1,6 +1,13 @@
 const DEFAULT_MAX_PX = 1600
 const DEFAULT_QUALITY = 0.95
 const STORE_LIMIT = 750_000 // safe margin under Firestore's 1MB field limit
+const UPLOAD_START_EVENT = 'brave:image-upload-start'
+const UPLOAD_FINISH_EVENT = 'brave:image-upload-finish'
+
+function dispatchUploadEvent(name) {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(name))
+}
 
 function getOutputType(file) {
   if (file?.type === 'image/png' || file?.type === 'image/webp') return file.type
@@ -25,12 +32,27 @@ export function getCompressedImageExtension(file) {
  * @param {boolean} enforceLimit reduce quality until output < 750KB (default false)
  */
 export function compressImage(file, maxPx = DEFAULT_MAX_PX, quality = DEFAULT_QUALITY, enforceLimit = false) {
+  dispatchUploadEvent(UPLOAD_START_EVENT)
   return new Promise((resolve, reject) => {
+    let finished = false
+    const finish = () => {
+      if (finished) return
+      finished = true
+      dispatchUploadEvent(UPLOAD_FINISH_EVENT)
+    }
+    const resolveDone = (value) => {
+      finish()
+      resolve(value)
+    }
+    const rejectDone = (error) => {
+      finish()
+      reject(error)
+    }
     const reader = new FileReader()
-    reader.onerror = reject
+    reader.onerror = rejectDone
     reader.onload = (e) => {
       const img = new Image()
-      img.onerror = reject
+      img.onerror = rejectDone
       img.onload = () => {
         let { width, height } = img
         if (width > height) {
@@ -47,7 +69,7 @@ export function compressImage(file, maxPx = DEFAULT_MAX_PX, quality = DEFAULT_QU
         ctx.drawImage(img, 0, 0, width, height)
 
         if (!enforceLimit) {
-          resolve(canvas.toDataURL(getOutputType(file), quality))
+          resolveDone(canvas.toDataURL(getOutputType(file), quality))
           return
         }
 
@@ -73,7 +95,7 @@ export function compressImage(file, maxPx = DEFAULT_MAX_PX, quality = DEFAULT_QU
           result = half.toDataURL('image/jpeg', 0.7)
         }
 
-        resolve(result)
+        resolveDone(result)
       }
       img.src = e.target.result
     }
