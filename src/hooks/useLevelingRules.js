@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { normalizeLevelingRules } from '../utils/levelingRules'
 
 const RULES_DOC = doc(db, 'meta', 'levelingRules')
 let cachedRules = null
@@ -14,6 +15,17 @@ export const DEFAULT_RULES = [
   { id: 6, minLevel: 180, maxLevel: 250, expPerLevel: 3 },
 ]
 
+const normalizeSavedRules = (saved) => {
+  if (!Array.isArray(saved)) return DEFAULT_RULES
+
+  return normalizeLevelingRules(
+    saved.map((item) => {
+      const defaultRule = DEFAULT_RULES.find((rule) => rule.id === item?.id)
+      return defaultRule ? { ...defaultRule, ...item } : item
+    })
+  )
+}
+
 export default function useLevelingRules() {
   const [rules, setRules] = useState(() => cachedRules ?? DEFAULT_RULES)
   const [loaded, setLoaded] = useState(() => cachedRules !== null)
@@ -25,10 +37,7 @@ export default function useLevelingRules() {
       let nextRules = DEFAULT_RULES
       if (snap.exists()) {
         const saved = snap.data().items ?? []
-        nextRules = DEFAULT_RULES.map((def) => {
-          const s = saved.find((x) => x.id === def.id)
-          return s ? { ...def, expPerLevel: Math.max(1, s.expPerLevel) } : def
-        })
+        nextRules = normalizeSavedRules(saved)
       }
       cachedRules = nextRules
       setRules(nextRules)
@@ -46,7 +55,12 @@ export default function useLevelingRules() {
       return
     }
     cachedRules = rules
-    const toSave = rules.map(({ id, expPerLevel }) => ({ id, expPerLevel }))
+    const toSave = rules.map(({ id, minLevel, maxLevel, expPerLevel }) => ({
+      id,
+      minLevel,
+      maxLevel,
+      expPerLevel,
+    }))
     setDoc(RULES_DOC, { items: toSave }).catch(console.error)
   }, [rules, loaded])
 
@@ -57,5 +71,54 @@ export default function useLevelingRules() {
     )
   }, [])
 
-  return { rules, updateExpPerLevel }
+  const updateLevelRange = useCallback((id, field, value) => {
+    if (field !== 'minLevel' && field !== 'maxLevel') return
+
+    const parsed = parseInt(value, 10)
+    const nextValue = isNaN(parsed) ? 1 : Math.max(1, parsed)
+    setRules((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r
+
+        if (field === 'minLevel') {
+          return {
+            ...r,
+            minLevel: nextValue,
+            maxLevel: Math.max(nextValue, r.maxLevel),
+          }
+        }
+
+        return {
+          ...r,
+          minLevel: Math.min(r.minLevel, nextValue),
+          maxLevel: nextValue,
+        }
+      })
+    )
+  }, [])
+
+  const addLevelingRule = useCallback(() => {
+    setRules((prev) => {
+      const normalized = normalizeLevelingRules(prev)
+      const last = normalized.at(-1)
+      const minLevel = last?.maxLevel ?? 1
+      const nextId = Math.max(0, ...prev.map((rule) => Number(rule.id) || 0)) + 1
+
+      return [
+        ...prev,
+        {
+          id: nextId,
+          minLevel,
+          maxLevel: minLevel + 10,
+          expPerLevel: 1,
+        },
+      ]
+    })
+  }, [])
+
+  const removeLevelingRule = useCallback((id) => {
+    setRules((prev) => prev.filter((rule) => rule.id !== id))
+  }, [])
+
+  return { rules, updateExpPerLevel, updateLevelRange, addLevelingRule, removeLevelingRule }
 }

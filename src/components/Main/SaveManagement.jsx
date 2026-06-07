@@ -18,6 +18,7 @@ import { db } from '../../firebase'
 import { resolveImg } from '../../utils/imageSrc'
 import { compressImage } from '../../utils/compressImage'
 import { DEFAULT_RULES } from '../../hooks/useLevelingRules'
+import { calcLevelInfo, normalizeLevelingRules } from '../../utils/levelingRules'
 import GalleryImagePicker from '../common/GalleryImagePicker'
 
 const DB_NAME = 'brave-todo-save-slots'
@@ -144,23 +145,6 @@ function buildSaveMetadata({ currentLevel, currentStage }) {
   }
 }
 
-function calcLevelInfo(lifetimeCompletions, rules) {
-  let remaining = lifetimeCompletions
-
-  for (const rule of rules) {
-    const levelsInRange = rule.maxLevel - rule.minLevel
-    const tasksForRange = levelsInRange * rule.expPerLevel
-
-    if (remaining < tasksForRange) {
-      return rule.minLevel + Math.floor(remaining / rule.expPerLevel)
-    }
-
-    remaining -= tasksForRange
-  }
-
-  return rules[rules.length - 1]?.maxLevel ?? 1
-}
-
 function resolveImportedStage(stagesDoc, level) {
   const rawStages = Array.isArray(stagesDoc?.items) && stagesDoc.items.length > 0
     ? stagesDoc.items
@@ -196,12 +180,15 @@ function resolveImportedStage(stagesDoc, level) {
 
 function metadataFromPayload(payload) {
   const rulesDoc = payload.firestore?.levelingRules
-  const rules = DEFAULT_RULES.map((rule) => {
-    const saved = (rulesDoc?.items ?? []).find((item) => item.id === rule.id)
-    return saved ? { ...rule, expPerLevel: Math.max(1, saved.expPerLevel) } : rule
-  })
+  const savedRules = Array.isArray(rulesDoc?.items)
+    ? rulesDoc.items.map((item) => {
+        const defaultRule = DEFAULT_RULES.find((rule) => rule.id === item?.id)
+        return defaultRule ? { ...defaultRule, ...item } : item
+      })
+    : DEFAULT_RULES
+  const rules = normalizeLevelingRules(savedRules)
   const completions = Number(payload.firestore?.quests?.lifetimeCompletions) || 0
-  const level = calcLevelInfo(completions, rules)
+  const { level } = calcLevelInfo(completions, rules)
   const stage = resolveImportedStage(payload.firestore?.stages, level)
 
   return { level, ...stage }

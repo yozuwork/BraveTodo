@@ -13,6 +13,7 @@ import { isSoundEnabled, setSoundEnabled } from "../../utils/soundSettings";
 import GalleryImagePicker from "../common/GalleryImagePicker";
 import { resolveImg } from "../../utils/imageSrc";
 import { getAppTheme, setAppTheme, THEME_EVENT } from "../../utils/themeSettings";
+import { calcCompletionsForLevel, getHighestConfiguredLevel } from "../../utils/levelingRules";
 
 const FAVICON_KEY = "brave-todo:favicon";
 const TITLE_KEY = "brave-todo:pageTitle";
@@ -179,19 +180,6 @@ function useFavicon() {
   return { faviconUrl, uploadFavicon, uploadFaviconFromGallery, resetFavicon, savedToDisk };
 }
 
-// 根據升級規則計算到達指定等級起點所需的累計經驗數
-function calcCompletionsForLevel(targetLevel, rules) {
-  let total = 0;
-  for (const rule of rules) {
-    if (targetLevel <= rule.minLevel) break;
-    const reachableLevel = Math.min(targetLevel, rule.maxLevel);
-    const levelsGained = reachableLevel - rule.minLevel;
-    total += levelsGained * rule.expPerLevel;
-    if (targetLevel <= rule.maxLevel) break;
-  }
-  return total;
-}
-
 function SoundToggleCard() {
   const [enabled, setEnabled] = useState(isSoundEnabled);
 
@@ -289,7 +277,7 @@ export default function OtherSettings({
   levelingRules,
   onResetLevel,
 }) {
-  const maxLevel = levelingRules[levelingRules.length - 1]?.maxLevel ?? 250;
+  const maxLevel = getHighestConfiguredLevel(levelingRules);
   const [targetLevel, setTargetLevel] = useState(1);
   const [confirmed, setConfirmed] = useState(false);
   const {

@@ -20,6 +20,9 @@ export default function CharacterSettings({
   onStageAvatarPosition,
   levelingRules,
   onUpdateExpPerLevel,
+  onUpdateLevelRange,
+  onAddLevelingRule,
+  onRemoveLevelingRule,
 }) {
   const [activeSetting, setActiveSetting] = useState('stages')
 
@@ -68,6 +71,9 @@ export default function CharacterSettings({
         <LevelingSettings
           rules={levelingRules}
           onUpdateExpPerLevel={onUpdateExpPerLevel}
+          onUpdateLevelRange={onUpdateLevelRange}
+          onAddLevelingRule={onAddLevelingRule}
+          onRemoveLevelingRule={onRemoveLevelingRule}
         />
       )}
     </div>

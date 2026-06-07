@@ -3,7 +3,13 @@ import useStages from '../hooks/useStages'
 import useLevelingRules from '../hooks/useLevelingRules'
 
 export default function CharacterSettingsPage() {
-  const { rules: levelingRules, updateExpPerLevel } = useLevelingRules()
+  const {
+    rules: levelingRules,
+    updateExpPerLevel,
+    updateLevelRange,
+    addLevelingRule,
+    removeLevelingRule,
+  } = useLevelingRules()
   const {
     stages,
     updateStageName,
@@ -33,6 +39,9 @@ export default function CharacterSettingsPage() {
           onStageAvatarPosition={updateStageAvatarPosition}
           levelingRules={levelingRules}
           onUpdateExpPerLevel={updateExpPerLevel}
+          onUpdateLevelRange={updateLevelRange}
+          onAddLevelingRule={addLevelingRule}
+          onRemoveLevelingRule={removeLevelingRule}
         />
       </div>
     </main>

@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import levelUpSfxUrl from '../assets/music/Key Item Get (The Legend of Zelda Breath of the Wild OST).mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
+import { calcLevelInfo } from '../utils/levelingRules'
 
 const CHARACTER_DOC = doc(db, 'meta', 'character')
 let cachedAvatar = null
@@ -19,26 +20,6 @@ function playLevelUpSound() {
 }
 
 const BASE_STATS = { atk: 5, def: 5, spd: 5 }
-
-function calcLevelInfo(lifetimeCompletions, rules) {
-  let remaining = lifetimeCompletions
-
-  for (const rule of rules) {
-    const levelsInRange = rule.maxLevel - rule.minLevel
-    const tasksForRange = levelsInRange * rule.expPerLevel
-
-    if (remaining < tasksForRange) {
-      const levelsGained = Math.floor(remaining / rule.expPerLevel)
-      const level = rule.minLevel + levelsGained
-      const progress = ((remaining % rule.expPerLevel) / rule.expPerLevel) * 100
-      return { level, expProgress: progress }
-    }
-
-    remaining -= tasksForRange
-  }
-
-  return { level: rules[rules.length - 1].maxLevel, expProgress: 100 }
-}
 
 export default function useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules) {
   const [avatar, setAvatar] = useState(() => cachedAvatar ?? defaultAvatar)
