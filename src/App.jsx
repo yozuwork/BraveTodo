@@ -28,6 +28,7 @@ import useMonsters from "./hooks/useMonsters";
 import useStories from "./hooks/useStories";
 import useMaps from "./hooks/useMaps";
 import useNpcs from "./hooks/useNpcs";
+import useSkills from "./hooks/useSkills";
 import useAuth from "./hooks/useAuth";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
@@ -125,6 +126,14 @@ function MainApp() {
     updateStoryCover,
     toggleStoryPin,
   } = useStories();
+  const {
+    skills,
+    addSkill,
+    updateSkill,
+    removeSkill,
+    updateSkillCover,
+    toggleSkillPin,
+  } = useSkills();
   const {
     maps,
     addMap,
@@ -515,6 +524,12 @@ function MainApp() {
               onStoryRemove={removeStory}
               onStoryCoverChange={updateStoryCover}
               onStoryTogglePin={toggleStoryPin}
+              skills={skills}
+              onSkillAdd={addSkill}
+              onSkillUpdate={updateSkill}
+              onSkillRemove={removeSkill}
+              onSkillCoverChange={updateSkillCover}
+              onSkillTogglePin={toggleSkillPin}
               maps={maps}
               onMapAdd={addMap}
               onMapUpdate={updateMap}

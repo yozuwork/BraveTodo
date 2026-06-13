@@ -40,7 +40,7 @@ export async function getStorageStats() {
   const [imageSnap, metaSnaps] = await Promise.all([
     getDocs(collection(db, 'images')),
     Promise.all(
-      ['stages', 'gallery', 'character', 'quests', 'inbox', 'monsters', 'stories', 'npcs', 'maps', 'levelingRules'].map(
+      ['stages', 'gallery', 'character', 'quests', 'inbox', 'monsters', 'stories', 'skills', 'npcs', 'maps', 'levelingRules'].map(
         (name) => getDoc(doc(db, 'meta', name))
       )
     ),

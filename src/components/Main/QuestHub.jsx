@@ -8,6 +8,7 @@ import InboxItem from './InboxItem'
 import HuntTab from './HuntTab'
 import HuntMission from './HuntMission'
 import StoryTab from './StoryTab'
+import SkillTab from './SkillTab'
 import MapTab from './MapTab'
 import NpcTab from './NpcTab'
 
@@ -31,6 +32,7 @@ export default function QuestHub({
   onUnbindQuestFromHuntTask,
   onCreateAndBindQuestToActiveHunt,
   stories, onStoryAdd, onStoryUpdate, onStoryRemove, onStoryCoverChange, onStoryTogglePin,
+  skills, onSkillAdd, onSkillUpdate, onSkillRemove, onSkillCoverChange, onSkillTogglePin,
   maps, onMapAdd, onMapUpdate, onMapRemove, onMapCoverChange,
   npcs, onNpcAdd, onNpcUpdate, onNpcRemove, onNpcCoverChange,
   // lifted tab state
@@ -369,6 +371,19 @@ export default function QuestHub({
           onRemove={onStoryRemove}
           onCoverChange={onStoryCoverChange}
           onTogglePin={onStoryTogglePin}
+        />
+      )}
+
+      {activeTab === 'Skills' && (
+        <SkillTab
+          skills={skills}
+          stages={stages}
+          currentLevel={currentLevel}
+          onAdd={onSkillAdd}
+          onUpdate={onSkillUpdate}
+          onRemove={onSkillRemove}
+          onCoverChange={onSkillCoverChange}
+          onTogglePin={onSkillTogglePin}
         />
       )}
 
