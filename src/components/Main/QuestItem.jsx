@@ -15,9 +15,10 @@ import AddIcon from '@mui/icons-material/Add'
 import SportsMmaIcon from '@mui/icons-material/SportsMma'
 import SlashEffect from './SlashEffect'
 import DamageNumber from './DamageNumber'
+import VocabularyInput from '../common/VocabularyInput'
 
 // ── Sub-task row ──────────────────────────────────────────────
-function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
+function SubTaskItem({ sub, onToggle, onRemove, onUpdate, getVocabularySuggestions }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(sub.text)
   const inputRef = useRef(null)
@@ -40,6 +41,13 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
     setEditing(false)
   }
 
+  const commitSuggestion = (text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    onUpdate(trimmed)
+    setEditing(false)
+  }
+
   return (
     <div className="flex items-center gap-2 group/sub">
       <Checkbox
@@ -53,16 +61,20 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
         }}
       />
       {editing ? (
-        <input
+        <VocabularyInput
           ref={inputRef}
-          className="flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
+          wrapperClassName="relative flex-1"
+          className="w-full flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={setDraft}
+          suggestions={getVocabularySuggestions?.(draft, ['subtask']) ?? []}
+          onSelectSuggestion={commitSuggestion}
           onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); commit() }
-            if (e.key === 'Escape') { setDraft(sub.text); setEditing(false) }
+          onEnter={(e) => {
+            e.preventDefault()
+            commit()
           }}
+          onEscape={() => { setDraft(sub.text); setEditing(false) }}
         />
       ) : (
         <span
@@ -121,8 +133,6 @@ const EXP_STYLE  = {
   10: 'bg-orange-50 text-orange-500 hover:bg-orange-100',
 }
 
-const SUBTASK_REQUIREMENT = { 1: 0, 3: 2, 5: 3, 10: 5 }
-
 function normalizeExpValue(expValue) {
   // legacy support: old "中等" used 2
   if (expValue === 2) return 3
@@ -140,6 +150,7 @@ export default function QuestItem({
   onBindQuestToActiveHuntTask,
   onUnbindQuestFromHuntTask,
   onCreateAndBindQuestToActiveHunt,
+  getVocabularySuggestions,
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(quest.text)
@@ -155,7 +166,6 @@ export default function QuestItem({
   const inputRef = useRef(null)
   const subInputRef = useRef(null)
   const pendingToggleRef = useRef(false)
-  const subComposingRef = useRef(false)
 
   const subTasks = quest.subTasks ?? []
 
@@ -178,21 +188,12 @@ export default function QuestItem({
 
   const completedSubs = subTasks.filter((s) => s.completed).length
   const effectiveExp = normalizeExpValue(quest.expValue)
-  const requiredSubs = SUBTASK_REQUIREMENT[effectiveExp] ?? 0
   const mobileEditOnlyBlock = 'hidden md:block'
   const mobileEditOnlyInline = 'hidden md:inline-flex'
   const mobileContentBasis = 'max-md:basis-auto'
-  const canCompleteBySubs = requiredSubs === 0
-    ? true
-    : (subTasks.length >= requiredSubs && completedSubs >= requiredSubs)
 
   const handleToggle = useCallback(() => {
     if (!quest.completed) {
-      if (!canCompleteBySubs) {
-        setShaking(true)
-        setTimeout(() => setShaking(false), 450)
-        return
-      }
       playQuestCompleteSound()
       setSlashing(true)
       setAnimatingComplete(true)
@@ -200,7 +201,7 @@ export default function QuestItem({
     } else {
       onToggle(quest.id)
     }
-  }, [quest.completed, quest.id, onToggle, canCompleteBySubs])
+  }, [quest.completed, quest.id, onToggle])
 
   const handleShakeReady = useCallback(() => {
     setShaking(true)
@@ -218,11 +219,22 @@ export default function QuestItem({
     setEditing(false)
   }
 
-  const commitSubTask = () => {
-    const trimmed = subDraft.trim()
+  const commitEditSuggestion = (text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    onUpdate(quest.id, trimmed)
+    setEditing(false)
+  }
+
+  const commitSubTaskValue = (text) => {
+    const trimmed = text.trim()
     if (trimmed) onAddSubTask(quest.id, trimmed)
     setSubDraft('')
     setAddingSubTask(false)
+  }
+
+  const commitSubTask = () => {
+    commitSubTaskValue(subDraft)
   }
 
   const cancelSubTask = () => { setSubDraft(''); setAddingSubTask(false) }
@@ -284,9 +296,9 @@ export default function QuestItem({
     <>
     <div
       onClick={openMobileDetail}
-      className={`mobile-quest-item bg-white max-md:bg-transparent rounded-xl max-md:rounded-none px-4 py-4 sm:px-5 max-md:px-0 max-md:py-5 flex flex-wrap max-md:flex-nowrap max-md:items-start sm:flex-nowrap gap-3 sm:gap-4 border max-md:border-0 max-md:border-b max-md:border-gray-100 last:max-md:border-b-0 transition-colors group relative overflow-hidden max-md:cursor-pointer ${
+      className={`mobile-quest-item bg-white max-md:bg-transparent rounded-xl max-md:rounded-none px-4 py-4 sm:px-5 max-md:px-0 max-md:py-5 flex flex-wrap max-md:flex-nowrap max-md:items-start sm:flex-nowrap gap-3 sm:gap-4 border max-md:border-0 max-md:border-b max-md:border-gray-100 last:max-md:border-b-0 transition-colors group relative overflow-visible max-md:overflow-hidden max-md:cursor-pointer ${
         quest.completed || animatingComplete ? 'opacity-50' : ''
-      } ${shaking ? 'quest-shake' : ''} ${
+      } ${editing || addingSubTask ? 'z-30' : ''} ${shaking ? 'quest-shake' : ''} ${
         quest.pinned && !quest.completed ? 'border-purple-200 hover:border-purple-300' : 'border-transparent hover:border-gray-200'
       }`}
     >
@@ -380,7 +392,7 @@ export default function QuestItem({
           {!editing && (
             <button
               onClick={() => onSetExp(quest.id, EXP_CYCLE[effectiveExp])}
-              title={`經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）｜需完成子任務 ${requiredSubs} 個才可完成母任務`}
+              title={`經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）`}
               className={`order-3 sm:order-none shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${mobileEditOnlyInline} ${
                 EXP_STYLE[effectiveExp]
               }`}
@@ -389,17 +401,21 @@ export default function QuestItem({
             </button>
           )}
           {editing ? (
-            <input
+            <VocabularyInput
               ref={inputRef}
               type="text"
-              className="order-1 sm:order-none basis-full sm:basis-auto flex-1 text-sm font-medium text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200"
+              wrapperClassName="relative order-1 sm:order-none basis-full sm:basis-auto flex-1"
+              className="w-full order-1 sm:order-none basis-full sm:basis-auto flex-1 text-sm font-medium text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={setDraft}
+              suggestions={getVocabularySuggestions?.(draft, ['task', 'inbox']) ?? []}
+              onSelectSuggestion={commitEditSuggestion}
               onBlur={commitEdit}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
-                else if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+              onEnter={(e) => {
+                e.preventDefault()
+                commitEdit()
               }}
+              onEscape={cancelEdit}
             />
           ) : (
             <p
@@ -621,6 +637,7 @@ export default function QuestItem({
                 onToggle={() => onToggleSubTask(quest.id, sub.id)}
                 onRemove={() => onRemoveSubTask(quest.id, sub.id)}
                 onUpdate={(text) => onUpdateSubTask(quest.id, sub.id, text)}
+                getVocabularySuggestions={getVocabularySuggestions}
               />
             ))}
           </div>
@@ -629,19 +646,21 @@ export default function QuestItem({
         {/* Add sub-task */}
         {addingSubTask ? (
           <div className="flex max-md:hidden items-center gap-2 pl-2 ml-1">
-            <input
+            <VocabularyInput
               ref={subInputRef}
-              className="flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
+              wrapperClassName="relative flex-1"
+              className="w-full flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
               placeholder="輸入子任務..."
               value={subDraft}
-              onChange={(e) => setSubDraft(e.target.value)}
-              onCompositionStart={() => { subComposingRef.current = true }}
-              onCompositionEnd={() => { subComposingRef.current = false }}
+              onChange={setSubDraft}
+              suggestions={getVocabularySuggestions?.(subDraft, ['subtask']) ?? []}
+              onSelectSuggestion={commitSubTaskValue}
               onBlur={commitSubTask}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !subComposingRef.current) { e.preventDefault(); commitSubTask() }
-                if (e.key === 'Escape') { e.preventDefault(); cancelSubTask() }
+              onEnter={(e) => {
+                e.preventDefault()
+                commitSubTask()
               }}
+              onEscape={cancelSubTask}
             />
           </div>
         ) : (
@@ -670,17 +689,21 @@ export default function QuestItem({
                 任務詳情
               </p>
               {editing ? (
-                <input
+                <VocabularyInput
                   ref={inputRef}
                   type="text"
+                  wrapperClassName="relative"
                   className="mobile-quest-detail-title-input w-full text-2xl font-bold bg-transparent border-b px-0 py-2 outline-none"
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={setDraft}
+                  suggestions={getVocabularySuggestions?.(draft, ['task', 'inbox']) ?? []}
+                  onSelectSuggestion={commitEditSuggestion}
                   onBlur={commitEdit}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
-                    else if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+                  onEnter={(e) => {
+                    e.preventDefault()
+                    commitEdit()
                   }}
+                  onEscape={cancelEdit}
                 />
               ) : (
                 <h2 className="mobile-quest-detail-title text-3xl font-bold leading-tight m-0 break-words">
@@ -820,25 +843,28 @@ export default function QuestItem({
                     onToggle={() => onToggleSubTask(quest.id, sub.id)}
                     onRemove={() => onRemoveSubTask(quest.id, sub.id)}
                     onUpdate={(text) => onUpdateSubTask(quest.id, sub.id, text)}
+                    getVocabularySuggestions={getVocabularySuggestions}
                   />
                 ))}
               </div>
             )}
             {addingSubTask ? (
               <div className="flex items-center gap-2">
-                <input
+                <VocabularyInput
                   ref={subInputRef}
-                  className="flex-1 text-sm text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400"
+                  wrapperClassName="relative flex-1"
+                  className="w-full flex-1 text-sm text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400"
                   placeholder="輸入子任務..."
                   value={subDraft}
-                  onChange={(e) => setSubDraft(e.target.value)}
-                  onCompositionStart={() => { subComposingRef.current = true }}
-                  onCompositionEnd={() => { subComposingRef.current = false }}
+                  onChange={setSubDraft}
+                  suggestions={getVocabularySuggestions?.(subDraft, ['subtask']) ?? []}
+                  onSelectSuggestion={commitSubTaskValue}
                   onBlur={commitSubTask}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !subComposingRef.current) { e.preventDefault(); commitSubTask() }
-                    if (e.key === 'Escape') { e.preventDefault(); cancelSubTask() }
+                  onEnter={(e) => {
+                    e.preventDefault()
+                    commitSubTask()
                   }}
+                  onEscape={cancelSubTask}
                 />
               </div>
             ) : (

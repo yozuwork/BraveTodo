@@ -11,6 +11,7 @@ import StoryTab from './StoryTab'
 import SkillTab from './SkillTab'
 import MapTab from './MapTab'
 import NpcTab from './NpcTab'
+import VocabularyInput from '../common/VocabularyInput'
 
 export default function QuestHub({
   quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
@@ -35,14 +36,13 @@ export default function QuestHub({
   skills, onSkillAdd, onSkillUpdate, onSkillRemove, onSkillCoverChange, onSkillTogglePin,
   maps, onMapAdd, onMapUpdate, onMapRemove, onMapCoverChange,
   npcs, onNpcAdd, onNpcUpdate, onNpcRemove, onNpcCoverChange,
+  getVocabularySuggestions,
   // lifted tab state
   activeTab, onTabChange,
 }) {
   const [inputValue, setInputValue] = useState('')
   const [inboxInput, setInboxInput] = useState('')
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false)
-  const isComposingRef = useRef(false)
-  const isInboxComposingRef = useRef(false)
   const mobileInputRef = useRef(null)
 
   // ── Drag-and-drop state ──
@@ -133,20 +133,31 @@ export default function QuestHub({
     }
   }
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !isComposingRef.current && inputValue.trim()) {
-      submitQuestInput()
-    }
-  }
-
-  const handleInboxKeyDown = (e) => {
-    if (e.key === 'Enter' && !isInboxComposingRef.current && inboxInput.trim()) {
+  const submitInboxInput = () => {
+    if (inboxInput.trim()) {
       onInboxAdd(inboxInput.trim())
       setInboxInput('')
     }
   }
 
+  const commitQuestSuggestion = (text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    onAdd(trimmed)
+    setInputValue('')
+    setMobileComposerOpen(false)
+  }
+
+  const commitInboxSuggestion = (text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    onInboxAdd(trimmed)
+    setInboxInput('')
+  }
+
   const hasCompleted = quests.some((q) => q.completed)
+  const taskSuggestions = getVocabularySuggestions?.(inputValue, ['task', 'inbox']) ?? []
+  const inboxSuggestions = getVocabularySuggestions?.(inboxInput, ['inbox', 'task']) ?? []
 
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
@@ -169,15 +180,19 @@ export default function QuestHub({
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-btn pointer-events-none">
               <AddIcon fontSize="small" />
             </span>
-            <input
+            <VocabularyInput
               type="text"
+              wrapperClassName="relative"
               className="w-full bg-white text-black border border-gray-200 rounded-xl max-md:rounded-2xl py-4 pl-12 pr-20 text-sm max-md:text-base focus:outline-none focus:border-purple-400 transition-colors placeholder:text-gray-400"
               placeholder="輸入任務?"
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onCompositionStart={() => { isComposingRef.current = true }}
-              onCompositionEnd={() => { isComposingRef.current = false }}
-              onKeyDown={handleKeyDown}
+              onChange={setInputValue}
+              suggestions={taskSuggestions}
+              onEnter={(e) => {
+                e.preventDefault()
+                submitQuestInput()
+              }}
+              onSelectSuggestion={commitQuestSuggestion}
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono pointer-events-none">
               ENTER ↵
@@ -255,6 +270,7 @@ export default function QuestHub({
                         onBindQuestToActiveHuntTask={onBindQuestToActiveHuntTask}
                         onUnbindQuestFromHuntTask={onUnbindQuestFromHuntTask}
                         onCreateAndBindQuestToActiveHunt={onCreateAndBindQuestToActiveHunt}
+                        getVocabularySuggestions={getVocabularySuggestions}
                       />
                       {isOver && !questInsertBefore && (
                         <div className="absolute -bottom-1.5 left-0 right-0 h-0.5 bg-purple-400 rounded-full z-10 pointer-events-none" />
@@ -286,20 +302,22 @@ export default function QuestHub({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex flex-col gap-5">
-                <input
+                <VocabularyInput
                   ref={mobileInputRef}
                   type="text"
                   value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onCompositionStart={() => { isComposingRef.current = true }}
-                  onCompositionEnd={() => { isComposingRef.current = false }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !isComposingRef.current) {
+                  onChange={setInputValue}
+                  suggestions={taskSuggestions}
+                  onEnter={(e) => {
+                    if (inputValue.trim()) {
                       e.preventDefault()
                       submitQuestInput()
                     }
-                    if (e.key === 'Escape') setMobileComposerOpen(false)
                   }}
+                  onEscape={() => setMobileComposerOpen(false)}
+                  onSelectSuggestion={commitQuestSuggestion}
+                  wrapperClassName="relative"
+                  dropdownClassName="top-auto bottom-[calc(100%+10px)]"
                   className="mobile-composer-input w-full bg-transparent text-black text-2xl font-semibold outline-none placeholder:text-gray-400 border-l-4 border-purple-btn pl-3"
                   placeholder="輸入任務?"
                 />
@@ -413,15 +431,19 @@ export default function QuestHub({
             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
               <AddIcon fontSize="small" />
             </span>
-            <input
+            <VocabularyInput
               type="text"
+              wrapperClassName="relative"
               className="w-full bg-white max-md:bg-transparent text-black border border-gray-200 max-md:border-transparent rounded-xl py-4 pl-12 pr-20 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
               placeholder="新增到收集箱..."
               value={inboxInput}
-              onChange={(e) => setInboxInput(e.target.value)}
-              onCompositionStart={() => { isInboxComposingRef.current = true }}
-              onCompositionEnd={() => { isInboxComposingRef.current = false }}
-              onKeyDown={handleInboxKeyDown}
+              onChange={setInboxInput}
+              suggestions={inboxSuggestions}
+              onEnter={(e) => {
+                e.preventDefault()
+                submitInboxInput()
+              }}
+              onSelectSuggestion={commitInboxSuggestion}
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono pointer-events-none">
               ENTER ↵
@@ -463,6 +485,7 @@ export default function QuestHub({
                       onToggleSubTask={onInboxToggleSubTask}
                       onRemoveSubTask={onInboxRemoveSubTask}
                       onUpdateSubTask={onInboxUpdateSubTask}
+                      getVocabularySuggestions={getVocabularySuggestions}
                     />
                     {isOver && !inboxInsertBefore && (
                       <div className="absolute -bottom-1.5 left-0 right-0 h-0.5 bg-gray-400 rounded-full z-10 pointer-events-none" />

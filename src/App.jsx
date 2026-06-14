@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Routes, Route, Navigate, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import PersonIcon from "@mui/icons-material/Person";
 import PublicIcon from "@mui/icons-material/Public";
@@ -30,6 +30,7 @@ import useMaps from "./hooks/useMaps";
 import useNpcs from "./hooks/useNpcs";
 import useSkills from "./hooks/useSkills";
 import useAuth from "./hooks/useAuth";
+import useVocabulary from "./hooks/useVocabulary";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
 import CharacterSettingsPage from "./pages/CharacterSettingsPage";
@@ -61,6 +62,7 @@ function MainApp() {
     setQuestCompleted,
     bindQuestToHuntTask,
     unbindQuestFromHuntTask,
+    loaded: questsLoaded,
   } = useQuests();
   const { rules: levelingRules, updateExpPerLevel } = useLevelingRules();
   const {
@@ -103,7 +105,14 @@ function MainApp() {
     toggleInboxSubTask,
     removeInboxSubTask,
     updateInboxSubTask,
+    loaded: inboxLoaded,
   } = useInbox();
+  const {
+    items: vocabularyItems,
+    loaded: vocabularyLoaded,
+    rememberPhrase,
+    rememberPhrases,
+  } = useVocabulary();
   const {
     monsters,
     addMonster,
@@ -149,22 +158,141 @@ function MainApp() {
     updateNpcCover,
   } = useNpcs();
 
+  const vocabularySeededRef = useRef(false);
+
+  useEffect(() => {
+    if (!vocabularyLoaded || !questsLoaded || !inboxLoaded || vocabularySeededRef.current) return;
+
+    const taskTexts = [
+      ...quests.map((quest) => quest.text),
+      ...inboxItems.map((item) => item.text),
+    ];
+    const subTaskTexts = [
+      ...quests.flatMap((quest) => quest.subTasks ?? []).map((sub) => sub.text),
+      ...inboxItems.flatMap((item) => item.subTasks ?? []).map((sub) => sub.text),
+    ];
+
+    rememberPhrases(taskTexts, "task");
+    rememberPhrases(subTaskTexts, "subtask");
+    vocabularySeededRef.current = true;
+  }, [inboxItems, inboxLoaded, quests, questsLoaded, rememberPhrases, vocabularyLoaded]);
+
+  const getVocabularySuggestions = useCallback(
+    (query, preferredKinds = []) => {
+      const trimmed = String(query ?? "").trim();
+      const normalized = trimmed.toLocaleLowerCase();
+      if (!normalized) return [];
+
+      const preference = new Map(preferredKinds.map((kind, index) => [kind, index]));
+
+      return vocabularyItems
+        .filter((item) => {
+          const text = item.text ?? "";
+          return text.toLocaleLowerCase().includes(normalized) && text !== trimmed;
+        })
+        .sort((a, b) => {
+          const aText = a.text.toLocaleLowerCase();
+          const bText = b.text.toLocaleLowerCase();
+          const aPreferred = preference.has(a.kind) ? preference.get(a.kind) : 99;
+          const bPreferred = preference.has(b.kind) ? preference.get(b.kind) : 99;
+          const aStarts = aText.startsWith(normalized) ? 0 : 1;
+          const bStarts = bText.startsWith(normalized) ? 0 : 1;
+
+          return (
+            aPreferred - bPreferred ||
+            aStarts - bStarts ||
+            (b.count ?? 0) - (a.count ?? 0) ||
+            (b.lastUsed ?? 0) - (a.lastUsed ?? 0)
+          );
+        })
+        .map((item) => item.text)
+        .slice(0, 8);
+    },
+    [vocabularyItems],
+  );
+
+  const handleAddQuest = useCallback(
+    (text) => {
+      rememberPhrase(text, "task");
+      addQuest(text);
+    },
+    [addQuest, rememberPhrase],
+  );
+
+  const handleUpdateQuest = useCallback(
+    (id, text) => {
+      rememberPhrase(text, "task");
+      updateQuest(id, text);
+    },
+    [rememberPhrase, updateQuest],
+  );
+
+  const handleAddSubTask = useCallback(
+    (questId, text) => {
+      rememberPhrase(text, "subtask");
+      addSubTask(questId, text);
+    },
+    [addSubTask, rememberPhrase],
+  );
+
+  const handleUpdateSubTask = useCallback(
+    (questId, subTaskId, text) => {
+      rememberPhrase(text, "subtask");
+      updateSubTask(questId, subTaskId, text);
+    },
+    [rememberPhrase, updateSubTask],
+  );
+
+  const handleAddInboxItem = useCallback(
+    (text, subTasks = []) => {
+      rememberPhrase(text, "inbox");
+      addInboxItem(text, subTasks);
+    },
+    [addInboxItem, rememberPhrase],
+  );
+
+  const handleUpdateInboxItem = useCallback(
+    (id, text) => {
+      rememberPhrase(text, "inbox");
+      updateInboxItem(id, text);
+    },
+    [rememberPhrase, updateInboxItem],
+  );
+
+  const handleAddInboxSubTask = useCallback(
+    (itemId, text) => {
+      rememberPhrase(text, "subtask");
+      addInboxSubTask(itemId, text);
+    },
+    [addInboxSubTask, rememberPhrase],
+  );
+
+  const handleUpdateInboxSubTask = useCallback(
+    (itemId, subId, text) => {
+      rememberPhrase(text, "subtask");
+      updateInboxSubTask(itemId, subId, text);
+    },
+    [rememberPhrase, updateInboxSubTask],
+  );
+
   const handlePromoteToQuest = useCallback(
     (id, text) => {
+      rememberPhrase(text, "task");
       addQuest(text);
       removeInboxItem(id);
     },
-    [addQuest, removeInboxItem],
+    [addQuest, rememberPhrase, removeInboxItem],
   );
 
   const handleDemoteToInbox = useCallback(
     (id) => {
       const quest = quests.find((q) => q.id === id);
       if (!quest) return;
+      rememberPhrase(quest.text, "inbox");
       addInboxItem(quest.text, quest.subTasks ?? []);
       removeQuest(id);
     },
-    [quests, addInboxItem, removeQuest],
+    [quests, addInboxItem, rememberPhrase, removeQuest],
   );
 
   const activeTab = searchParams.get("tab") || "Tasks";
@@ -459,9 +587,9 @@ function MainApp() {
           <div className="w-full flex-1">
             <QuestHub
               quests={quests}
-              onAdd={addQuest}
+              onAdd={handleAddQuest}
               onToggle={toggleQuestSynced}
-              onUpdate={updateQuest}
+              onUpdate={handleUpdateQuest}
               onRemove={removeQuest}
               onTogglePin={togglePin}
               onToggleCore={toggleCoreTask}
@@ -483,10 +611,10 @@ function MainApp() {
               levelingRules={levelingRules}
               onUpdateExpPerLevel={updateExpPerLevel}
               atk={stats.atk.value}
-              onAddSubTask={addSubTask}
+              onAddSubTask={handleAddSubTask}
               onToggleSubTask={toggleSubTask}
               onRemoveSubTask={removeSubTask}
-              onUpdateSubTask={updateSubTask}
+              onUpdateSubTask={handleUpdateSubTask}
               currentLevel={level}
               onResetLevel={handleResetLevel}
               monsters={monsters}
@@ -509,14 +637,14 @@ function MainApp() {
               onCreateAndBindQuestToActiveHunt={
                 handleCreateAndBindQuestToActiveHunt
               }
-              onInboxAdd={addInboxItem}
+              onInboxAdd={handleAddInboxItem}
               onInboxRemove={removeInboxItem}
-              onInboxUpdate={updateInboxItem}
+              onInboxUpdate={handleUpdateInboxItem}
               onReorderInbox={reorderInboxItems}
-              onInboxAddSubTask={addInboxSubTask}
+              onInboxAddSubTask={handleAddInboxSubTask}
               onInboxToggleSubTask={toggleInboxSubTask}
               onInboxRemoveSubTask={removeInboxSubTask}
-              onInboxUpdateSubTask={updateInboxSubTask}
+              onInboxUpdateSubTask={handleUpdateInboxSubTask}
               onPromoteToQuest={handlePromoteToQuest}
               stories={stories}
               onStoryAdd={addStory}
@@ -540,6 +668,7 @@ function MainApp() {
               onNpcUpdate={updateNpc}
               onNpcRemove={removeNpc}
               onNpcCoverChange={updateNpcCover}
+              getVocabularySuggestions={getVocabularySuggestions}
               activeTab={activeTab}
               onTabChange={handleTabChange}
             />

@@ -7,9 +7,10 @@ import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined'
 import AddIcon from '@mui/icons-material/Add'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
+import VocabularyInput from '../common/VocabularyInput'
 
 // ── Sub-task row ──────────────────────────────────────────────
-function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
+function SubTaskItem({ sub, onToggle, onRemove, onUpdate, getVocabularySuggestions }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(sub.text)
   const inputRef = useRef(null)
@@ -32,6 +33,13 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
     setEditing(false)
   }
 
+  const commitSuggestion = (text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    onUpdate(trimmed)
+    setEditing(false)
+  }
+
   return (
     <div className="flex items-center gap-2 group/sub">
       <Checkbox
@@ -45,16 +53,20 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
         }}
       />
       {editing ? (
-        <input
+        <VocabularyInput
           ref={inputRef}
-          className="flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
+          wrapperClassName="relative flex-1"
+          className="w-full flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={setDraft}
+          suggestions={getVocabularySuggestions?.(draft, ['subtask']) ?? []}
+          onSelectSuggestion={commitSuggestion}
           onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); commit() }
-            if (e.key === 'Escape') { setDraft(sub.text); setEditing(false) }
+          onEnter={(e) => {
+            e.preventDefault()
+            commit()
           }}
+          onEscape={() => { setDraft(sub.text); setEditing(false) }}
         />
       ) : (
         <span
@@ -96,6 +108,7 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate }) {
 export default function InboxItem({
   item, onUpdate, onRemove, onPromoteToQuest,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
+  getVocabularySuggestions,
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(item.text)
@@ -104,7 +117,6 @@ export default function InboxItem({
   const [subDraft, setSubDraft] = useState('')
   const inputRef = useRef(null)
   const subInputRef = useRef(null)
-  const subComposingRef = useRef(false)
 
   const subTasks = item.subTasks ?? []
 
@@ -133,11 +145,22 @@ export default function InboxItem({
     setEditing(false)
   }
 
-  const commitSubTask = () => {
-    const trimmed = subDraft.trim()
+  const commitEditSuggestion = (text) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    onUpdate(item.id, trimmed)
+    setEditing(false)
+  }
+
+  const commitSubTaskValue = (text) => {
+    const trimmed = text.trim()
     if (trimmed) onAddSubTask(item.id, trimmed)
     setSubDraft('')
     setAddingSubTask(false)
+  }
+
+  const commitSubTask = () => {
+    commitSubTaskValue(subDraft)
   }
 
   const cancelSubTask = () => { setSubDraft(''); setAddingSubTask(false) }
@@ -194,17 +217,21 @@ export default function InboxItem({
         {/* Title row */}
         <div className="flex items-center gap-2">
           {editing ? (
-            <input
+            <VocabularyInput
               ref={inputRef}
               type="text"
-              className="flex-1 text-sm font-medium text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200"
+              wrapperClassName="relative flex-1"
+              className="w-full flex-1 text-sm font-medium text-black bg-stone-50 border border-purple-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200"
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={setDraft}
+              suggestions={getVocabularySuggestions?.(draft, ['inbox', 'task']) ?? []}
+              onSelectSuggestion={commitEditSuggestion}
               onBlur={commitEdit}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
-                else if (e.key === 'Escape') { e.preventDefault(); cancelEdit() }
+              onEnter={(e) => {
+                e.preventDefault()
+                commitEdit()
               }}
+              onEscape={cancelEdit}
             />
           ) : (
             <p
@@ -264,6 +291,7 @@ export default function InboxItem({
                 onToggle={() => onToggleSubTask(item.id, sub.id)}
                 onRemove={() => onRemoveSubTask(item.id, sub.id)}
                 onUpdate={(text) => onUpdateSubTask(item.id, sub.id, text)}
+                getVocabularySuggestions={getVocabularySuggestions}
               />
             ))}
           </div>
@@ -272,19 +300,21 @@ export default function InboxItem({
         {/* Add sub-task */}
         {addingSubTask ? (
           <div className="flex items-center gap-2 pl-2 ml-1">
-            <input
+            <VocabularyInput
               ref={subInputRef}
-              className="flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
+              wrapperClassName="relative flex-1"
+              className="w-full flex-1 text-xs text-black bg-stone-50 border border-purple-200 rounded px-2 py-1 outline-none focus:border-purple-400"
               placeholder="輸入子任務..."
               value={subDraft}
-              onChange={(e) => setSubDraft(e.target.value)}
-              onCompositionStart={() => { subComposingRef.current = true }}
-              onCompositionEnd={() => { subComposingRef.current = false }}
+              onChange={setSubDraft}
+              suggestions={getVocabularySuggestions?.(subDraft, ['subtask']) ?? []}
+              onSelectSuggestion={commitSubTaskValue}
               onBlur={commitSubTask}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !subComposingRef.current) { e.preventDefault(); commitSubTask() }
-                if (e.key === 'Escape') { e.preventDefault(); cancelSubTask() }
+              onEnter={(e) => {
+                e.preventDefault()
+                commitSubTask()
               }}
+              onEscape={cancelSubTask}
             />
           </div>
         ) : (
