@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
@@ -28,8 +28,6 @@ export default function useQuests() {
   const [quests, setQuests] = useState(() => cachedQuests ?? [])
   const [lifetimeCompletions, setLifetimeCompletions] = useState(() => cachedLifetimeCompletions ?? 0)
   const [loaded, setLoaded] = useState(() => cachedQuests !== null)
-  const skipWriteRef = useRef(true)
-
   useEffect(() => {
     if (cachedQuests !== null) return
     getDoc(QUESTS_DOC).then((snap) => {
@@ -51,16 +49,41 @@ export default function useQuests() {
     })
   }, [])
 
+  const skipItemsWriteRef = useRef(true)
+  const skipExpWriteRef = useRef(true)
+
   useEffect(() => {
     if (!loaded) return
-    if (skipWriteRef.current) {
-      skipWriteRef.current = false
+    if (skipItemsWriteRef.current) {
+      skipItemsWriteRef.current = false
       return
     }
     cachedQuests = quests
+    updateDoc(QUESTS_DOC, { items: quests }).catch((err) => {
+      // Document may not exist yet on first write
+      if (err.code === 'not-found') {
+        setDoc(QUESTS_DOC, { items: quests, lifetimeCompletions }).catch(console.error)
+      } else {
+        console.error(err)
+      }
+    })
+  }, [quests, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!loaded) return
+    if (skipExpWriteRef.current) {
+      skipExpWriteRef.current = false
+      return
+    }
     cachedLifetimeCompletions = lifetimeCompletions
-    setDoc(QUESTS_DOC, { items: quests, lifetimeCompletions }).catch(console.error)
-  }, [quests, lifetimeCompletions, loaded])
+    updateDoc(QUESTS_DOC, { lifetimeCompletions }).catch((err) => {
+      if (err.code === 'not-found') {
+        setDoc(QUESTS_DOC, { items: quests, lifetimeCompletions }).catch(console.error)
+      } else {
+        console.error(err)
+      }
+    })
+  }, [lifetimeCompletions, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const addQuest = useCallback((text) => {
     setQuests((prev) => [
