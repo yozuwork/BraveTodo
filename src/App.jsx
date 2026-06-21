@@ -555,129 +555,144 @@ function MainApp() {
   return (
     <>
       <div className="mobile-page-surface flex justify-center items-start bg-stone-50 md:bg-transparent p-5 md:p-10 pb-6 md:pb-10 min-h-screen md:min-h-0">
-        <div className="w-full max-w-[1200px] flex flex-col md:flex-row gap-6 md:gap-10">
-          {/* Sidebar */}
-          <aside
-            className="hidden md:flex w-full md:w-[380px] md:shrink-0 flex-col gap-6 md:gap-8"
-          >
-            {isOnHuntMission ? (
-              <HuntSideCard target={activeHuntTarget} />
-            ) : (
-              <CharacterCard
-                level={level}
-                avatar={currentStage.avatarSrc}
-                avatars={currentStage.avatarSrcs}
-                onAvatarChange={(file) =>
-                  updateStageAvatar(currentStage.id, file)
-                }
-                imagePosition={imagePosition}
-                onImagePositionChange={updateImagePosition}
-              />
-            )}
-            <StatsCard
-              expProgress={expProgress}
-              coreTaskProgress={coreTaskProgress}
-              stats={stats}
-              level={level}
-              currentStage={currentStage}
-            />
-          </aside>
+        <div className="w-full max-w-[1200px] flex flex-col gap-8">
+          <div className="w-full flex flex-col md:flex-row gap-6 md:gap-10">
+            {/* Sidebar */}
+            <aside
+              className="hidden md:flex w-full md:w-[380px] md:shrink-0 flex-col gap-6 md:gap-8"
+            >
+              {isOnHuntMission ? (
+                <HuntSideCard target={activeHuntTarget} />
+              ) : (
+                <CharacterCard
+                  level={level}
+                  avatar={currentStage.avatarSrc}
+                  avatars={currentStage.avatarSrcs}
+                  onAvatarChange={(file) =>
+                    updateStageAvatar(currentStage.id, file)
+                  }
+                  imagePosition={imagePosition}
+                  onImagePositionChange={updateImagePosition}
+                />
+              )}
+            </aside>
 
-          {/* Quest Hub */}
-          <div className="w-full flex-1">
-            <QuestHub
-              quests={quests}
-              onAdd={handleAddQuest}
-              onToggle={toggleQuestSynced}
-              onUpdate={handleUpdateQuest}
-              onRemove={removeQuest}
-              onTogglePin={togglePin}
-              onToggleCore={toggleCoreTask}
-              onSetPriority={setQuestPriority}
-              onSetExp={updateQuestExp}
-              onReorderQuests={reorderQuests}
-              onClearCompleted={clearCompleted}
-              onDemoteToInbox={handleDemoteToInbox}
-              stages={stages}
-              onStageName={updateStageName}
-              onStageAvatar={updateStageAvatar}
-              onStageAvatarReplace={replaceStageAvatar}
-              onStageAvatarRemove={removeStageAvatar}
-              onStageLevel={updateStageLevel}
-              onAddStage={addStage}
-              onRemoveStage={removeStage}
-              onReorderStages={reorderStages}
-              inboxItems={inboxItems}
-              levelingRules={levelingRules}
-              onUpdateExpPerLevel={updateExpPerLevel}
-              atk={stats.atk.value}
-              onAddSubTask={handleAddSubTask}
-              onToggleSubTask={toggleSubTask}
-              onRemoveSubTask={removeSubTask}
-              onUpdateSubTask={handleUpdateSubTask}
-              currentLevel={level}
-              onResetLevel={handleResetLevel}
-              monsters={monsters}
-              onAddMonster={addMonster}
-              onUpdateMonster={updateMonster}
-              onRemoveMonster={removeMonster}
-              onMonsterAvatarChange={updateMonsterAvatar}
-              onStartHunt={startHunt}
-              onStopHunt={stopHunt}
-              onStartStageBossHunt={startStageBossHunt}
-              onStopStageBossHunt={stopStageBossHunt}
-              onCompleteStageBossHunt={completeStageBossHunt}
-              onStageBossNameChange={updateStageBossName}
-              onStageBossAvatarChange={updateStageBossAvatar}
-              onStageAvatarPosition={updateStageAvatarPosition}
-              activeHuntTarget={activeHuntTarget}
-              huntTaskHandlers={huntTaskHandlers}
-              onBindQuestToActiveHuntTask={handleBindQuestToActiveHuntTask}
-              onUnbindQuestFromHuntTask={handleUnbindQuest}
-              onCreateAndBindQuestToActiveHunt={
-                handleCreateAndBindQuestToActiveHunt
-              }
-              onInboxAdd={handleAddInboxItem}
-              onInboxRemove={removeInboxItem}
-              onInboxUpdate={handleUpdateInboxItem}
-              onReorderInbox={reorderInboxItems}
-              onInboxAddSubTask={handleAddInboxSubTask}
-              onInboxToggleSubTask={toggleInboxSubTask}
-              onInboxRemoveSubTask={removeInboxSubTask}
-              onInboxUpdateSubTask={handleUpdateInboxSubTask}
-              onPromoteToQuest={handlePromoteToQuest}
-              stories={stories}
-              onStoryAdd={addStory}
-              onStoryUpdate={updateStory}
-              onStoryRemove={removeStory}
-              onStoryCoverChange={updateStoryCover}
-              onStoryTogglePin={toggleStoryPin}
-              skills={skills}
-              onSkillAdd={addSkill}
-              onSkillUpdate={updateSkill}
-              onSkillRemove={removeSkill}
-              onSkillCoverChange={updateSkillCover}
-              onSkillTogglePin={toggleSkillPin}
-              maps={maps}
-              onMapAdd={addMap}
-              onMapUpdate={updateMap}
-              onMapRemove={removeMap}
-              onMapCoverChange={updateMapCover}
-              npcs={npcs}
-              onNpcAdd={addNpc}
-              onNpcUpdate={updateNpc}
-              onNpcRemove={removeNpc}
-              onNpcCoverChange={updateNpcCover}
-              getVocabularySuggestions={getVocabularySuggestions}
-              activeTab={activeTab}
-              onTabChange={handleTabChange}
-            />
+            {/* Quest Hub */}
+            <div className="w-full flex-1">
+              <QuestHub
+                quests={quests}
+                onAdd={handleAddQuest}
+                onToggle={toggleQuestSynced}
+                onUpdate={handleUpdateQuest}
+                onRemove={removeQuest}
+                onTogglePin={togglePin}
+                onToggleCore={toggleCoreTask}
+                onSetPriority={setQuestPriority}
+                onSetExp={updateQuestExp}
+                onReorderQuests={reorderQuests}
+                onClearCompleted={clearCompleted}
+                onDemoteToInbox={handleDemoteToInbox}
+                stages={stages}
+                onStageName={updateStageName}
+                onStageAvatar={updateStageAvatar}
+                onStageAvatarReplace={replaceStageAvatar}
+                onStageAvatarRemove={removeStageAvatar}
+                onStageLevel={updateStageLevel}
+                onAddStage={addStage}
+                onRemoveStage={removeStage}
+                onReorderStages={reorderStages}
+                inboxItems={inboxItems}
+                levelingRules={levelingRules}
+                onUpdateExpPerLevel={updateExpPerLevel}
+                atk={stats.atk.value}
+                onAddSubTask={handleAddSubTask}
+                onToggleSubTask={toggleSubTask}
+                onRemoveSubTask={removeSubTask}
+                onUpdateSubTask={handleUpdateSubTask}
+                currentLevel={level}
+                onResetLevel={handleResetLevel}
+                monsters={monsters}
+                onAddMonster={addMonster}
+                onUpdateMonster={updateMonster}
+                onRemoveMonster={removeMonster}
+                onMonsterAvatarChange={updateMonsterAvatar}
+                onStartHunt={startHunt}
+                onStopHunt={stopHunt}
+                onStartStageBossHunt={startStageBossHunt}
+                onStopStageBossHunt={stopStageBossHunt}
+                onCompleteStageBossHunt={completeStageBossHunt}
+                onStageBossNameChange={updateStageBossName}
+                onStageBossAvatarChange={updateStageBossAvatar}
+                onStageAvatarPosition={updateStageAvatarPosition}
+                activeHuntTarget={activeHuntTarget}
+                huntTaskHandlers={huntTaskHandlers}
+                onBindQuestToActiveHuntTask={handleBindQuestToActiveHuntTask}
+                onUnbindQuestFromHuntTask={handleUnbindQuest}
+                onCreateAndBindQuestToActiveHunt={
+                  handleCreateAndBindQuestToActiveHunt
+                }
+                onInboxAdd={handleAddInboxItem}
+                onInboxRemove={removeInboxItem}
+                onInboxUpdate={handleUpdateInboxItem}
+                onReorderInbox={reorderInboxItems}
+                onInboxAddSubTask={handleAddInboxSubTask}
+                onInboxToggleSubTask={toggleInboxSubTask}
+                onInboxRemoveSubTask={removeInboxSubTask}
+                onInboxUpdateSubTask={handleUpdateInboxSubTask}
+                onPromoteToQuest={handlePromoteToQuest}
+                stories={stories}
+                onStoryAdd={addStory}
+                onStoryUpdate={updateStory}
+                onStoryRemove={removeStory}
+                onStoryCoverChange={updateStoryCover}
+                onStoryTogglePin={toggleStoryPin}
+                skills={skills}
+                onSkillAdd={addSkill}
+                onSkillUpdate={updateSkill}
+                onSkillRemove={removeSkill}
+                onSkillCoverChange={updateSkillCover}
+                onSkillTogglePin={toggleSkillPin}
+                maps={maps}
+                onMapAdd={addMap}
+                onMapUpdate={updateMap}
+                onMapRemove={removeMap}
+                onMapCoverChange={updateMapCover}
+                npcs={npcs}
+                onNpcAdd={addNpc}
+                onNpcUpdate={updateNpc}
+                onNpcRemove={removeNpc}
+                onNpcCoverChange={updateNpcCover}
+                getVocabularySuggestions={getVocabularySuggestions}
+                activeTab={activeTab}
+                onTabChange={handleTabChange}
+              />
+            </div>
           </div>
+          <WorkBottomProgress expProgress={expProgress} />
         </div>
       </div>
 
       <LevelUpEffect visible={showLevelUp} onComplete={handleLevelUpComplete} />
     </>
+  );
+}
+
+function WorkBottomProgress({ expProgress }) {
+  return (
+    <div className="work-bottom-exp-hud hidden md:block w-full">
+      <div className="w-full rounded-xl border border-gray-100 bg-white px-3 py-3 shadow-lg">
+        <div className="flex items-center justify-between text-sm font-extrabold text-gray-400">
+          <span>EXP</span>
+          <span>{Math.round(expProgress)}%</span>
+        </div>
+        <div className="mt-2 h-3 rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-purple-btn transition-all"
+            style={{ width: `${Math.min(100, Math.max(0, expProgress))}%` }}
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -700,7 +715,7 @@ function CharacterPage() {
 
   return (
     <main className="mobile-page-surface flex justify-center bg-stone-50 md:bg-transparent p-5 md:p-10 min-h-screen md:min-h-0">
-      <div className="w-full max-w-[430px] flex flex-col gap-6 md:gap-8">
+      <div className="w-full max-w-[900px] flex flex-col md:flex-row md:items-start md:justify-center gap-6 md:gap-10">
         <CharacterCard
           level={level}
           avatar={currentStage.avatarSrc}
@@ -709,13 +724,15 @@ function CharacterPage() {
           imagePosition={imagePosition}
           onImagePositionChange={updateImagePosition}
         />
-        <StatsCard
-          expProgress={expProgress}
-          coreTaskProgress={coreTaskProgress}
-          stats={stats}
-          level={level}
-          currentStage={currentStage}
-        />
+        <div className="w-full md:w-[430px] md:pt-10">
+          <StatsCard
+            expProgress={expProgress}
+            coreTaskProgress={coreTaskProgress}
+            stats={stats}
+            level={level}
+            currentStage={currentStage}
+          />
+        </div>
       </div>
     </main>
   );
@@ -828,7 +845,20 @@ function Layout({ user, signIn, logOut }) {
   return (
     <div className="app-shell min-h-screen bg-stone-50 relative overflow-x-hidden pb-24 md:pb-0">
       <header className="hidden md:block sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-12 flex items-center justify-between">
+        <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-14 flex items-center justify-between gap-8">
+          <div className="app-brand flex items-center gap-3 shrink-0">
+            <div className="app-brand-mark flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-600 text-lg font-black">
+              米
+            </div>
+            <div className="leading-tight">
+              <p className="app-brand-title m-0 text-xs font-bold tracking-[0.22em] text-gray-800">
+                ADVENTURER LOG
+              </p>
+              <p className="app-brand-subtitle m-0 text-xs font-bold text-black">
+                角色管理面板
+              </p>
+            </div>
+          </div>
           <nav className="flex items-center gap-1">
             <NavLink to="/character" className={navLinkClass}>角色</NavLink>
             <NavLink to="/work" className={navLinkClass}>工作</NavLink>

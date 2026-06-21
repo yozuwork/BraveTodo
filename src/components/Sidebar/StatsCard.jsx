@@ -30,6 +30,7 @@ export default function StatsCard({ expProgress, coreTaskProgress, stats, level,
           經驗值
         </div>
         <LinearProgress
+          className="character-exp-progress"
           variant="determinate"
           value={expProgress}
           sx={{
@@ -49,6 +50,7 @@ export default function StatsCard({ expProgress, coreTaskProgress, stats, level,
           核心任務經驗條
         </div>
         <LinearProgress
+          className="character-core-progress"
           variant="determinate"
           value={coreTaskProgress}
           sx={{
@@ -70,6 +72,7 @@ export default function StatsCard({ expProgress, coreTaskProgress, stats, level,
       </div>
 
       <Button
+        className="more-stats-button"
         variant="outlined"
         fullWidth
         sx={{

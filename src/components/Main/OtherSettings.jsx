@@ -233,39 +233,58 @@ function ThemeSettingsCard() {
     setAppTheme(nextTheme);
   };
 
+  const themeOptions = [
+    {
+      key: "light",
+      label: "白色",
+      swatches: ["#ffffff", "#fafaf9", "#a855f7"],
+    },
+    {
+      key: "retro",
+      label: "美式復古",
+      swatches: ["#e8d8c9", "#4b607f", "#f3701e"],
+    },
+    {
+      key: "dark",
+      label: "黑色",
+      swatches: ["#111111", "#4b607f", "#f3701e"],
+    },
+  ];
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
       <div>
         <p className="text-sm font-semibold text-black m-0">外觀主題</p>
         <p className="text-xs text-gray-400 mt-0.5 m-0">
-          調整電腦版與手機版的黑色 / 白色主題
+          保留預設白色，也可以切換成美式復古配色
         </p>
       </div>
       <div className="flex items-center gap-2">
         <PaletteIcon sx={{ fontSize: 20, color: "#a855f7" }} />
-        <div className="inline-flex rounded-lg border border-gray-200 bg-stone-50 p-1">
-          <button
-            type="button"
-            onClick={() => updateTheme("light")}
-            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${
-              theme === "light"
-                ? "bg-white text-purple-600 shadow-sm"
-                : "text-gray-500 hover:text-gray-800"
-            }`}
-          >
-            白色
-          </button>
-          <button
-            type="button"
-            onClick={() => updateTheme("dark")}
-            className={`px-4 py-1.5 rounded-md text-xs font-bold transition-colors ${
-              theme === "dark"
-                ? "bg-zinc-900 text-orange-400 shadow-sm"
-                : "text-gray-500 hover:text-gray-800"
-            }`}
-          >
-            黑色
-          </button>
+        <div className="inline-flex flex-wrap rounded-lg border border-gray-200 bg-stone-50 p-1 gap-1">
+          {themeOptions.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => updateTheme(option.key)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                theme === option.key
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              <span className="flex -space-x-1" aria-hidden="true">
+                {option.swatches.map((color) => (
+                  <span
+                    key={color}
+                    className="block h-3.5 w-3.5 rounded-full border border-white shadow-sm"
+                    style={{ backgroundColor: color }}
+                  />
+                ))}
+              </span>
+              {option.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>

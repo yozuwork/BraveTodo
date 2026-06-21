@@ -156,15 +156,26 @@ export default function QuestHub({
   }
 
   const hasCompleted = quests.some((q) => q.completed)
+  const activeQuestCount = quests.filter((quest) => !quest.completed).length
   const taskSuggestions = getVocabularySuggestions?.(inputValue, ['task', 'inbox']) ?? []
   const inboxSuggestions = getVocabularySuggestions?.(inboxInput, ['inbox', 'task']) ?? []
 
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
       <div className="hidden md:flex flex-col gap-4 mb-5">
-        <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight">
-          米莉亞
-        </h1>
+        <div className="flex items-end justify-between gap-6">
+          <div>
+            <p className="quest-log-kicker text-xs font-bold tracking-[0.38em] uppercase text-purple-btn m-0 mb-2">
+              Quest Log
+            </p>
+            <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight">
+              米莉亞
+            </h1>
+          </div>
+          <p className="quest-log-count text-sm font-bold text-gray-400 m-0">
+            <span className="text-purple-btn text-xl">{activeQuestCount}</span> 個進行中任務
+          </p>
+        </div>
         <div>
           <TabNav
             activeTab={activeTab}
