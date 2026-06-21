@@ -13,9 +13,14 @@ import { isSoundEnabled, setSoundEnabled } from "../../utils/soundSettings";
 import GalleryImagePicker from "../common/GalleryImagePicker";
 import { resolveImg } from "../../utils/imageSrc";
 import { getAppTheme, setAppTheme, THEME_EVENT } from "../../utils/themeSettings";
+import {
+  applyFaviconUrl,
+  getCachedFaviconUrl,
+  loadFaviconUrl,
+  saveFaviconUrl,
+} from "../../utils/faviconSettings";
 import { calcCompletionsForLevel, getHighestConfiguredLevel } from "../../utils/levelingRules";
 
-const FAVICON_KEY = "brave-todo:favicon";
 const TITLE_KEY = "brave-todo:pageTitle";
 const DEFAULT_TITLE = "Vanguard Hub";
 const IS_DEV = import.meta.env.DEV;
@@ -104,26 +109,30 @@ function imageSrcToFaviconPng(src) {
 
 function useFavicon() {
   const [faviconUrl, setFaviconUrl] = useState(
-    () => localStorage.getItem(FAVICON_KEY) || null,
+    () => getCachedFaviconUrl(),
   );
-  const [savedToDisk, setSavedToDisk] = useState(false);
+  const [savedToDatabase, setSavedToDatabase] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
-  // Apply to <link rel="icon"> tag
   useEffect(() => {
-    let el = document.querySelector("link[rel~='icon']");
-    if (!el) {
-      el = document.createElement("link");
-      el.rel = "icon";
-      document.head.appendChild(el);
-    }
-    if (faviconUrl) {
-      el.href = faviconUrl;
-      localStorage.setItem(FAVICON_KEY, faviconUrl);
-    } else {
-      el.href = "/favicon.png";
-      localStorage.removeItem(FAVICON_KEY);
-    }
-  }, [faviconUrl]);
+    applyFaviconUrl(faviconUrl);
+  }, [faviconUrl])
+
+  useEffect(() => {
+    let cancelled = false;
+
+    loadFaviconUrl()
+      .then((remoteFaviconUrl) => {
+        if (!cancelled) setFaviconUrl(remoteFaviconUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setSaveError("讀取資料庫圖示失敗，已暫用本機快取。");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const uploadFavicon = async (file) => {
     if (!file) return;
@@ -139,45 +148,38 @@ function useFavicon() {
 
   const saveFaviconDataUrl = async (dataUrl) => {
     setFaviconUrl(dataUrl);
-    setSavedToDisk(false);
+    setSavedToDatabase(false);
+    setSaveError("");
 
-    // In dev mode: also write to public/favicon.png so it's committed with the project
-    if (IS_DEV) {
-      try {
-        const res = await fetch("/api/save-favicon", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dataUrl }),
-        });
-        if (res.ok) setSavedToDisk(true);
-      } catch {
-        // dev server not available — silently ignore
-      }
+    try {
+      await saveFaviconUrl(dataUrl);
+      setSavedToDatabase(true);
+    } catch {
+      setSaveError("儲存到資料庫失敗，請稍後再試。");
     }
   };
 
   const resetFavicon = async () => {
     setFaviconUrl(null);
-    setSavedToDisk(false);
-    if (IS_DEV) {
-      // Restore original cat.png as favicon.png
-      try {
-        const res = await fetch("/src/assets/cat.png");
-        const blob = await res.blob();
-        const file = new File([blob], "cat.png", { type: blob.type });
-        const dataUrl = await fileToFaviconPng(file);
-        await fetch("/api/save-favicon", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dataUrl }),
-        });
-      } catch {
-        /* ignore */
-      }
+    setSavedToDatabase(false);
+    setSaveError("");
+
+    try {
+      await saveFaviconUrl(null);
+      setSavedToDatabase(true);
+    } catch {
+      setSaveError("恢復預設圖示失敗，請稍後再試。");
     }
   };
 
-  return { faviconUrl, uploadFavicon, uploadFaviconFromGallery, resetFavicon, savedToDisk };
+  return {
+    faviconUrl,
+    uploadFavicon,
+    uploadFaviconFromGallery,
+    resetFavicon,
+    savedToDatabase,
+    saveError,
+  };
 }
 
 function SoundToggleCard() {
@@ -304,7 +306,8 @@ export default function OtherSettings({
     uploadFavicon,
     uploadFaviconFromGallery,
     resetFavicon,
-    savedToDisk: faviconSaved,
+    savedToDatabase: faviconSaved,
+    saveError: faviconSaveError,
   } = useFavicon();
   const faviconInputRef = useRef(null);
   const [faviconGalleryOpen, setFaviconGalleryOpen] = useState(false);
@@ -354,22 +357,14 @@ export default function OtherSettings({
             網頁圖示（Favicon）
           </p>
           <p className="text-xs text-gray-400 mt-0.5 m-0">
-            自訂瀏覽器分頁上顯示的小圖示，建議使用正方形圖片
+            自訂瀏覽器分頁上顯示的小圖示，會同步儲存到資料庫
           </p>
-          {IS_DEV ? (
-            <p
-              className="text-xs mt-1 m-0 font-medium"
-              style={{ color: "#10b981" }}
-            >
-              ✓ 開發模式：上傳後會儲存到 public/favicon.png，commit 後即永久生效
-            </p>
-          ) : (
-            <p className="text-xs mt-1 m-0 font-medium text-amber-500">
-              ⚠
-              已部署模式：僅暫時更改（本裝置）。若要永久修改，請在本機開發環境上傳後
-              push。
-            </p>
-          )}
+          <p
+            className="text-xs mt-1 m-0 font-medium"
+            style={{ color: "#10b981" }}
+          >
+            ✓ 上傳後會寫入 Firestore，部署版也會自動載入
+          </p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -451,7 +446,12 @@ export default function OtherSettings({
                 className="text-xs m-0 font-medium"
                 style={{ color: "#10b981" }}
               >
-                ✓ 已儲存到 public/favicon.png — commit 並 push 後即永久生效
+                ✓ 已儲存到資料庫
+              </p>
+            )}
+            {faviconSaveError && (
+              <p className="text-xs m-0 font-medium text-red-500">
+                {faviconSaveError}
               </p>
             )}
           </div>

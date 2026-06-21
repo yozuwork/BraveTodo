@@ -36,6 +36,7 @@ import WorldGallery from "./pages/WorldGallery";
 import CharacterSettingsPage from "./pages/CharacterSettingsPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
 import { getAppTheme, THEME_EVENT } from "./utils/themeSettings";
+import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
 
 function MainApp() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -677,6 +678,17 @@ function MainApp() {
   );
 }
 
+function useDatabaseFavicon(user) {
+  useEffect(() => {
+    applyFaviconUrl(getCachedFaviconUrl());
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    loadFaviconUrl().catch(() => {});
+  }, [user]);
+}
+
 function WorkBottomProgress({ expProgress }) {
   return (
     <div className="work-bottom-exp-hud hidden md:block w-full">
@@ -981,6 +993,7 @@ function Layout({ user, signIn, logOut }) {
 
 export default function App() {
   const { user, loading, signIn, logOut, authError } = useAuth();
+  useDatabaseFavicon(user);
 
   if (loading) {
     return (
