@@ -62,7 +62,27 @@ function usePageTitle() {
   return { title, saveTitle, resetTitle, savedToDisk };
 }
 
-// Convert any image file → PNG data URL (64px, suitable for favicon)
+function drawImageAsFaviconDataUrl(img) {
+  const canvasSize = 256;
+  const padding = 20;
+  const drawableSize = canvasSize - padding * 2;
+  const scale = Math.min(drawableSize / img.width, drawableSize / img.height);
+  const width = img.width * scale;
+  const height = img.height * scale;
+  const x = (canvasSize - width) / 2;
+  const y = (canvasSize - height) / 2;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvasSize;
+  canvas.height = canvasSize;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvasSize, canvasSize);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, x, y, width, height);
+  return canvas.toDataURL("image/png");
+}
+
+// Convert any image file → PNG data URL (256px, suitable for favicon)
 function fileToFaviconPng(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -71,16 +91,7 @@ function fileToFaviconPng(file) {
       const img = new Image();
       img.onerror = reject;
       img.onload = () => {
-        const size = Math.min(img.width, img.height, 256);
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        // Centre-crop if not square
-        const sx = (img.width - size) / 2;
-        const sy = (img.height - size) / 2;
-        ctx.drawImage(img, sx, sy, size, size, 0, 0, size, size);
-        resolve(canvas.toDataURL("image/png"));
+        resolve(drawImageAsFaviconDataUrl(img));
       };
       img.src = e.target.result;
     };
@@ -93,15 +104,7 @@ function imageSrcToFaviconPng(src) {
     const img = new Image();
     img.onerror = reject;
     img.onload = () => {
-      const size = Math.min(img.width, img.height, 256);
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      const sx = (img.width - size) / 2;
-      const sy = (img.height - size) / 2;
-      ctx.drawImage(img, sx, sy, size, size, 0, 0, size, size);
-      resolve(canvas.toDataURL("image/png"));
+      resolve(drawImageAsFaviconDataUrl(img));
     };
     img.src = resolveImg(src);
   });
