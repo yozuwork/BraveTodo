@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Routes, Route, Navigate, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
+import { Routes, Route, Navigate, NavLink, Outlet, Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import PersonIcon from "@mui/icons-material/Person";
 import PublicIcon from "@mui/icons-material/Public";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -35,8 +35,19 @@ import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
 import CharacterSettingsPage from "./pages/CharacterSettingsPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
+import WitchSinPage from "./pages/WitchSinPage";
 import { getAppTheme, THEME_EVENT } from "./utils/themeSettings";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
+
+const APP_ROOT_PATH = "/brave-todo";
+const WITCH_SIN_PATH = "/witch-sin";
+const APP_ROUTE_PATHS = {
+  character: `${APP_ROOT_PATH}/character`,
+  work: `${APP_ROOT_PATH}/work`,
+  gallery: `${APP_ROOT_PATH}/gallery`,
+  characterSettings: `${APP_ROOT_PATH}/character-settings`,
+  systemSettings: `${APP_ROOT_PATH}/system-settings`,
+};
 
 function MainApp() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -750,6 +761,127 @@ function CharacterPage() {
   );
 }
 
+function EntryPage({ user, loading, signIn, logOut, authError }) {
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <main className="min-h-screen bg-stone-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-md rounded-[28px] border border-gray-200 bg-white p-8 md:p-10 shadow-sm">
+        <h1 className="m-0 text-center text-3xl font-bold text-gray-800">
+          主入口介面
+        </h1>
+        <div className="mt-6 flex flex-col gap-3">
+          {user ? (
+            <>
+              <div className="flex items-center gap-3 rounded-2xl border border-gray-200 px-4 py-3">
+                <div className="h-11 w-11 overflow-hidden rounded-full border border-gray-200">
+                  <UserAvatar user={user} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-sm font-semibold text-gray-800">
+                    {user.displayName}
+                  </p>
+                  <p className="m-0 truncate text-xs text-gray-400">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => signIn({ selectAccount: true })}
+                  className="flex-1 rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 transition-colors hover:border-purple-300 hover:bg-purple-50 hover:text-purple-600"
+                >
+                  登入其他 Google 帳號
+                </button>
+                <button
+                  type="button"
+                  onClick={() => logOut()}
+                  className="flex-1 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-500 transition-colors hover:bg-red-100"
+                >
+                  登出
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="m-0 text-center text-sm text-gray-500">
+                請先登入再進入勇者todo
+              </p>
+              {authError && (
+                <p className="m-0 text-center text-sm font-medium text-red-500">
+                  {authError}
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => signIn()}
+                className="flex items-center justify-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-4 text-sm font-medium text-gray-700 transition-colors hover:border-purple-300 hover:bg-purple-50 hover:text-purple-600"
+              >
+                <img
+                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                  alt="Google"
+                  className="h-5 w-5"
+                />
+                使用 Google 帳號登入
+              </button>
+            </>
+          )}
+        </div>
+        <div className="mt-8 flex flex-col gap-4">
+          <Link
+            to={APP_ROUTE_PATHS.work}
+            className="flex items-center justify-center rounded-2xl border border-gray-200 px-5 py-4 text-base font-semibold text-gray-800 no-underline transition-colors hover:border-purple-300 hover:bg-purple-50 hover:text-purple-600"
+          >
+            勇者todo
+          </Link>
+          <Link
+            to={WITCH_SIN_PATH}
+            className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 px-5 py-4 text-base font-semibold text-gray-500 no-underline transition-colors hover:border-purple-300 hover:bg-purple-50 hover:text-purple-600"
+          >
+            魔女的原罪
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function LoadingScreen() {
+  return (
+    <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+      <div className="text-gray-400 text-sm">載入中...</div>
+    </div>
+  );
+}
+
+function LoginScreen({ authError, signIn }) {
+  return (
+    <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-6">
+      <h1 className="text-2xl font-bold text-gray-800">Vanguard Hub</h1>
+      <p className="text-gray-500 text-sm">請登入以繼續</p>
+      {authError && (
+        <p className="max-w-xs text-center text-sm font-medium text-red-500">
+          {authError}
+        </p>
+      )}
+      <button
+        onClick={() => signIn()}
+        className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-shadow text-sm font-medium text-gray-700"
+      >
+        <img
+          src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+          alt="Google"
+          className="w-5 h-5"
+        />
+        使用 Google 帳號登入
+      </button>
+    </div>
+  );
+}
+
 // ── Shared layout with header ─────────────────────────────────
 const navLinkClass = ({ isActive }) =>
   `px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
@@ -789,7 +921,7 @@ function UserAvatar({ user }) {
   )
 }
 
-function UserMenu({ user, signIn, logOut, onClose, mobile = false }) {
+function UserMenu({ user, signIn, onLogOut, onClose, mobile = false }) {
   return (
     <div
       className={`mobile-user-menu rounded-xl shadow-lg py-2 min-w-[180px] z-50 ${
@@ -803,6 +935,7 @@ function UserMenu({ user, signIn, logOut, onClose, mobile = false }) {
         <p className="text-xs text-gray-400 truncate">{user.email}</p>
       </div>
       <button
+        type="button"
         onClick={() => {
           onClose()
           signIn({ selectAccount: true })
@@ -812,10 +945,8 @@ function UserMenu({ user, signIn, logOut, onClose, mobile = false }) {
         登入其他 Google 帳號
       </button>
       <button
-        onClick={() => {
-          onClose()
-          logOut()
-        }}
+        type="button"
+        onClick={onLogOut}
         className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
       >
         登出
@@ -828,17 +959,28 @@ function Layout({ user, signIn, logOut }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [appTheme, setAppThemeState] = useState(getAppTheme)
+  const navigate = useNavigate()
   const location = useLocation()
   const activeWorkTab = new URLSearchParams(location.search).get("tab") || "Tasks"
-  const tasksActive = location.pathname === "/work" && activeWorkTab === "Tasks"
+  const tasksActive = location.pathname === APP_ROUTE_PATHS.work && activeWorkTab === "Tasks"
   const moreMenuActive =
-    location.pathname === "/system-settings" ||
-    (location.pathname === "/work" && WORK_MORE_TABS.some((item) => item.tab === activeWorkTab))
+    location.pathname === APP_ROUTE_PATHS.systemSettings ||
+    (location.pathname === APP_ROUTE_PATHS.work && WORK_MORE_TABS.some((item) => item.tab === activeWorkTab))
 
   const closeMenus = () => {
     setShowUserMenu(false)
     setShowMoreMenu(false)
   }
+
+  const handleLogOut = useCallback(async () => {
+    closeMenus()
+    try {
+      await logOut()
+      navigate("/", { replace: true })
+    } catch {
+      // authError is already handled in useAuth
+    }
+  }, [logOut, navigate])
 
   useEffect(() => {
     document.documentElement.dataset.appTheme = appTheme
@@ -872,11 +1014,12 @@ function Layout({ user, signIn, logOut }) {
             </div>
           </div>
           <nav className="flex items-center gap-1">
-            <NavLink to="/character" className={navLinkClass}>角色</NavLink>
-            <NavLink to="/work" className={navLinkClass}>工作</NavLink>
-            <NavLink to="/gallery" className={navLinkClass}>世界圖庫</NavLink>
-            <NavLink to="/character-settings" className={navLinkClass}>角色設定</NavLink>
-            <NavLink to="/system-settings" className={navLinkClass}>系統設置</NavLink>
+            <NavLink to="/" end className={navLinkClass}>主入口</NavLink>
+            <NavLink to={APP_ROUTE_PATHS.character} className={navLinkClass}>角色</NavLink>
+            <NavLink to={APP_ROUTE_PATHS.work} className={navLinkClass}>工作</NavLink>
+            <NavLink to={APP_ROUTE_PATHS.gallery} className={navLinkClass}>世界圖庫</NavLink>
+            <NavLink to={APP_ROUTE_PATHS.characterSettings} className={navLinkClass}>角色設定</NavLink>
+            <NavLink to={APP_ROUTE_PATHS.systemSettings} className={navLinkClass}>系統設置</NavLink>
           </nav>
           <div className="relative">
             <button
@@ -889,7 +1032,7 @@ function Layout({ user, signIn, logOut }) {
               <UserMenu
                 user={user}
                 signIn={signIn}
-                logOut={logOut}
+                onLogOut={handleLogOut}
                 onClose={() => setShowUserMenu(false)}
               />
             )}
@@ -898,19 +1041,19 @@ function Layout({ user, signIn, logOut }) {
       </header>
       <Outlet />
       <nav className="mobile-bottom-nav fixed bottom-4 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-16 rounded-full p-1.5 backdrop-blur">
-        <NavLink to="/work" className={() => mobileNavItemClass(tasksActive)} onClick={closeMenus}>
+        <NavLink to={APP_ROUTE_PATHS.work} className={() => mobileNavItemClass(tasksActive)} onClick={closeMenus}>
           <TaskAltIcon sx={{ fontSize: 20 }} />
           <span className="text-[0.65rem] font-semibold">任務</span>
         </NavLink>
-        <NavLink to="/character" className={mobileNavLinkClass} onClick={closeMenus}>
+        <NavLink to={APP_ROUTE_PATHS.character} className={mobileNavLinkClass} onClick={closeMenus}>
           <PersonIcon sx={{ fontSize: 20 }} />
           <span className="text-[0.65rem] font-semibold">角色</span>
         </NavLink>
-        <NavLink to="/gallery" className={mobileNavLinkClass} onClick={closeMenus}>
+        <NavLink to={APP_ROUTE_PATHS.gallery} className={mobileNavLinkClass} onClick={closeMenus}>
           <PublicIcon sx={{ fontSize: 20 }} />
           <span className="text-[0.65rem] font-semibold">圖庫</span>
         </NavLink>
-        <NavLink to="/character-settings" className={mobileNavLinkClass} onClick={closeMenus}>
+        <NavLink to={APP_ROUTE_PATHS.characterSettings} className={mobileNavLinkClass} onClick={closeMenus}>
           <TuneIcon sx={{ fontSize: 20 }} />
           <span className="text-[0.65rem] font-semibold">設置</span>
         </NavLink>
@@ -933,10 +1076,10 @@ function Layout({ user, signIn, logOut }) {
           {WORK_MORE_TABS.map((item) => (
             <NavLink
               key={item.tab}
-              to={`/work?tab=${item.tab}`}
+              to={`${APP_ROUTE_PATHS.work}?tab=${item.tab}`}
               onClick={closeMenus}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                location.pathname === "/work" && activeWorkTab === item.tab
+                location.pathname === APP_ROUTE_PATHS.work && activeWorkTab === item.tab
                   ? "text-purple-btn bg-purple-50"
                   : "text-gray-600 hover:bg-gray-50"
               }`}
@@ -946,10 +1089,22 @@ function Layout({ user, signIn, logOut }) {
             </NavLink>
           ))}
           <NavLink
-            to="/system-settings"
+            to="/"
+            end
             onClick={closeMenus}
             className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
-              location.pathname === "/system-settings"
+              location.pathname === "/"
+                ? "text-purple-btn bg-purple-50"
+                : "text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            主入口
+          </NavLink>
+          <NavLink
+            to={APP_ROUTE_PATHS.systemSettings}
+            onClick={closeMenus}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              location.pathname === APP_ROUTE_PATHS.systemSettings
                 ? "text-purple-btn bg-purple-50"
                 : "text-gray-600 hover:bg-gray-50"
             }`}
@@ -964,10 +1119,7 @@ function Layout({ user, signIn, logOut }) {
           </div>
           <button
             type="button"
-            onClick={() => {
-              closeMenus()
-              logOut()
-            }}
+            onClick={handleLogOut}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors bg-transparent border-none"
           >
             <LogoutIcon sx={{ fontSize: 18 }} />
@@ -980,7 +1132,7 @@ function Layout({ user, signIn, logOut }) {
           <UserMenu
             user={user}
             signIn={signIn}
-            logOut={logOut}
+            onLogOut={handleLogOut}
             onClose={() => setShowUserMenu(false)}
             mobile
           />
@@ -991,53 +1143,84 @@ function Layout({ user, signIn, logOut }) {
   )
 }
 
-export default function App() {
-  const { user, loading, signIn, logOut, authError } = useAuth();
-  useDatabaseFavicon(user);
-
+function BraveTodoGateway({ user, loading, signIn, logOut, authError }) {
   if (loading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <div className="text-gray-400 text-sm">載入中...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-6">
-        <h1 className="text-2xl font-bold text-gray-800">Vanguard Hub</h1>
-        <p className="text-gray-500 text-sm">請登入以繼續</p>
-        {authError && (
-          <p className="max-w-xs text-center text-sm font-medium text-red-500">
-            {authError}
-          </p>
-        )}
-        <button
-          onClick={() => signIn()}
-          className="flex items-center gap-3 px-6 py-3 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md transition-shadow text-sm font-medium text-gray-700"
-        >
-          <img
-            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-            alt="Google"
-            className="w-5 h-5"
-          />
-          使用 Google 帳號登入
-        </button>
-      </div>
-    );
+    return <LoginScreen authError={authError} signIn={signIn} />;
   }
 
   return (
     <Routes>
       <Route element={<Layout user={user} signIn={signIn} logOut={logOut} />}>
-        <Route path="/character" element={<CharacterPage />} />
-        <Route path="/work" element={<MainApp />} />
-        <Route path="/gallery" element={<WorldGallery />} />
-        <Route path="/character-settings" element={<CharacterSettingsPage />} />
-        <Route path="/system-settings" element={<SystemSettingsPage />} />
+        <Route index element={<Navigate to="work" replace />} />
+        <Route path="character" element={<CharacterPage />} />
+        <Route path="work" element={<MainApp />} />
+        <Route path="gallery" element={<WorldGallery />} />
+        <Route path="character-settings" element={<CharacterSettingsPage />} />
+        <Route path="system-settings" element={<SystemSettingsPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/work" replace />} />
+      <Route path="*" element={<Navigate to="work" replace />} />
+    </Routes>
+  );
+}
+
+function WitchSinGateway({ user, loading, signIn, authError }) {
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <LoginScreen authError={authError} signIn={signIn} />;
+  }
+
+  return <WitchSinPage />;
+}
+
+export default function App() {
+  const { user, loading, signIn, logOut, authError } = useAuth();
+  useDatabaseFavicon(user);
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <EntryPage
+            user={user}
+            loading={loading}
+            signIn={signIn}
+            logOut={logOut}
+            authError={authError}
+          />
+        }
+      />
+      <Route
+        path={`${APP_ROOT_PATH}/*`}
+        element={
+          <BraveTodoGateway
+            user={user}
+            loading={loading}
+            signIn={signIn}
+            logOut={logOut}
+            authError={authError}
+          />
+        }
+      />
+      <Route
+        path={WITCH_SIN_PATH}
+        element={
+          <WitchSinGateway
+            user={user}
+            loading={loading}
+            signIn={signIn}
+            authError={authError}
+          />
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

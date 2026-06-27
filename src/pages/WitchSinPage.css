@@ -1,0 +1,796 @@
+.witch-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(204, 230, 225, 0.95), rgba(204, 230, 225, 0.68) 22%, rgba(238, 233, 205, 0.78) 56%, rgba(242, 236, 211, 0.98) 100%),
+    linear-gradient(180deg, #d0e0d4 0%, #efe6bd 54%, #d7c892 100%);
+  color: #2f3a34;
+}
+
+.witch-page__texture {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 255, 255, 0.4), transparent 17rem),
+    radial-gradient(circle at 88% 22%, rgba(235, 212, 122, 0.18), transparent 15rem),
+    linear-gradient(180deg, rgba(86, 111, 69, 0) 0%, rgba(86, 111, 69, 0.08) 72%, rgba(46, 59, 42, 0.2) 100%);
+}
+
+.witch-shell {
+  position: relative;
+  z-index: 1;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 36px 20px 28px;
+}
+
+.witch-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 14px 20px;
+}
+
+.witch-hero__content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.witch-hero__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #5e6d5b;
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.witch-hero__title-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.witch-hero__badge {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #f3efca, #efe6b0);
+  color: #557547;
+  box-shadow: inset 0 0 0 1px rgba(84, 101, 69, 0.16);
+}
+
+.witch-hero h1 {
+  margin: 0;
+  font-size: clamp(2.5rem, 5vw, 4rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.witch-hero p {
+  margin: 10px 0 0;
+  color: #6b756c;
+  font-size: 1.1rem;
+}
+
+.witch-hero__coins {
+  flex-shrink: 0;
+  min-width: 170px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 22px;
+  border-radius: 999px;
+  background: rgba(251, 246, 213, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(166, 145, 84, 0.18);
+}
+
+.witch-hero__coin-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #c6983c, #9f7420);
+  color: #fff8d6;
+  font-size: 1rem;
+  box-shadow: inset 0 0 0 2px rgba(255, 245, 198, 0.35);
+}
+
+.witch-hero__coins strong {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.witch-hero__coins small {
+  font-size: 1rem;
+  color: #64604a;
+}
+
+.witch-board {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: calc(100vh - 180px);
+  border-radius: 32px;
+  overflow: hidden;
+  background: rgba(249, 243, 212, 0.78);
+  box-shadow:
+    0 22px 55px rgba(114, 96, 36, 0.18),
+    inset 0 0 0 1px rgba(145, 133, 87, 0.18);
+  backdrop-filter: blur(18px);
+}
+
+.witch-sidebar {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 18px 20px;
+  border-right: 1px solid rgba(135, 122, 70, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 251, 228, 0.68), rgba(239, 226, 172, 0.55)),
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.4), transparent 16rem);
+}
+
+.witch-traveller-card {
+  padding: 18px;
+  border-radius: 26px;
+  background: rgba(255, 252, 235, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(145, 133, 87, 0.15);
+}
+
+.witch-traveller-card__avatar {
+  width: 62px;
+  height: 62px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  border-radius: 18px;
+  background: #d7e2d2;
+  box-shadow: 0 10px 24px rgba(62, 78, 44, 0.12);
+}
+
+.witch-traveller-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.witch-traveller-card__eyebrow {
+  display: block;
+  font-size: 0.8rem;
+  letter-spacing: 0.22em;
+  color: #8b8a6f;
+}
+
+.witch-traveller-card h2 {
+  margin: 8px 0 0;
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.witch-traveller-card__progress {
+  margin-top: 20px;
+}
+
+.witch-traveller-card__progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #6f725b;
+  font-size: 0.98rem;
+}
+
+.witch-traveller-card__track,
+.witch-progress-bar {
+  width: 100%;
+  height: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(136, 126, 83, 0.14);
+}
+
+.witch-traveller-card__track span,
+.witch-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #d1b95f 0%, #8aa163 100%);
+}
+
+.witch-progress-bar.is-secondary span {
+  background: linear-gradient(90deg, #cebb8b 0%, #a16a55 100%);
+}
+
+.witch-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.witch-side-nav__button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 14px;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  background: transparent;
+  color: #384035;
+  font: inherit;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.witch-side-nav__button:hover {
+  background: rgba(255, 252, 236, 0.75);
+}
+
+.witch-side-nav__button.is-active {
+  border-color: #2873ef;
+  background: linear-gradient(180deg, rgba(255, 250, 226, 0.82), rgba(245, 231, 167, 0.58));
+  box-shadow: inset 0 0 0 1px rgba(40, 115, 239, 0.14);
+}
+
+.witch-side-nav__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: rgba(255, 252, 236, 0.72);
+  color: #5d644e;
+  box-shadow: inset 0 0 0 1px rgba(142, 132, 87, 0.14);
+}
+
+.witch-side-nav__button span:last-child {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.witch-sidebar__hint {
+  margin-top: auto;
+  margin-bottom: 0;
+  color: #7f7a61;
+  font-size: 0.95rem;
+  line-height: 1.8;
+}
+
+.witch-content {
+  padding: 28px 26px 30px;
+}
+
+.witch-content__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.witch-content__header h2 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 3.35rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.witch-content__header p {
+  margin: 10px 0 0;
+  color: #7b7f66;
+  font-size: 1.05rem;
+}
+
+.witch-content__ghost-button {
+  flex-shrink: 0;
+  padding: 12px 18px;
+  border: 1px solid rgba(132, 125, 86, 0.25);
+  border-radius: 18px;
+  background: rgba(255, 252, 236, 0.75);
+  color: #424338;
+  font: inherit;
+  cursor: pointer;
+}
+
+.witch-task-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px 160px;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 24px;
+  border: 1px dashed rgba(153, 142, 90, 0.28);
+  background: rgba(255, 252, 235, 0.54);
+}
+
+.witch-task-form input,
+.witch-task-form button {
+  min-height: 56px;
+  border-radius: 18px;
+  font: inherit;
+}
+
+.witch-task-form input {
+  border: 1px solid rgba(151, 139, 91, 0.24);
+  background: rgba(255, 251, 235, 0.9);
+  padding: 0 18px;
+  color: #384035;
+}
+
+.witch-task-form input.is-reward {
+  text-align: center;
+  font-size: 1.35rem;
+}
+
+.witch-task-form button {
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: #657e46;
+  color: #fffdf4;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.witch-quest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.witch-quest-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: rgba(255, 251, 233, 0.82);
+  box-shadow: 0 14px 28px rgba(173, 157, 106, 0.12);
+}
+
+.witch-quest-row.is-complete {
+  opacity: 0.78;
+}
+
+.witch-quest-row__check {
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 15px;
+  border: 1px solid rgba(145, 133, 87, 0.24);
+  background: transparent;
+  color: #5b7245;
+  cursor: pointer;
+}
+
+.witch-quest-row__check.is-complete {
+  background: rgba(137, 165, 104, 0.18);
+}
+
+.witch-quest-row__content {
+  min-width: 0;
+  flex: 1;
+}
+
+.witch-quest-row__content h3 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.witch-quest-row__content p {
+  margin: 6px 0 0;
+  color: #7b7f66;
+  font-size: 1rem;
+}
+
+.witch-quest-row__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.witch-quest-row__reward {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #f6ebbf;
+  color: #9f7325;
+  font-weight: 800;
+}
+
+.witch-quest-row__remove {
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #9e9075;
+  cursor: pointer;
+}
+
+.witch-empty-state {
+  padding: 56px 20px;
+  border-radius: 28px;
+  text-align: center;
+  background: rgba(255, 251, 233, 0.42);
+  color: #70745c;
+}
+
+.witch-empty-state strong {
+  display: block;
+  margin-bottom: 10px;
+  color: #374034;
+  font-size: 1.5rem;
+}
+
+.witch-reward-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.witch-reward-card {
+  position: relative;
+  overflow: hidden;
+  padding: 18px;
+  border-radius: 26px;
+  background: rgba(255, 251, 231, 0.75);
+  box-shadow:
+    inset 0 0 0 1px rgba(145, 133, 87, 0.15),
+    0 18px 30px rgba(168, 153, 101, 0.12);
+}
+
+.witch-reward-card__glow {
+  position: absolute;
+  top: -38px;
+  right: -38px;
+  width: 110px;
+  height: 110px;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(243, 232, 171, 0.45), rgba(243, 232, 171, 0));
+}
+
+.witch-reward-card__icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: rgba(239, 239, 217, 0.8);
+  box-shadow: inset 0 0 0 1px rgba(145, 133, 87, 0.14);
+  font-size: 1.7rem;
+}
+
+.witch-reward-card h3 {
+  margin: 18px 0 10px;
+  font-size: 1.85rem;
+  line-height: 1.1;
+}
+
+.witch-reward-card p {
+  margin: 0;
+  color: #686d5b;
+  font-size: 1.02rem;
+  line-height: 1.75;
+}
+
+.witch-reward-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.witch-reward-card__footer span {
+  color: #9f7325;
+  font-size: 1.55rem;
+  font-weight: 800;
+}
+
+.witch-reward-card__footer button {
+  min-width: 88px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 16px;
+  background: #c6c8aa;
+  color: #fffdf1;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.witch-reward-card__footer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.witch-character-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.witch-character-portrait {
+  position: relative;
+  overflow: hidden;
+  min-height: 560px;
+  padding: 18px;
+  border-radius: 30px;
+  background:
+    radial-gradient(circle at 18% 24%, rgba(255, 255, 255, 0.42), transparent 5rem),
+    linear-gradient(180deg, rgba(194, 212, 208, 0.92) 0%, rgba(214, 220, 183, 0.96) 62%, rgba(131, 149, 97, 0.98) 100%);
+  box-shadow: inset 0 0 0 1px rgba(245, 243, 214, 0.75);
+}
+
+.witch-character-portrait__badge {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  padding: 12px 16px;
+  border-radius: 0 0 0 18px;
+  background: linear-gradient(90deg, #d88e3b, #eea146);
+  color: #fffdf6;
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+.witch-character-portrait img {
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  object-fit: cover;
+  border-radius: 26px;
+}
+
+.witch-character-portrait__note {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  max-width: 220px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(47, 58, 34, 0.76);
+  color: #fff7df;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.witch-character-stats {
+  padding: 28px 30px;
+  border-radius: 30px;
+  background: linear-gradient(180deg, rgba(71, 61, 53, 0.98), rgba(57, 50, 44, 0.98));
+  color: #fdf4df;
+}
+
+.witch-character-stats__headline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.witch-character-stats__avatar {
+  width: 62px;
+  height: 62px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 250, 224, 0.88);
+}
+
+.witch-character-stats__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.witch-character-stats__headline h3 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1;
+}
+
+.witch-character-stats__headline p {
+  margin: 8px 0 0;
+  color: rgba(255, 244, 224, 0.74);
+  font-size: 1.3rem;
+}
+
+.witch-character-stats__progress-block {
+  margin-top: 26px;
+}
+
+.witch-character-stats__progress-block span {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: rgba(255, 244, 224, 0.82);
+  font-size: 1.05rem;
+}
+
+.witch-character-stats__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.witch-stat-metric {
+  text-align: center;
+}
+
+.witch-stat-metric span {
+  display: block;
+  color: rgba(255, 244, 224, 0.72);
+  font-size: 1rem;
+}
+
+.witch-stat-metric strong {
+  display: block;
+  margin-top: 8px;
+  font-size: clamp(2.6rem, 4vw, 4.2rem);
+  line-height: 1;
+}
+
+.witch-stat-metric em {
+  display: block;
+  margin-top: 8px;
+  color: #7ee26c;
+  font-style: normal;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.witch-character-stats__more {
+  width: 100%;
+  margin-top: 28px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 244, 224, 0.72);
+  background: transparent;
+  color: #fff9eb;
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.witch-character-stats__summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.witch-character-stats__summary div {
+  padding: 16px 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+
+.witch-character-stats__summary span {
+  display: block;
+  color: rgba(255, 244, 224, 0.72);
+  font-size: 0.95rem;
+}
+
+.witch-character-stats__summary strong {
+  display: block;
+  margin-top: 10px;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.witch-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: #546148;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+@media (max-width: 1180px) {
+  .witch-reward-grid,
+  .witch-character-stats__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 980px) {
+  .witch-board,
+  .witch-character-layout,
+  .witch-task-form {
+    grid-template-columns: 1fr;
+  }
+
+  .witch-sidebar {
+    border-right: none;
+    border-bottom: 1px solid rgba(135, 122, 70, 0.18);
+  }
+
+  .witch-character-portrait {
+    min-height: 420px;
+  }
+
+  .witch-character-portrait img {
+    min-height: 380px;
+  }
+}
+
+@media (max-width: 720px) {
+  .witch-shell {
+    padding: 18px 12px 18px;
+  }
+
+  .witch-hero {
+    flex-direction: column;
+    padding: 0 6px 14px;
+  }
+
+  .witch-hero__title-row {
+    align-items: flex-start;
+  }
+
+  .witch-hero__badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+  }
+
+  .witch-reward-grid,
+  .witch-character-stats__metrics,
+  .witch-character-stats__summary {
+    grid-template-columns: 1fr;
+  }
+
+  .witch-content,
+  .witch-character-stats {
+    padding: 20px 16px;
+  }
+
+  .witch-task-form {
+    padding: 10px;
+  }
+
+  .witch-task-form input,
+  .witch-task-form button,
+  .witch-content__ghost-button {
+    width: 100%;
+  }
+
+  .witch-content__header {
+    flex-direction: column;
+  }
+
+  .witch-quest-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .witch-quest-row__actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

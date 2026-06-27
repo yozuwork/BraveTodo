@@ -58,7 +58,16 @@ export default function useAuth() {
   }
   const logOut = () => {
     setAuthError('')
+    setLoading(true)
     return signOut(auth)
+      .then(() => {
+        setUser(null)
+      })
+      .catch((error) => {
+        setLoading(false)
+        setAuthError(error?.message ?? '登出失敗，請再試一次。')
+        throw error
+      })
   }
 
   return { user, loading, signIn, logOut, authError }

@@ -85,7 +85,7 @@ export default function useQuests() {
     })
   }, [lifetimeCompletions, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const addQuest = useCallback((text) => {
+  const addQuest = useCallback((text, options = {}) => {
     setQuests((prev) => [
       {
         id: Date.now(),
@@ -94,6 +94,7 @@ export default function useQuests() {
         isCore: false,
         pinned: false,
         priority: 'normal',
+        expValue: normalizeQuestExpValue(options.expValue),
         huntBinding: null,
         subTasks: [],
       },
