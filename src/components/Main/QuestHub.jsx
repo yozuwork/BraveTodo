@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
+import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import Button from '@mui/material/Button'
+import Dialog from '@mui/material/Dialog'
+import DialogTitle from '@mui/material/DialogTitle'
+import DialogContent from '@mui/material/DialogContent'
 import TabNav from './TabNav'
 import QuestItem from './QuestItem'
 import InboxItem from './InboxItem'
@@ -15,7 +20,7 @@ import RewardShopTab from './RewardShopTab'
 import VocabularyInput from '../common/VocabularyInput'
 
 export default function QuestHub({
-  quests, onAdd, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
+  quests, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
   stages, onStageName, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
@@ -47,6 +52,8 @@ export default function QuestHub({
   const [inputValue, setInputValue] = useState('')
   const [inboxInput, setInboxInput] = useState('')
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false)
+  const [questTemplateDialogOpen, setQuestTemplateDialogOpen] = useState(false)
+  const [questTemplateSavedNotice, setQuestTemplateSavedNotice] = useState(false)
   const mobileInputRef = useRef(null)
 
   // ── Drag-and-drop state ──
@@ -121,6 +128,14 @@ export default function QuestHub({
   }, [mobileComposerOpen])
 
   useEffect(() => {
+    if (!questTemplateSavedNotice) return
+    const timer = window.setTimeout(() => {
+      setQuestTemplateSavedNotice(false)
+    }, 1800)
+    return () => window.clearTimeout(timer)
+  }, [questTemplateSavedNotice])
+
+  useEffect(() => {
     if (!hasActiveHunt && activeTab === 'HuntMission') {
       onTabChange('Tasks')
     }
@@ -164,18 +179,20 @@ export default function QuestHub({
   const taskSuggestions = getVocabularySuggestions?.(inputValue, ['task', 'inbox']) ?? []
   const inboxSuggestions = getVocabularySuggestions?.(inboxInput, ['inbox', 'task']) ?? []
 
+  const handleSaveQuestTemplate = useCallback((quest) => {
+    const templateId = onSaveQuestTemplate?.(quest)
+    if (templateId) {
+      setQuestTemplateSavedNotice(true)
+    }
+  }, [onSaveQuestTemplate])
+
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
       <div className="hidden md:flex flex-col gap-4 mb-5">
         <div className="flex items-end justify-between gap-6">
-          <div>
-            <p className="quest-log-kicker text-xs font-bold tracking-[0.38em] uppercase text-purple-btn m-0 mb-2">
-              Quest Log
-            </p>
-            <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight">
-              米莉亞
-            </h1>
-          </div>
+          <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight">
+            米莉亞
+          </h1>
           <p className="quest-log-count text-sm font-bold text-gray-400 m-0">
             <span className="text-purple-btn text-xl">{activeQuestCount}</span> 個進行中任務
           </p>
@@ -212,6 +229,27 @@ export default function QuestHub({
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono pointer-events-none">
               ENTER ↵
             </span>
+          </div>
+          <div className="hidden md:flex justify-end">
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<LibraryBooksOutlinedIcon />}
+              onClick={() => setQuestTemplateDialogOpen(true)}
+              sx={{
+                borderColor: '#d8b4fe',
+                color: '#a855f7',
+                bgcolor: '#faf5ff',
+                borderRadius: 99,
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                textTransform: 'none',
+                px: 1.5,
+                '&:hover': { borderColor: '#c084fc', bgcolor: '#f3e8ff' },
+              }}
+            >
+              模板任務
+            </Button>
           </div>
 
           {hasCompleted && (
@@ -266,6 +304,7 @@ export default function QuestHub({
                       </div>
                       <QuestItem
                         quest={quest}
+                        onSaveTemplate={handleSaveQuestTemplate}
                         onToggle={onToggle}
                         onUpdate={onUpdate}
                         onRemove={onRemove}
@@ -361,6 +400,102 @@ export default function QuestHub({
           </div>
         </div>
       )}
+
+      <Dialog
+        open={questTemplateDialogOpen}
+        onClose={() => setQuestTemplateDialogOpen(false)}
+        fullWidth
+        maxWidth="sm"
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontSize: '1rem', fontWeight: 800, pb: 1 }}>
+          選擇模板任務
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <div className="flex flex-col gap-3 pb-2">
+            <button
+              type="button"
+              onClick={() => setQuestTemplateDialogOpen(false)}
+              className="w-full rounded-2xl border border-dashed border-purple-300 bg-purple-50 px-4 py-4 text-left transition-colors hover:bg-purple-100"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-purple-600">
+                  <AddIcon sx={{ fontSize: 22 }} />
+                </div>
+                <div>
+                  <p className="m-0 text-sm font-bold text-purple-800">空白任務</p>
+                  <p className="m-0 mt-1 text-xs text-purple-600">關閉後直接在上方輸入新任務</p>
+                </div>
+              </div>
+            </button>
+
+            {questTemplates.length === 0 ? (
+              <div className="rounded-2xl border border-gray-100 bg-stone-50 px-4 py-6 text-center text-gray-400">
+                <LibraryBooksOutlinedIcon sx={{ fontSize: 26, color: '#cbd5e1' }} />
+                <p className="m-0 mt-2 text-sm font-semibold">還沒有常用任務</p>
+                <p className="m-0 mt-1 text-xs">在已新增任務上按收藏，即可加入常用任務。</p>
+              </div>
+            ) : (
+              questTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 transition-colors hover:border-purple-200 hover:bg-purple-50/40"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onAddFromTemplate(template.id)
+                        setQuestTemplateDialogOpen(false)
+                      }}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="m-0 text-sm font-bold text-black">{template.name}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-gray-500">
+                          {template.priority === 'high' ? '優先' : template.priority === 'low' ? '最後' : '次要'}
+                        </span>
+                        <span className="rounded-full bg-orange-50 px-2 py-0.5 text-orange-500">
+                          {template.expValue === 10 ? '特級 +10' : template.expValue === 5 ? '上等 +5' : template.expValue === 3 ? '中等 +3' : '一般 +1'}
+                        </span>
+                        {(template.subTasks?.length ?? 0) > 0 && (
+                          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-500">
+                            {template.subTasks.length} 個子任務
+                          </span>
+                        )}
+                      </div>
+                      <p className="m-0 mt-2 text-xs text-gray-400 line-clamp-2">{template.text}</p>
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <span className="shrink-0 rounded-full border border-purple-100 bg-purple-50 px-2.5 py-1 text-[10px] font-bold text-purple-700">
+                        套用
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onRemoveQuestTemplate(template.id)}
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-100"
+                        title="刪除模板"
+                      >
+                        <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div
+        className={`pointer-events-none fixed right-6 top-24 z-[120] transition-all duration-300 ${
+          questTemplateSavedNotice ? 'translate-y-0 opacity-100' : '-translate-y-2 opacity-0'
+        }`}
+      >
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700 shadow-lg">
+          已加入常用任務
+        </div>
+      </div>
 
       {activeTab === 'HuntMission' && (
         <HuntMission

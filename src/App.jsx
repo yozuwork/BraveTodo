@@ -121,7 +121,11 @@ function MainApp() {
 
   const {
     quests,
+    questTemplates,
     addQuest,
+    addQuestFromTemplate,
+    saveQuestTemplate,
+    removeQuestTemplate,
     toggleQuest,
     updateQuest,
     removeQuest,
@@ -754,7 +758,11 @@ function MainApp() {
             <div className="w-full flex-1">
               <QuestHub
                 quests={quests}
+                questTemplates={questTemplates}
                 onAdd={handleAddQuest}
+                onAddFromTemplate={addQuestFromTemplate}
+                onSaveQuestTemplate={saveQuestTemplate}
+                onRemoveQuestTemplate={removeQuestTemplate}
                 onToggle={toggleQuestSynced}
                 onUpdate={handleUpdateQuest}
                 onRemove={removeQuest}
@@ -1058,14 +1066,6 @@ function Layout({ user, signIn, logOut }) {
           <div className="app-brand flex items-center gap-3 shrink-0">
             <div className="app-brand-mark flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-600 text-lg font-black">
               米
-            </div>
-            <div className="leading-tight">
-              <p className="app-brand-title m-0 text-xs font-bold tracking-[0.22em] text-gray-800">
-                ADVENTURER LOG
-              </p>
-              <p className="app-brand-subtitle m-0 text-xs font-bold text-black">
-                角色管理面板
-              </p>
             </div>
           </div>
           <nav className="flex items-center gap-1">

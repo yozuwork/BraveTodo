@@ -13,6 +13,7 @@ import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
 import LocalOfferOutlinedIcon from '@mui/icons-material/LocalOfferOutlined'
 import AddIcon from '@mui/icons-material/Add'
 import SportsMmaIcon from '@mui/icons-material/SportsMma'
+import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 import SlashEffect from './SlashEffect'
 import DamageNumber from './DamageNumber'
 import VocabularyInput from '../common/VocabularyInput'
@@ -141,7 +142,7 @@ function normalizeExpValue(expValue) {
 }
 
 export default function QuestItem({
-  quest, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
+  quest, onSaveTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetExp,
   onDemoteToInbox,
   activeHuntTarget,
@@ -597,11 +598,27 @@ export default function QuestItem({
           </IconButton>
           <IconButton
             size="small"
-            onClick={() => onRemove(quest.id)}
+            onClick={() => onSaveTemplate?.(quest)}
+            title="加入常用任務"
             sx={{
               display: 'inline-flex',
               '@media (max-width: 767px)': { display: 'none' },
               order: { xs: 8, sm: 0 },
+              minWidth: { xs: 44, sm: 32 },
+              minHeight: { xs: 44, sm: 32 },
+              color: '#d1d5db',
+              '&:hover': { color: '#7c3aed' },
+            }}
+          >
+            <LibraryBooksOutlinedIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={() => onRemove(quest.id)}
+            sx={{
+              display: 'inline-flex',
+              '@media (max-width: 767px)': { display: 'none' },
+              order: { xs: 9, sm: 0 },
               minWidth: { xs: 44, sm: 32 },
               minHeight: { xs: 44, sm: 32 },
               color: '#d1d5db',

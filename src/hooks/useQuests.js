@@ -7,6 +7,7 @@ import { isSoundEnabled } from '../utils/soundSettings'
 const QUESTS_DOC = doc(db, 'meta', 'quests')
 
 let cachedQuests = null
+let cachedQuestTemplates = null
 let cachedLifetimeCompletions = null
 
 const _questCompleteAudio = new Audio(coinSfxUrl)
@@ -18,6 +19,45 @@ function normalizeQuestExpValue(expValue) {
   return 1
 }
 
+function normalizeSubTask(subTask = {}) {
+  return {
+    id: subTask.id ?? Date.now(),
+    text: subTask.text ?? '',
+    completed: Boolean(subTask.completed),
+  }
+}
+
+function normalizeQuest(quest = {}) {
+  return {
+    id: quest.id ?? Date.now(),
+    text: quest.text ?? '',
+    completed: Boolean(quest.completed),
+    isCore: Boolean(quest.isCore),
+    pinned: Boolean(quest.pinned),
+    priority: quest.priority ?? 'normal',
+    expValue: normalizeQuestExpValue(quest.expValue),
+    huntBinding: quest.huntBinding ?? null,
+    subTasks: Array.isArray(quest.subTasks) ? quest.subTasks.map(normalizeSubTask) : [],
+  }
+}
+
+function normalizeQuestTemplate(template = {}) {
+  return {
+    id: template.id ?? Date.now(),
+    name: template.name ?? template.text ?? '未命名模板',
+    text: template.text ?? '新的任務',
+    priority: template.priority ?? 'normal',
+    expValue: normalizeQuestExpValue(template.expValue),
+    subTasks: Array.isArray(template.subTasks) ? template.subTasks.map((subTask) => ({
+      id: subTask.id ?? Date.now(),
+      text: subTask.text ?? '',
+      completed: false,
+    })) : [],
+    createdAt: template.createdAt ?? Date.now(),
+    updatedAt: template.updatedAt ?? Date.now(),
+  }
+}
+
 export function playQuestCompleteSound() {
   if (!isSoundEnabled()) return
   _questCompleteAudio.currentTime = 0
@@ -26,24 +66,30 @@ export function playQuestCompleteSound() {
 
 export default function useQuests() {
   const [quests, setQuests] = useState(() => cachedQuests ?? [])
+  const [questTemplates, setQuestTemplates] = useState(() => cachedQuestTemplates ?? [])
   const [lifetimeCompletions, setLifetimeCompletions] = useState(() => cachedLifetimeCompletions ?? 0)
   const [loaded, setLoaded] = useState(() => cachedQuests !== null)
+
   useEffect(() => {
     if (cachedQuests !== null) return
     getDoc(QUESTS_DOC).then((snap) => {
       if (snap.exists()) {
         const data = snap.data()
-        cachedQuests = data.items ?? []
+        cachedQuests = (data.items ?? []).map(normalizeQuest)
+        cachedQuestTemplates = (data.templates ?? []).map(normalizeQuestTemplate)
         cachedLifetimeCompletions = data.lifetimeCompletions ?? 0
         setQuests(cachedQuests)
+        setQuestTemplates(cachedQuestTemplates)
         setLifetimeCompletions(cachedLifetimeCompletions)
       } else {
         cachedQuests = []
+        cachedQuestTemplates = []
         cachedLifetimeCompletions = 0
       }
       setLoaded(true)
     }).catch(() => {
       cachedQuests = cachedQuests ?? []
+      cachedQuestTemplates = cachedQuestTemplates ?? []
       cachedLifetimeCompletions = cachedLifetimeCompletions ?? 0
       setLoaded(true)
     })
@@ -51,6 +97,7 @@ export default function useQuests() {
 
   const skipItemsWriteRef = useRef(true)
   const skipExpWriteRef = useRef(true)
+  const skipTemplatesWriteRef = useRef(true)
 
   useEffect(() => {
     if (!loaded) return
@@ -59,15 +106,18 @@ export default function useQuests() {
       return
     }
     cachedQuests = quests
-    updateDoc(QUESTS_DOC, { items: quests }).catch((err) => {
-      // Document may not exist yet on first write
+    updateDoc(QUESTS_DOC, { items: quests.map(normalizeQuest) }).catch((err) => {
       if (err.code === 'not-found') {
-        setDoc(QUESTS_DOC, { items: quests, lifetimeCompletions }).catch(console.error)
+        setDoc(QUESTS_DOC, {
+          items: quests.map(normalizeQuest),
+          templates: questTemplates.map(normalizeQuestTemplate),
+          lifetimeCompletions,
+        }).catch(console.error)
       } else {
         console.error(err)
       }
     })
-  }, [quests, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loaded, lifetimeCompletions, questTemplates, quests])
 
   useEffect(() => {
     if (!loaded) return
@@ -78,27 +128,97 @@ export default function useQuests() {
     cachedLifetimeCompletions = lifetimeCompletions
     updateDoc(QUESTS_DOC, { lifetimeCompletions }).catch((err) => {
       if (err.code === 'not-found') {
-        setDoc(QUESTS_DOC, { items: quests, lifetimeCompletions }).catch(console.error)
+        setDoc(QUESTS_DOC, {
+          items: quests.map(normalizeQuest),
+          templates: questTemplates.map(normalizeQuestTemplate),
+          lifetimeCompletions,
+        }).catch(console.error)
       } else {
         console.error(err)
       }
     })
-  }, [lifetimeCompletions, loaded]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loaded, lifetimeCompletions, questTemplates, quests])
+
+  useEffect(() => {
+    if (!loaded) return
+    if (skipTemplatesWriteRef.current) {
+      skipTemplatesWriteRef.current = false
+      return
+    }
+    cachedQuestTemplates = questTemplates
+    updateDoc(QUESTS_DOC, { templates: questTemplates.map(normalizeQuestTemplate) }).catch((err) => {
+      if (err.code === 'not-found') {
+        setDoc(QUESTS_DOC, {
+          items: quests.map(normalizeQuest),
+          templates: questTemplates.map(normalizeQuestTemplate),
+          lifetimeCompletions,
+        }).catch(console.error)
+      } else {
+        console.error(err)
+      }
+    })
+  }, [loaded, lifetimeCompletions, questTemplates, quests])
 
   const addQuest = useCallback((text) => {
     setQuests((prev) => [
-      {
+      normalizeQuest({
         id: Date.now(),
         text,
         completed: false,
         isCore: false,
         pinned: false,
         priority: 'normal',
+        expValue: 1,
         huntBinding: null,
         subTasks: [],
-      },
+      }),
       ...prev,
     ])
+  }, [])
+
+  const addQuestFromTemplate = useCallback((templateId) => {
+    const source = (cachedQuestTemplates ?? questTemplates).find((template) => template.id === templateId)
+    if (!source) return null
+    const now = Date.now()
+    const newQuest = normalizeQuest({
+      id: now,
+      text: source.text,
+      completed: false,
+      isCore: false,
+      pinned: false,
+      priority: source.priority,
+      expValue: source.expValue,
+      huntBinding: null,
+      subTasks: (source.subTasks ?? []).map((subTask, index) => ({
+        id: now + index + 1,
+        text: subTask.text,
+        completed: false,
+      })),
+    })
+    setQuests((prev) => [newQuest, ...prev])
+    return newQuest.id
+  }, [questTemplates])
+
+  const saveQuestTemplate = useCallback((questLike) => {
+    const now = Date.now()
+    const template = normalizeQuestTemplate({
+      id: now,
+      name: questLike.text?.trim() || '未命名模板',
+      text: questLike.text?.trim() || '新的任務',
+      priority: questLike.priority ?? 'normal',
+      expValue: normalizeQuestExpValue(questLike.expValue),
+      subTasks: Array.isArray(questLike.subTasks)
+        ? questLike.subTasks.map((subTask) => ({ text: subTask.text ?? '', completed: false }))
+        : [],
+      createdAt: now,
+      updatedAt: now,
+    })
+    setQuestTemplates((prev) => [template, ...prev])
+    return template.id
+  }, [])
+
+  const removeQuestTemplate = useCallback((templateId) => {
+    setQuestTemplates((prev) => prev.filter((template) => template.id !== templateId))
   }, [])
 
   const setQuestPriority = useCallback((id, priority) => {
@@ -246,7 +366,11 @@ export default function useQuests() {
 
   return {
     quests,
+    questTemplates,
     addQuest,
+    addQuestFromTemplate,
+    saveQuestTemplate,
+    removeQuestTemplate,
     toggleQuest,
     setQuestCompleted,
     updateQuest,
