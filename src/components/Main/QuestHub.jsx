@@ -11,6 +11,7 @@ import StoryTab from './StoryTab'
 import SkillTab from './SkillTab'
 import MapTab from './MapTab'
 import NpcTab from './NpcTab'
+import RewardShopTab from './RewardShopTab'
 import VocabularyInput from '../common/VocabularyInput'
 
 export default function QuestHub({
@@ -32,10 +33,13 @@ export default function QuestHub({
   onBindQuestToActiveHuntTask,
   onUnbindQuestFromHuntTask,
   onCreateAndBindQuestToActiveHunt,
-  stories, onStoryAdd, onStoryUpdate, onStoryRemove, onStoryCoverChange, onStoryTogglePin,
-  skills, onSkillAdd, onSkillUpdate, onSkillRemove, onSkillCoverChange, onSkillTogglePin,
-  maps, onMapAdd, onMapUpdate, onMapRemove, onMapCoverChange,
-  npcs, onNpcAdd, onNpcUpdate, onNpcRemove, onNpcCoverChange,
+  stories, onStoryAdd, onStoryUpdate, onStoryRemove, onStoryCoverChange, onStoryTogglePin, onReorderStories,
+  rewards, rewardTemplates, onRewardAdd, onRewardAddFromTemplate, onRewardUpdate, onRewardRemove, onRewardCoverChange, onRewardTogglePin,
+  gold, onRewardPurchase, onRewardArchive, onRewardUse, onReorderRewards,
+  onSaveRewardTemplate, onUpdateRewardTemplate, onRemoveRewardTemplate,
+  skills, onSkillAdd, onSkillUpdate, onSkillRemove, onSkillCoverChange, onSkillTogglePin, onReorderSkills,
+  maps, onMapAdd, onMapUpdate, onMapRemove, onMapCoverChange, onReorderMaps,
+  npcs, onNpcAdd, onNpcUpdate, onNpcRemove, onNpcCoverChange, onReorderNpcs,
   getVocabularySuggestions,
   // lifted tab state
   activeTab, onTabChange,
@@ -389,6 +393,7 @@ export default function QuestHub({
           onStageLevelChange={onStageLevel}
           onAddStage={onAddStage}
           onRemoveStage={onRemoveStage}
+          onReorderStages={onReorderStages}
         />
       )}
 
@@ -400,6 +405,28 @@ export default function QuestHub({
           onRemove={onStoryRemove}
           onCoverChange={onStoryCoverChange}
           onTogglePin={onStoryTogglePin}
+          onReorder={onReorderStories}
+        />
+      )}
+
+      {activeTab === 'RewardShop' && (
+        <RewardShopTab
+          rewards={rewards}
+          rewardTemplates={rewardTemplates}
+          gold={gold}
+          onAdd={onRewardAdd}
+          onAddFromTemplate={onRewardAddFromTemplate}
+          onUpdate={onRewardUpdate}
+          onRemove={onRewardRemove}
+          onCoverChange={onRewardCoverChange}
+          onTogglePin={onRewardTogglePin}
+          onPurchase={onRewardPurchase}
+          onArchive={onRewardArchive}
+          onUse={onRewardUse}
+          onReorder={onReorderRewards}
+          onSaveTemplate={onSaveRewardTemplate}
+          onUpdateTemplate={onUpdateRewardTemplate}
+          onRemoveTemplate={onRemoveRewardTemplate}
         />
       )}
 
@@ -413,6 +440,7 @@ export default function QuestHub({
           onRemove={onSkillRemove}
           onCoverChange={onSkillCoverChange}
           onTogglePin={onSkillTogglePin}
+          onReorder={onReorderSkills}
         />
       )}
 
@@ -423,6 +451,7 @@ export default function QuestHub({
           onUpdate={onMapUpdate}
           onRemove={onMapRemove}
           onCoverChange={onMapCoverChange}
+          onReorder={onReorderMaps}
         />
       )}
 
@@ -433,6 +462,7 @@ export default function QuestHub({
           onUpdate={onNpcUpdate}
           onRemove={onNpcRemove}
           onCoverChange={onNpcCoverChange}
+          onReorder={onReorderNpcs}
         />
       )}
 

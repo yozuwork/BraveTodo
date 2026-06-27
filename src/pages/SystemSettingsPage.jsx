@@ -21,7 +21,7 @@ export default function SystemSettingsPage() {
     resetLifetimeCompletions,
   } = useQuests()
   const { rules: levelingRules } = useLevelingRules()
-  const { level } = useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules)
+  const { level, resetGold } = useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules)
   const { stages, resetStageBossHunts } = useStages()
   const { resetMonsterHunts } = useMonsters()
   const currentStage = resolveCurrentStage(stages, level)
@@ -31,8 +31,9 @@ export default function SystemSettingsPage() {
       resetLifetimeCompletions(completions)
       resetStageBossHunts()
       resetMonsterHunts()
+      resetGold()
     },
-    [resetLifetimeCompletions, resetStageBossHunts, resetMonsterHunts],
+    [resetLifetimeCompletions, resetStageBossHunts, resetMonsterHunts, resetGold],
   )
 
   return (

@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
+import { reorderItems } from '../utils/reorderItems'
 
 const SKILLS_DOC = doc(db, 'meta', 'skills')
 let cachedSkills = null
@@ -101,6 +102,10 @@ export default function useSkills() {
     )))
   }, [])
 
+  const reorderSkills = useCallback((fromId, toId, insertBefore) => {
+    setSkills((prev) => reorderItems(prev, fromId, toId, insertBefore))
+  }, [])
+
   return {
     skills,
     addSkill,
@@ -108,6 +113,7 @@ export default function useSkills() {
     removeSkill,
     updateSkillCover,
     toggleSkillPin,
+    reorderSkills,
     loaded,
   }
 }

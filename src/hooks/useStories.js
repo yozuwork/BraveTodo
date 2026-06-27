@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
+import { reorderItems } from '../utils/reorderItems'
 
 const STORIES_DOC = doc(db, 'meta', 'stories')
 let cachedStories = null
@@ -94,6 +95,10 @@ export default function useStories() {
     )))
   }, [])
 
+  const reorderStories = useCallback((fromId, toId, insertBefore) => {
+    setStories((prev) => reorderItems(prev, fromId, toId, insertBefore))
+  }, [])
+
   return {
     stories,
     addStory,
@@ -101,6 +106,7 @@ export default function useStories() {
     removeStory,
     updateStoryCover,
     toggleStoryPin,
+    reorderStories,
     loaded,
   }
 }

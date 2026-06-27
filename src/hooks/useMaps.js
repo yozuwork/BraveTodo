@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
+import { reorderItems } from '../utils/reorderItems'
 
 const MAPS_DOC = doc(db, 'meta', 'maps')
 let cachedMaps = null
@@ -87,12 +88,17 @@ export default function useMaps() {
     compressImage(file).then((dataUrl) => updateMap(id, { cover: dataUrl }))
   }, [updateMap])
 
+  const reorderMaps = useCallback((fromId, toId, insertBefore) => {
+    setMaps((prev) => reorderItems(prev, fromId, toId, insertBefore))
+  }, [])
+
   return {
     maps,
     addMap,
     updateMap,
     removeMap,
     updateMapCover,
+    reorderMaps,
     loaded,
   }
 }

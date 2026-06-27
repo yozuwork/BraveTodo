@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Routes, Route, Navigate, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import PersonIcon from "@mui/icons-material/Person";
 import PublicIcon from "@mui/icons-material/Public";
@@ -9,6 +9,7 @@ import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import SportsMartialArtsIcon from "@mui/icons-material/SportsMartialArts";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import RedeemOutlinedIcon from "@mui/icons-material/RedeemOutlined";
 import LogoutIcon from "@mui/icons-material/Logout";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
@@ -29,6 +30,8 @@ import useStories from "./hooks/useStories";
 import useMaps from "./hooks/useMaps";
 import useNpcs from "./hooks/useNpcs";
 import useSkills from "./hooks/useSkills";
+import useRewardShop from "./hooks/useRewardShop";
+import useRewardSettings from "./hooks/useRewardSettings";
 import useAuth from "./hooks/useAuth";
 import useVocabulary from "./hooks/useVocabulary";
 import { resolveImg } from "./utils/imageSrc";
@@ -37,6 +40,81 @@ import CharacterSettingsPage from "./pages/CharacterSettingsPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
 import { getAppTheme, THEME_EVENT } from "./utils/themeSettings";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
+
+function GoldDisplay({ gold, className = "" }) {
+  return (
+    <div className={`rounded-2xl border border-amber-200/70 bg-[linear-gradient(135deg,rgba(120,53,15,0.88),rgba(24,24,27,0.96))] px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.24)] ${className}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/14 ring-1 ring-amber-200/20">
+            <svg
+              width="128"
+              height="128"
+              viewBox="0 0 128 128"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-label="coin"
+              className="h-7 w-7 object-contain"
+            >
+              <circle cx="64" cy="64" r="52" fill="#F4BF1A" />
+              <circle cx="64" cy="64" r="43" fill="#F8D94A" />
+              <circle
+                cx="64"
+                cy="64"
+                r="38"
+                stroke="#F6E27A"
+                strokeWidth="3"
+                opacity="0.9"
+              />
+              <path
+                d="M64 41V49"
+                stroke="#ED9B1C"
+                strokeWidth="7"
+                strokeLinecap="round"
+              />
+              <path
+                d="M64 79V87"
+                stroke="#ED9B1C"
+                strokeWidth="7"
+                strokeLinecap="round"
+              />
+              <path
+                d="M74 49.5C71.4 46.8 67.9 45.3 63.8 45.3C57.7 45.3 53.3 48.7 53.3 53.4C53.3 58 57 60.3 63.8 61.9C70.6 63.5 74.7 66 74.7 71.1C74.7 76.5 69.8 80.4 63.2 80.4C58.3 80.4 54.3 78.4 51.4 75"
+                stroke="#ED9B1C"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="m-0 text-[0.65rem] font-black uppercase tracking-[0.24em] text-amber-200/70">
+              Gold
+            </p>
+            <p className="m-0 text-2xl font-extrabold leading-none text-amber-50">
+              {gold.toLocaleString()}
+            </p>
+          </div>
+        </div>
+        <span className="rounded-full border border-amber-200/15 bg-black/20 px-2.5 py-1 text-[0.65rem] font-bold text-amber-100/80">
+          持有金幣
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function normalizeQuestRewardTier(expValue) {
+  if (expValue === 2) return 3;
+  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10)
+    return expValue;
+  return 1;
+}
+
+function parseRewardCost(cost) {
+  const matched = String(cost ?? "").match(/\d+/);
+  return matched ? Math.max(0, parseInt(matched[0], 10) || 0) : 0;
+}
 
 function MainApp() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -69,6 +147,9 @@ function MainApp() {
   const {
     imagePosition,
     updateImagePosition,
+    gold,
+    adjustGold,
+    resetGold,
     level,
     expProgress,
     coreTaskProgress,
@@ -135,7 +216,23 @@ function MainApp() {
     removeStory,
     updateStoryCover,
     toggleStoryPin,
+    reorderStories,
   } = useStories();
+  const {
+    rewards,
+    rewardTemplates,
+    addReward,
+    addRewardFromTemplate,
+    updateReward,
+    removeReward,
+    updateRewardCover,
+    toggleRewardPin,
+    reorderRewards,
+    saveRewardTemplate,
+    updateRewardTemplate,
+    removeRewardTemplate,
+  } = useRewardShop();
+  const { rewardSettings } = useRewardSettings();
   const {
     skills,
     addSkill,
@@ -143,6 +240,7 @@ function MainApp() {
     removeSkill,
     updateSkillCover,
     toggleSkillPin,
+    reorderSkills,
   } = useSkills();
   const {
     maps,
@@ -150,6 +248,7 @@ function MainApp() {
     updateMap,
     removeMap,
     updateMapCover,
+    reorderMaps,
   } = useMaps();
   const {
     npcs,
@@ -157,6 +256,7 @@ function MainApp() {
     updateNpc,
     removeNpc,
     updateNpcCover,
+    reorderNpcs,
   } = useNpcs();
 
   const vocabularySeededRef = useRef(false);
@@ -210,6 +310,74 @@ function MainApp() {
         .slice(0, 8);
     },
     [vocabularyItems],
+  );
+
+  const rewardGoldMap = useMemo(
+    () =>
+      new Map(
+        rewardSettings.map((item) => [
+          normalizeQuestRewardTier(item.expValue),
+          Math.max(0, Number(item.gold) || 0),
+        ]),
+      ),
+    [rewardSettings],
+  );
+
+  const setQuestCompletedWithReward = useCallback(
+    (questId, completed) => {
+      const target = quests.find((quest) => quest.id === questId);
+      if (!target || target.completed === completed) return;
+
+      setQuestCompleted(questId, completed);
+
+      const rewardGold =
+        rewardGoldMap.get(normalizeQuestRewardTier(target.expValue)) ?? 0;
+      if (rewardGold > 0) {
+        adjustGold(completed ? rewardGold : -rewardGold);
+      }
+    },
+    [adjustGold, quests, rewardGoldMap, setQuestCompleted],
+  );
+
+  const handleRewardPurchase = useCallback(
+    (rewardId) => {
+      const reward = rewards.find((item) => item.id === rewardId);
+      if (!reward) return;
+      if (reward.status === "redeemed" || reward.status === "archived") return;
+
+      const cost = parseRewardCost(reward.cost);
+      if (gold < cost) return;
+
+      adjustGold(-cost);
+      updateReward(rewardId, {
+        status: "redeemed",
+        redeemedAt: Date.now(),
+      });
+    },
+    [adjustGold, gold, rewards, updateReward],
+  );
+
+  const handleRewardArchive = useCallback(
+    (rewardId, isArchived) => {
+      updateReward(rewardId, {
+        status: isArchived ? "available" : "archived",
+      });
+    },
+    [updateReward],
+  );
+
+  const handleRewardUse = useCallback(
+    (rewardId) => {
+      const reward = rewards.find((item) => item.id === rewardId);
+      if (!reward) return;
+      if (reward.status !== "redeemed") return;
+
+      updateReward(rewardId, {
+        status: "used",
+        usedAt: Date.now(),
+      });
+    },
+    [rewards, updateReward],
   );
 
   const handleAddQuest = useCallback(
@@ -311,8 +479,9 @@ function MainApp() {
       resetLifetimeCompletions(completions);
       resetStageBossHunts();
       resetMonsterHunts();
+      resetGold();
     },
-    [resetLifetimeCompletions, resetStageBossHunts, resetMonsterHunts],
+    [resetLifetimeCompletions, resetStageBossHunts, resetMonsterHunts, resetGold],
   );
 
   // Stage progression lock: only advance if previous boss is defeated
@@ -399,11 +568,11 @@ function MainApp() {
           b.targetId === targetId &&
           b.taskId === taskId
         ) {
-          setQuestCompleted(q.id, completed);
+          setQuestCompletedWithReward(q.id, completed);
         }
       });
     },
-    [quests, setQuestCompleted],
+    [quests, setQuestCompletedWithReward],
   );
 
   const toggleQuestSynced = useCallback(
@@ -411,10 +580,10 @@ function MainApp() {
       const q = quests.find((x) => x.id === questId);
       if (!q) return;
       const next = !q.completed;
-      setQuestCompleted(questId, next);
+      setQuestCompletedWithReward(questId, next);
       if (q.huntBinding) setHuntTaskCompleted(q.huntBinding, next);
     },
-    [quests, setQuestCompleted, setHuntTaskCompleted],
+    [quests, setQuestCompletedWithReward, setHuntTaskCompleted],
   );
 
   const handleBindQuestToActiveHuntTask = useCallback(
@@ -427,13 +596,13 @@ function MainApp() {
       };
       bindQuestToHuntTask(questId, binding);
       const cur = resolveHuntTaskCompleted(binding);
-      if (cur !== null) setQuestCompleted(questId, cur);
+      if (cur !== null) setQuestCompletedWithReward(questId, cur);
     },
     [
       activeHuntTarget,
       bindQuestToHuntTask,
       resolveHuntTaskCompleted,
-      setQuestCompleted,
+      setQuestCompletedWithReward,
     ],
   );
 
@@ -457,7 +626,7 @@ function MainApp() {
         targetId: activeHuntTarget.id,
         taskId,
       });
-      setQuestCompleted(questId, false);
+      setQuestCompletedWithReward(questId, false);
     },
     [
       quests,
@@ -465,7 +634,7 @@ function MainApp() {
       addStageBossHuntTask,
       addHuntTask,
       bindQuestToHuntTask,
-      setQuestCompleted,
+      setQuestCompletedWithReward,
     ],
   );
 
@@ -565,16 +734,19 @@ function MainApp() {
               {isOnHuntMission ? (
                 <HuntSideCard target={activeHuntTarget} />
               ) : (
-                <CharacterCard
-                  level={level}
-                  avatar={currentStage.avatarSrc}
-                  avatars={currentStage.avatarSrcs}
-                  onAvatarChange={(file) =>
-                    updateStageAvatar(currentStage.id, file)
-                  }
-                  imagePosition={imagePosition}
-                  onImagePositionChange={updateImagePosition}
-                />
+                <>
+                  <CharacterCard
+                    level={level}
+                    avatar={currentStage.avatarSrc}
+                    avatars={currentStage.avatarSrcs}
+                    onAvatarChange={(file) =>
+                      updateStageAvatar(currentStage.id, file)
+                    }
+                    imagePosition={imagePosition}
+                    onImagePositionChange={updateImagePosition}
+                  />
+                  <GoldDisplay gold={gold} />
+                </>
               )}
             </aside>
 
@@ -647,22 +819,42 @@ function MainApp() {
                 onStoryRemove={removeStory}
                 onStoryCoverChange={updateStoryCover}
                 onStoryTogglePin={toggleStoryPin}
+                onReorderStories={reorderStories}
+                rewards={rewards}
+                rewardTemplates={rewardTemplates}
+                gold={gold}
+                onRewardAdd={addReward}
+                onRewardAddFromTemplate={addRewardFromTemplate}
+                onRewardUpdate={updateReward}
+                onRewardRemove={removeReward}
+                onRewardCoverChange={updateRewardCover}
+                onRewardTogglePin={toggleRewardPin}
+                onRewardPurchase={handleRewardPurchase}
+                onRewardArchive={handleRewardArchive}
+                onRewardUse={handleRewardUse}
+                onReorderRewards={reorderRewards}
+                onSaveRewardTemplate={saveRewardTemplate}
+                onUpdateRewardTemplate={updateRewardTemplate}
+                onRemoveRewardTemplate={removeRewardTemplate}
                 skills={skills}
                 onSkillAdd={addSkill}
                 onSkillUpdate={updateSkill}
                 onSkillRemove={removeSkill}
                 onSkillCoverChange={updateSkillCover}
                 onSkillTogglePin={toggleSkillPin}
+                onReorderSkills={reorderSkills}
                 maps={maps}
                 onMapAdd={addMap}
                 onMapUpdate={updateMap}
                 onMapRemove={removeMap}
                 onMapCoverChange={updateMapCover}
+                onReorderMaps={reorderMaps}
                 npcs={npcs}
                 onNpcAdd={addNpc}
                 onNpcUpdate={updateNpc}
                 onNpcRemove={removeNpc}
                 onNpcCoverChange={updateNpcCover}
+                onReorderNpcs={reorderNpcs}
                 getVocabularySuggestions={getVocabularySuggestions}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
@@ -717,6 +909,7 @@ function CharacterPage() {
   const {
     imagePosition,
     updateImagePosition,
+    gold,
     level,
     expProgress,
     coreTaskProgress,
@@ -728,14 +921,17 @@ function CharacterPage() {
   return (
     <main className="mobile-page-surface flex justify-center bg-stone-50 md:bg-transparent p-5 md:p-10 min-h-screen md:min-h-0">
       <div className="w-full max-w-[900px] flex flex-col md:flex-row md:items-start md:justify-center gap-6 md:gap-10">
-        <CharacterCard
-          level={level}
-          avatar={currentStage.avatarSrc}
-          avatars={currentStage.avatarSrcs}
-          onAvatarChange={(file) => updateStageAvatar(currentStage.id, file)}
-          imagePosition={imagePosition}
-          onImagePositionChange={updateImagePosition}
-        />
+        <div className="w-full md:w-auto flex flex-col gap-4">
+          <CharacterCard
+            level={level}
+            avatar={currentStage.avatarSrc}
+            avatars={currentStage.avatarSrcs}
+            onAvatarChange={(file) => updateStageAvatar(currentStage.id, file)}
+            imagePosition={imagePosition}
+            onImagePositionChange={updateImagePosition}
+          />
+          <GoldDisplay gold={gold} className="md:max-w-[380px]" />
+        </div>
         <div className="w-full md:w-[430px] md:pt-10">
           <StatsCard
             expProgress={expProgress}
@@ -771,6 +967,7 @@ const mobileNavItemClass = (isActive) =>
 const WORK_TABS = [
   { tab: "Tasks", label: "任務", icon: <TaskAltIcon sx={{ fontSize: 18 }} /> },
   { tab: "Hunt", label: "討伐", icon: <SportsMartialArtsIcon sx={{ fontSize: 18 }} /> },
+  { tab: "RewardShop", label: "獎勵商店", icon: <RedeemOutlinedIcon sx={{ fontSize: 18 }} /> },
   { tab: "Story", label: "故事", icon: <AutoStoriesOutlinedIcon sx={{ fontSize: 18 }} /> },
   { tab: "Npc", label: "NPC", icon: <PersonOutlineIcon sx={{ fontSize: 18 }} /> },
   { tab: "Map", label: "地圖", icon: <MapOutlinedIcon sx={{ fontSize: 18 }} /> },

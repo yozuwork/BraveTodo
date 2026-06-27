@@ -1,6 +1,7 @@
 import CharacterSettings from '../components/Main/CharacterSettings'
 import useStages from '../hooks/useStages'
 import useLevelingRules from '../hooks/useLevelingRules'
+import useRewardSettings from '../hooks/useRewardSettings'
 
 export default function CharacterSettingsPage() {
   const {
@@ -22,6 +23,10 @@ export default function CharacterSettingsPage() {
     reorderStages,
     updateStageAvatarPosition,
   } = useStages()
+  const {
+    rewardSettings,
+    updateRewardGold,
+  } = useRewardSettings()
 
   return (
     <main className="flex justify-center p-4 md:p-10">
@@ -42,6 +47,8 @@ export default function CharacterSettingsPage() {
           onUpdateLevelRange={updateLevelRange}
           onAddLevelingRule={addLevelingRule}
           onRemoveLevelingRule={removeLevelingRule}
+          rewardSettings={rewardSettings}
+          onUpdateRewardGold={updateRewardGold}
         />
       </div>
     </main>

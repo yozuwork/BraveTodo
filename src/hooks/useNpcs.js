@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { compressImage } from '../utils/compressImage'
+import { reorderItems } from '../utils/reorderItems'
 
 const NPCS_DOC = doc(db, 'meta', 'npcs')
 let cachedNpcs = null
@@ -87,12 +88,17 @@ export default function useNpcs() {
     compressImage(file).then((dataUrl) => updateNpc(id, { cover: dataUrl }))
   }, [updateNpc])
 
+  const reorderNpcs = useCallback((fromId, toId, insertBefore) => {
+    setNpcs((prev) => reorderItems(prev, fromId, toId, insertBefore))
+  }, [])
+
   return {
     npcs,
     addNpc,
     updateNpc,
     removeNpc,
     updateNpcCover,
+    reorderNpcs,
     loaded,
   }
 }

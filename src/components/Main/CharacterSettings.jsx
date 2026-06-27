@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import StageSettings from './StageSettings'
 import LevelingSettings from './LevelingSettings'
+import RewardSettings from './RewardSettings'
 
 const SETTING_TABS = [
   { key: 'stages', label: '階段設置' },
   { key: 'leveling', label: '升級設定' },
+  { key: 'rewards', label: '獎勵設置' },
 ]
 
 export default function CharacterSettings({
@@ -23,6 +25,8 @@ export default function CharacterSettings({
   onUpdateLevelRange,
   onAddLevelingRule,
   onRemoveLevelingRule,
+  rewardSettings,
+  onUpdateRewardGold,
 }) {
   const [activeSetting, setActiveSetting] = useState('stages')
 
@@ -74,6 +78,13 @@ export default function CharacterSettings({
           onUpdateLevelRange={onUpdateLevelRange}
           onAddLevelingRule={onAddLevelingRule}
           onRemoveLevelingRule={onRemoveLevelingRule}
+        />
+      )}
+
+      {activeSetting === 'rewards' && (
+        <RewardSettings
+          rewardSettings={rewardSettings}
+          onUpdateRewardGold={onUpdateRewardGold}
         />
       )}
     </div>

@@ -255,8 +255,10 @@ function StageRow({
   stage, canDelete, onRemove, onEdit,
   isDragOver, insertBefore,
   onDragStart, onDragOver, onDrop, onDragEnd,
+  onAvatarChange,
   onPositionChange,
 }) {
+  const fileInputRef = useRef(null)
   const customAvatarCount = stage.avatars?.length ?? (stage.avatar ? 1 : 0)
   const avatarSrcs = customAvatarCount > 0
     ? (stage.avatarSrcs ?? (stage.avatarSrc ? [stage.avatarSrc] : [])).slice(0, customAvatarCount)
@@ -270,12 +272,15 @@ function StageRow({
     const startX = e.clientX
     const startY = e.clientY
     const posAtStart = { ...thumbPos }
+    let moved = false
 
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max)
 
     const onMove = (me) => {
       const dx = me.clientX - startX
       const dy = me.clientY - startY
+      if (!moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      moved = true
       const newX = clamp(posAtStart.x - dx * 0.5, 0, 100)
       const newY = clamp(posAtStart.y - dy * 0.5, 0, 100)
       setThumbPos({ x: newX, y: newY })
@@ -285,6 +290,10 @@ function StageRow({
     const onUp = () => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
+      if (!moved) {
+        fileInputRef.current?.click()
+        return
+      }
       if (thumbDragRef.current) {
         onPositionChange?.(stage.id, 0, thumbDragRef.current.x, thumbDragRef.current.y)
         thumbDragRef.current = null
@@ -318,7 +327,7 @@ function StageRow({
       {/* Avatar */}
       <div
         className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-purple-200 cursor-grab"
-        title="拖移調整顯示位置"
+        title="點擊上傳圖片，拖移調整顯示位置"
       >
         <img
           src={stage.avatarSrc}
@@ -335,6 +344,17 @@ function StageRow({
           style={{ objectPosition: `${thumbPos.x}% ${thumbPos.y}%` }}
         />
       </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          onAvatarChange(stage.id, e.target.files)
+          e.target.value = ''
+        }}
+      />
 
       {/* Info */}
       <div className="flex-1 min-w-0">
@@ -436,6 +456,7 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onDragEnd={handleDragEnd}
+            onAvatarChange={onAvatarChange}
             onPositionChange={onPositionChange}
           />
         ))}

@@ -2,6 +2,7 @@ const ALL_TABS = [
   { key: 'Tasks',       label: '任務' },
   { key: 'HuntMission', label: '討伐任務', huntOnly: true },
   { key: 'Hunt',        label: '討伐' },
+  { key: 'RewardShop',  label: '獎勵商店' },
   { key: 'Story',       label: '故事' },
   { key: 'Npc',         label: 'NPC' },
   { key: 'Map',         label: '地圖' },
