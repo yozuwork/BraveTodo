@@ -106,9 +106,15 @@ function GoldDisplay({ gold, className = "" }) {
 
 function normalizeQuestRewardTier(expValue) {
   if (expValue === 2) return 3;
-  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10)
+  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10 || expValue === 20)
     return expValue;
   return 1;
+}
+
+function normalizeNonNegativeInt(value, fallback = 0) {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed >= 0) return Math.floor(parsed);
+  return fallback;
 }
 
 function parseRewardCost(cost) {
@@ -133,6 +139,7 @@ function MainApp() {
     toggleCoreTask,
     setQuestPriority,
     updateQuestExp,
+    updateQuestRewardConfig,
     reorderQuests,
     clearCompleted,
     addSubTask,
@@ -327,6 +334,16 @@ function MainApp() {
     [rewardSettings],
   );
 
+  const getQuestRewardGold = useCallback(
+    (quest) => {
+      if ((quest?.rewardMode ?? "tier") === "custom") {
+        return normalizeNonNegativeInt(quest?.customGold, 0);
+      }
+      return rewardGoldMap.get(normalizeQuestRewardTier(quest?.expValue)) ?? 0;
+    },
+    [rewardGoldMap],
+  );
+
   const setQuestCompletedWithReward = useCallback(
     (questId, completed) => {
       const target = quests.find((quest) => quest.id === questId);
@@ -334,26 +351,65 @@ function MainApp() {
 
       setQuestCompleted(questId, completed);
 
-      const rewardGold =
-        rewardGoldMap.get(normalizeQuestRewardTier(target.expValue)) ?? 0;
+      const rewardGold = getQuestRewardGold(target);
       if (rewardGold > 0) {
         adjustGold(completed ? rewardGold : -rewardGold);
       }
     },
-    [adjustGold, quests, rewardGoldMap, setQuestCompleted],
+    [adjustGold, getQuestRewardGold, quests, setQuestCompleted],
+  );
+
+  const handleQuestExpChange = useCallback(
+    (questId, expValue) => {
+      const target = quests.find((quest) => quest.id === questId);
+      if (!target) return;
+      const nextQuest = {
+        ...target,
+        expValue,
+        rewardMode: Number(expValue) === 20 ? target.rewardMode : "tier",
+      };
+      const previousGold = target.completed ? getQuestRewardGold(target) : 0;
+      const nextGold = target.completed ? getQuestRewardGold(nextQuest) : 0;
+
+      updateQuestExp(questId, expValue);
+      if (Number(expValue) !== 20 && target.rewardMode === "custom") {
+        updateQuestRewardConfig(questId, { rewardMode: "tier" });
+      }
+
+      const goldDelta = nextGold - previousGold;
+      if (goldDelta !== 0) adjustGold(goldDelta);
+    },
+    [adjustGold, getQuestRewardGold, quests, updateQuestExp, updateQuestRewardConfig],
+  );
+
+  const handleQuestRewardConfigChange = useCallback(
+    (questId, changes) => {
+      const target = quests.find((quest) => quest.id === questId);
+      if (!target) return;
+      const nextQuest = { ...target, ...changes };
+      const previousGold = target.completed ? getQuestRewardGold(target) : 0;
+      const nextGold = target.completed ? getQuestRewardGold(nextQuest) : 0;
+
+      updateQuestRewardConfig(questId, changes);
+
+      const goldDelta = nextGold - previousGold;
+      if (goldDelta !== 0) adjustGold(goldDelta);
+    },
+    [adjustGold, getQuestRewardGold, quests, updateQuestRewardConfig],
   );
 
   const handleRewardPurchase = useCallback(
     (rewardId) => {
       const reward = rewards.find((item) => item.id === rewardId);
       if (!reward) return;
-      if (reward.status === "redeemed" || reward.status === "archived") return;
+      if (reward.status === "archived") return;
 
       const cost = parseRewardCost(reward.cost);
       if (gold < cost) return;
 
       adjustGold(-cost);
       updateReward(rewardId, {
+        ownedCount: (reward.ownedCount ?? 0) + 1,
         status: "redeemed",
         redeemedAt: Date.now(),
       });
@@ -374,10 +430,12 @@ function MainApp() {
     (rewardId) => {
       const reward = rewards.find((item) => item.id === rewardId);
       if (!reward) return;
-      if (reward.status !== "redeemed") return;
+      const ownedCount = Math.max(0, reward.ownedCount ?? 0);
+      if (ownedCount <= 0) return;
 
       updateReward(rewardId, {
-        status: "used",
+        ownedCount: ownedCount - 1,
+        status: ownedCount - 1 > 0 ? "redeemed" : "available",
         usedAt: Date.now(),
       });
     },
@@ -769,7 +827,8 @@ function MainApp() {
                 onTogglePin={togglePin}
                 onToggleCore={toggleCoreTask}
                 onSetPriority={setQuestPriority}
-                onSetExp={updateQuestExp}
+                onSetExp={handleQuestExpChange}
+                onUpdateRewardConfig={handleQuestRewardConfigChange}
                 onReorderQuests={reorderQuests}
                 onClearCompleted={clearCompleted}
                 onDemoteToInbox={handleDemoteToInbox}

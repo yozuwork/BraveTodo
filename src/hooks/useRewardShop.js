@@ -17,6 +17,12 @@ export const REWARD_TYPES = {
   pay_per_use: '每次使用都需花費',
 }
 
+function normalizeOwnedCount(value, fallback = 0) {
+  const parsed = Number(value)
+  if (Number.isFinite(parsed) && parsed >= 0) return Math.floor(parsed)
+  return fallback
+}
+
 function sanitize(value) {
   if (value === undefined) return null
   if (Array.isArray(value)) return value.map((item) => sanitize(item === undefined ? null : item))
@@ -47,6 +53,7 @@ function resolveStoredCover(ref, imageSrcs) {
 
 const createReward = (seed = {}) => {
   const now = Date.now()
+  const legacyOwnedCount = seed.status === 'redeemed' ? 1 : 0
   return {
     id: now,
     title: '新的獎勵',
@@ -58,6 +65,7 @@ const createReward = (seed = {}) => {
     coverPosition: { ...DEFAULT_COVER_POSITION },
     pinned: false,
     rewardType: 'own_once',
+    ownedCount: 0,
     status: 'available',
     createdAt: now,
     updatedAt: now,
@@ -68,6 +76,7 @@ const createReward = (seed = {}) => {
     cover: normalizeCoverRef(seed.cover ?? null),
     coverPosition: normalizeCoverPosition(seed.coverPosition),
     pinned: Boolean(seed.pinned ?? false),
+    ownedCount: normalizeOwnedCount(seed.ownedCount, legacyOwnedCount),
     status: seed.status ?? 'available',
     createdAt: seed.createdAt ?? now,
     updatedAt: seed.updatedAt ?? now,
@@ -100,6 +109,7 @@ const normalizeReward = (reward = {}) => ({
   coverPosition: normalizeCoverPosition(reward.coverPosition),
   pinned: Boolean(reward.pinned),
   rewardType: reward.rewardType ?? 'own_once',
+  ownedCount: normalizeOwnedCount(reward.ownedCount, reward.status === 'redeemed' ? 1 : 0),
   status: reward.status ?? 'available',
   createdAt: reward.createdAt ?? Date.now(),
   updatedAt: reward.updatedAt ?? Date.now(),

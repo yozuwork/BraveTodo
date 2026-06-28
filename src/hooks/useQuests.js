@@ -15,8 +15,25 @@ _questCompleteAudio.volume = 0.65
 
 function normalizeQuestExpValue(expValue) {
   if (expValue === 2) return 3
-  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10) return expValue
+  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10 || expValue === 20) return expValue
   return 1
+}
+
+function normalizeQuestRewardMode(mode) {
+  return mode === 'custom' ? 'custom' : 'tier'
+}
+
+function normalizeNonNegativeInt(value, fallback = 0) {
+  const parsed = Number(value)
+  if (Number.isFinite(parsed) && parsed >= 0) return Math.floor(parsed)
+  return fallback
+}
+
+function getEffectiveQuestExp(quest = {}) {
+  if (normalizeQuestRewardMode(quest.rewardMode) === 'custom') {
+    return Math.max(1, normalizeNonNegativeInt(quest.customExp, normalizeQuestExpValue(quest.expValue)))
+  }
+  return normalizeQuestExpValue(quest.expValue)
 }
 
 function normalizeSubTask(subTask = {}) {
@@ -36,6 +53,9 @@ function normalizeQuest(quest = {}) {
     pinned: Boolean(quest.pinned),
     priority: quest.priority ?? 'normal',
     expValue: normalizeQuestExpValue(quest.expValue),
+    rewardMode: normalizeQuestRewardMode(quest.rewardMode),
+    customExp: normalizeNonNegativeInt(quest.customExp, normalizeQuestExpValue(quest.expValue)),
+    customGold: normalizeNonNegativeInt(quest.customGold, 0),
     huntBinding: quest.huntBinding ?? null,
     subTasks: Array.isArray(quest.subTasks) ? quest.subTasks.map(normalizeSubTask) : [],
   }
@@ -48,6 +68,9 @@ function normalizeQuestTemplate(template = {}) {
     text: template.text ?? '新的任務',
     priority: template.priority ?? 'normal',
     expValue: normalizeQuestExpValue(template.expValue),
+    rewardMode: normalizeQuestRewardMode(template.rewardMode),
+    customExp: normalizeNonNegativeInt(template.customExp, normalizeQuestExpValue(template.expValue)),
+    customGold: normalizeNonNegativeInt(template.customGold, 0),
     subTasks: Array.isArray(template.subTasks) ? template.subTasks.map((subTask) => ({
       id: subTask.id ?? Date.now(),
       text: subTask.text ?? '',
@@ -169,6 +192,9 @@ export default function useQuests() {
         pinned: false,
         priority: 'normal',
         expValue: 1,
+        rewardMode: 'tier',
+        customExp: 1,
+        customGold: 0,
         huntBinding: null,
         subTasks: [],
       }),
@@ -188,6 +214,9 @@ export default function useQuests() {
       pinned: false,
       priority: source.priority,
       expValue: source.expValue,
+      rewardMode: source.rewardMode ?? 'tier',
+      customExp: source.customExp ?? source.expValue,
+      customGold: source.customGold ?? 0,
       huntBinding: null,
       subTasks: (source.subTasks ?? []).map((subTask, index) => ({
         id: now + index + 1,
@@ -207,6 +236,9 @@ export default function useQuests() {
       text: questLike.text?.trim() || '新的任務',
       priority: questLike.priority ?? 'normal',
       expValue: normalizeQuestExpValue(questLike.expValue),
+      rewardMode: normalizeQuestRewardMode(questLike.rewardMode),
+      customExp: normalizeNonNegativeInt(questLike.customExp, normalizeQuestExpValue(questLike.expValue)),
+      customGold: normalizeNonNegativeInt(questLike.customGold, 0),
       subTasks: Array.isArray(questLike.subTasks)
         ? questLike.subTasks.map((subTask) => ({ text: subTask.text ?? '', completed: false }))
         : [],
@@ -235,7 +267,7 @@ export default function useQuests() {
       const target = prev.find((q) => q.id === id)
       if (!target) return prev
       if (target.completed === completed) return prev
-      const exp = normalizeQuestExpValue(target.expValue)
+      const exp = getEffectiveQuestExp(target)
       completionDelta = completed ? exp : -exp
       return prev.map((q) => (q.id === id ? { ...q, completed } : q))
     })
@@ -268,7 +300,49 @@ export default function useQuests() {
   }, [])
 
   const updateQuestExp = useCallback((id, expValue) => {
-    setQuests((prev) => prev.map((q) => q.id === id ? { ...q, expValue } : q))
+    const nextExpValue = normalizeQuestExpValue(expValue)
+    let completionDelta = 0
+    setQuests((prev) => prev.map((q) => {
+      if (q.id !== id) return q
+      const next = { ...q, expValue: nextExpValue }
+      if (q.completed) {
+        completionDelta = getEffectiveQuestExp(next) - getEffectiveQuestExp(q)
+      }
+      return next
+    }))
+    if (completionDelta !== 0) {
+      setLifetimeCompletions((c) => {
+        const next = Math.max(0, c + completionDelta)
+        cachedLifetimeCompletions = next
+        return next
+      })
+    }
+  }, [])
+
+  const updateQuestRewardConfig = useCallback((id, changes) => {
+    let completionDelta = 0
+    setQuests((prev) => prev.map((q) => {
+      if (q.id !== id) return q
+      const next = normalizeQuest({
+        ...q,
+        ...changes,
+        expValue: Object.prototype.hasOwnProperty.call(changes, 'expValue') ? changes.expValue : q.expValue,
+        rewardMode: Object.prototype.hasOwnProperty.call(changes, 'rewardMode') ? changes.rewardMode : q.rewardMode,
+        customExp: Object.prototype.hasOwnProperty.call(changes, 'customExp') ? changes.customExp : q.customExp,
+        customGold: Object.prototype.hasOwnProperty.call(changes, 'customGold') ? changes.customGold : q.customGold,
+      })
+      if (q.completed) {
+        completionDelta = getEffectiveQuestExp(next) - getEffectiveQuestExp(q)
+      }
+      return next
+    }))
+    if (completionDelta !== 0) {
+      setLifetimeCompletions((c) => {
+        const next = Math.max(0, c + completionDelta)
+        cachedLifetimeCompletions = next
+        return next
+      })
+    }
   }, [])
 
   const removeQuest = useCallback((id) => {
@@ -379,6 +453,7 @@ export default function useQuests() {
     toggleCoreTask,
     setQuestPriority,
     updateQuestExp,
+    updateQuestRewardConfig,
     reorderQuests,
     clearCompleted,
     bindQuestToHuntTask,

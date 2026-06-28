@@ -9,6 +9,7 @@ export const DEFAULT_REWARD_SETTINGS = [
   { key: '3', label: '中等', expValue: 3, gold: 5, tone: 'sky' },
   { key: '5', label: '上等', expValue: 5, gold: 10, tone: 'amber' },
   { key: '10', label: '特級', expValue: 10, gold: 50, tone: 'orange' },
+  { key: '20', label: '特殊任務', expValue: 20, gold: 100, tone: 'orange' },
 ]
 
 let cachedRewardSettings = null

@@ -9,14 +9,6 @@ import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import { resolveImg } from '../../utils/imageSrc'
 import { REWARD_TYPES } from '../../hooks/useRewardShop'
 
-const REWARD_STATUS = {
-  available: { label: '可兌換', bg: '#fff7ed', text: '#c2410c', border: '#fdba74' },
-  locked: { label: '未解鎖', bg: '#eff6ff', text: '#1d4ed8', border: '#93c5fd' },
-  redeemed: { label: '已兌換', bg: '#ecfdf5', text: '#047857', border: '#86efac' },
-  used: { label: '已使用', bg: '#ede9fe', text: '#7c3aed', border: '#c4b5fd' },
-  archived: { label: '封存', bg: '#f5f5f4', text: '#78716c', border: '#d6d3d1' },
-}
-
 function parseRewardCost(cost) {
   const matched = String(cost ?? '').match(/\d+/)
   return matched ? Math.max(0, parseInt(matched[0], 10) || 0) : 0
@@ -45,15 +37,15 @@ export default function RewardShopCard({
     coverSrc,
     coverPosition = { x: 50, y: 50 },
     pinned,
+    ownedCount = 0,
     status = 'available',
   } = reward
-  const statusConfig = REWARD_STATUS[status] ?? REWARD_STATUS.available
   const costValue = parseRewardCost(cost)
   const isArchived = status === 'archived'
-  const isRedeemed = status === 'redeemed'
-  const isUsed = status === 'used'
-  const purchaseDisabled = isArchived || isRedeemed || isUsed || gold < costValue
-  const useDisabled = isArchived || isUsed || !isRedeemed
+  const normalizedOwnedCount = Math.max(0, Number(ownedCount) || 0)
+  const hasOwnedItems = normalizedOwnedCount > 0
+  const purchaseDisabled = isArchived || gold < costValue
+  const useDisabled = isArchived || !hasOwnedItems
   const [open, setOpen] = useState(false)
   const [titleDraft, setTitleDraft] = useState(title)
   const [costDraft, setCostDraft] = useState(cost ?? '')
@@ -215,7 +207,10 @@ export default function RewardShopCard({
           </div>
         </div>
 
-        <div className="relative flex flex-col gap-2.5 px-4 pt-4 pb-5 bg-white flex-1 border-t border-orange-100">
+        <div className="relative flex flex-col gap-2.5 px-4 pt-6 pb-5 bg-white flex-1 border-t border-orange-100">
+          <span className="absolute left-4 -top-3 inline-flex w-fit items-center rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 shadow-sm">
+            擁有 {normalizedOwnedCount}
+          </span>
           <div className="relative h-0">
             <button
               type="button"
@@ -251,9 +246,9 @@ export default function RewardShopCard({
                     ? 'cursor-not-allowed bg-gray-100 text-gray-300'
                     : 'bg-orange-500 text-white hover:bg-orange-600'
                 }`}
-                title={gold < costValue ? '金幣不足' : isRedeemed ? '已購買' : isUsed ? '已使用' : isArchived ? '已封存' : '購買'}
+                title={gold < costValue ? '金幣不足' : isArchived ? '已封存' : '購買'}
               >
-                {isRedeemed || isUsed ? '已購買' : '購買'}
+                購買
               </button>
               <button
                 type="button"
@@ -264,9 +259,9 @@ export default function RewardShopCard({
                     ? 'cursor-not-allowed bg-gray-100 text-gray-300'
                     : 'bg-violet-500 text-white hover:bg-violet-600'
                 }`}
-                title={isUsed ? '已使用' : isRedeemed ? '使用' : '需先購買'}
+                title={hasOwnedItems ? `使用 1 個（目前 ${normalizedOwnedCount}）` : '需先購買'}
               >
-                {isUsed ? '已使用' : '使用'}
+                使用
               </button>
               <button
                 type="button"

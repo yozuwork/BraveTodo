@@ -124,26 +124,34 @@ const PRIORITY_STYLE = {
   low: 'bg-blue-50 text-blue-400 hover:bg-blue-100',
 }
 
-const EXP_CYCLE  = { 1: 3, 3: 5, 5: 10, 10: 1 }
-const EXP_LABEL  = { 1: '一般', 3: '中等', 5: '上等', 10: '特級' }
-const EXP_POINTS = { 1: '+1', 3: '+3', 5: '+5', 10: '+10' }
+const EXP_CYCLE  = { 1: 3, 3: 5, 5: 10, 10: 20, 20: 1 }
+const EXP_LABEL  = { 1: '一般', 3: '中等', 5: '上等', 10: '特級', 20: '特殊任務' }
+const EXP_POINTS = { 1: '+1', 3: '+3', 5: '+5', 10: '+10', 20: '+20' }
 const EXP_STYLE  = {
   1:  'bg-gray-100 text-gray-400 hover:bg-gray-200',
   3:  'bg-blue-50 text-blue-400 hover:bg-blue-100',
   5:  'bg-yellow-50 text-yellow-500 hover:bg-yellow-100',
   10: 'bg-orange-50 text-orange-500 hover:bg-orange-100',
+  20: 'bg-rose-50 text-rose-500 hover:bg-rose-100',
 }
 
 function normalizeExpValue(expValue) {
   // legacy support: old "中等" used 2
   if (expValue === 2) return 3
-  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10) return expValue
+  if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10 || expValue === 20) return expValue
   return 1
+}
+
+function normalizeNonNegativeInt(value, fallback = 0) {
+  const parsed = Number(value)
+  if (Number.isFinite(parsed) && parsed >= 0) return Math.floor(parsed)
+  return fallback
 }
 
 export default function QuestItem({
   quest, onSaveTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetExp,
+  onUpdateRewardConfig,
   onDemoteToInbox,
   activeHuntTarget,
   monsters,
@@ -189,6 +197,15 @@ export default function QuestItem({
 
   const completedSubs = subTasks.filter((s) => s.completed).length
   const effectiveExp = normalizeExpValue(quest.expValue)
+  const isSpecialQuest = effectiveExp === 20
+  const rewardMode = quest.rewardMode === 'custom' ? 'custom' : 'tier'
+  const customExp = Math.max(1, normalizeNonNegativeInt(quest.customExp, effectiveExp))
+  const customGold = normalizeNonNegativeInt(quest.customGold, 0)
+  const customExpInputValue = quest.customExp === 0 ? '' : String(normalizeNonNegativeInt(quest.customExp, effectiveExp))
+  const customGoldInputValue = quest.customGold === 0 ? '' : String(normalizeNonNegativeInt(quest.customGold, 0))
+  const rewardBadgeText = isSpecialQuest && rewardMode === 'custom'
+    ? `自訂 EXP ${customExp} / ${customGold} 金`
+    : `${EXP_LABEL[effectiveExp]} ${EXP_POINTS[effectiveExp]}`
   const mobileEditOnlyBlock = 'hidden md:block'
   const mobileEditOnlyInline = 'hidden md:inline-flex'
   const mobileContentBasis = 'max-md:basis-auto'
@@ -275,7 +292,7 @@ export default function QuestItem({
     : null
   const mobileSummaryParts = [
     PRIORITY_LABEL[quest.priority ?? 'normal'],
-    `${EXP_LABEL[effectiveExp]} ${EXP_POINTS[effectiveExp]}`,
+    rewardBadgeText,
     subTasks.length > 0 ? `${completedSubs}/${subTasks.length}` : null,
     boundTarget && !boundTarget.isMissing ? boundTarget.name : null,
   ].filter(Boolean)
@@ -291,6 +308,28 @@ export default function QuestItem({
     '.MuiOutlinedInput-notchedOutline': { borderColor: 'var(--mobile-detail-border)' },
     '.MuiSvgIcon-root': { color: 'var(--mobile-detail-muted)' },
     '&.Mui-disabled': { opacity: 0.55 },
+  }
+  const rewardInputClassName = 'w-16 rounded-lg border border-gray-200 bg-stone-50 px-2 py-2 text-sm font-semibold text-center text-black outline-none transition-colors focus:border-purple-400 focus:ring-1 focus:ring-purple-200'
+  const handleCustomExpChange = (value) => {
+    if (!/^\d*$/.test(value)) return
+    onUpdateRewardConfig?.(quest.id, {
+      rewardMode: 'custom',
+      customExp: value === '' ? 0 : Number(value),
+    })
+  }
+  const handleCustomGoldChange = (value) => {
+    if (!/^\d*$/.test(value)) return
+    onUpdateRewardConfig?.(quest.id, {
+      rewardMode: 'custom',
+      customGold: value === '' ? 0 : Number(value),
+    })
+  }
+  const handleResetSpecialReward = () => {
+    onUpdateRewardConfig?.(quest.id, {
+      rewardMode: 'tier',
+      customExp: 20,
+      customGold: 0,
+    })
   }
 
   return (
@@ -393,12 +432,12 @@ export default function QuestItem({
           {!editing && (
             <button
               onClick={() => onSetExp(quest.id, EXP_CYCLE[effectiveExp])}
-              title={`經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）`}
+              title={isSpecialQuest && rewardMode === 'custom' ? `目前使用自訂獎勵：EXP ${customExp} / ${customGold} 金` : `經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）`}
               className={`order-3 sm:order-none shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${mobileEditOnlyInline} ${
-                EXP_STYLE[effectiveExp]
+                isSpecialQuest && rewardMode === 'custom' ? 'bg-purple-50 text-purple-600 hover:bg-purple-100' : EXP_STYLE[effectiveExp]
               }`}
             >
-              {EXP_LABEL[effectiveExp]} {EXP_POINTS[effectiveExp]}
+              {isSpecialQuest && rewardMode === 'custom' ? `自訂獎勵` : `${EXP_LABEL[effectiveExp]} ${EXP_POINTS[effectiveExp]}`}
             </button>
           )}
           {editing ? (
@@ -644,6 +683,70 @@ export default function QuestItem({
           </div>
         )}
 
+        <div className="hidden md:flex flex-wrap items-center gap-2 pl-1">
+          <Select
+            value={effectiveExp}
+            onChange={(e) => onSetExp(quest.id, Number(e.target.value))}
+            size="small"
+            sx={{
+              minWidth: 118,
+              fontSize: '0.75rem',
+              '.MuiOutlinedInput-notchedOutline': { borderColor: '#e5e7eb' },
+              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#fdba74' },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#f97316' },
+              '.MuiSelect-select': { py: '4px', px: '8px' },
+            }}
+          >
+            {[1, 3, 5, 10, 20].map((value) => (
+              <MenuItem key={value} value={value}>
+                {EXP_LABEL[value]} {EXP_POINTS[value]}
+              </MenuItem>
+            ))}
+          </Select>
+          {isSpecialQuest && (
+            <>
+              <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                rewardMode === 'custom' ? 'bg-purple-50 text-purple-600' : 'bg-rose-50 text-rose-500'
+              }`}>
+                {rewardMode === 'custom' ? '特殊任務・自訂金幣' : '特殊任務・預設 20 點'}
+              </span>
+              <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-400">
+                <span>EXP</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={customExpInputValue}
+                  onChange={(e) => handleCustomExpChange(e.target.value)}
+                  className={rewardInputClassName}
+                  placeholder="20"
+                  title="自訂經驗"
+                />
+              </label>
+              <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-stone-400">
+                <span>金幣</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={customGoldInputValue}
+                  onChange={(e) => handleCustomGoldChange(e.target.value)}
+                  className={rewardInputClassName}
+                  placeholder="0"
+                  title="自訂金幣"
+                />
+              </label>
+              {rewardMode === 'custom' && (
+                <button
+                  type="button"
+                  onClick={handleResetSpecialReward}
+                  className="rounded-full bg-stone-100 px-3 py-2 text-xs font-semibold text-stone-600 transition-colors hover:bg-stone-200"
+                >
+                  恢復預設
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
         {/* Sub-task list */}
         {subTasks.length > 0 && (
           <div className="flex max-md:hidden flex-col gap-0.5 pl-1 border-l-2 border-gray-100 ml-1">
@@ -778,13 +881,60 @@ export default function QuestItem({
                 size="small"
                 sx={mobileDetailSelectSx}
               >
-                {[1, 3, 5, 10].map((value) => (
+                {[1, 3, 5, 10, 20].map((value) => (
                   <MenuItem key={value} value={value}>
                     {EXP_LABEL[value]} {EXP_POINTS[value]}
                   </MenuItem>
                 ))}
               </Select>
             </label>
+
+            {isSpecialQuest && (
+              <>
+                <div className="flex flex-col gap-2">
+                  <span className="mobile-quest-detail-label text-xs font-semibold">特殊任務獎勵</span>
+                  <div className={`inline-flex w-fit items-center rounded-full px-3 py-1.5 text-xs font-bold ${
+                    rewardMode === 'custom' ? 'bg-purple-50 text-purple-600' : 'bg-rose-50 text-rose-500'
+                  }`}>
+                    {rewardMode === 'custom' ? '目前使用自訂獎勵' : '預設獎勵為 20 點'}
+                  </div>
+                </div>
+
+                <label className="flex flex-col gap-2">
+                  <span className="mobile-quest-detail-label text-xs font-semibold">自訂經驗</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={customExpInputValue}
+                    onChange={(e) => handleCustomExpChange(e.target.value)}
+                    className={rewardInputClassName}
+                    placeholder="20"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-2">
+                  <span className="mobile-quest-detail-label text-xs font-semibold">自訂金幣</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={customGoldInputValue}
+                    onChange={(e) => handleCustomGoldChange(e.target.value)}
+                    className={rewardInputClassName}
+                    placeholder="0"
+                  />
+                </label>
+
+                {rewardMode === 'custom' && (
+                  <button
+                    type="button"
+                    onClick={handleResetSpecialReward}
+                    className="mobile-quest-detail-action inline-flex items-center justify-center px-4 py-2 rounded-full text-sm font-semibold"
+                  >
+                    恢復預設 20 點
+                  </button>
+                )}
+              </>
+            )}
 
             <label className="flex flex-col gap-2">
               <span className="mobile-quest-detail-label text-xs font-semibold">討伐綁定</span>

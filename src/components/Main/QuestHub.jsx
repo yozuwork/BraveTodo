@@ -19,8 +19,21 @@ import NpcTab from './NpcTab'
 import RewardShopTab from './RewardShopTab'
 import VocabularyInput from '../common/VocabularyInput'
 
+function getQuestTierLabel(template) {
+  if ((template.rewardMode ?? 'tier') === 'custom') {
+    const customExp = Math.max(1, Number(template.customExp) || Number(template.expValue) || 1)
+    const customGold = Math.max(0, Number(template.customGold) || 0)
+    return `自訂 EXP ${customExp} / ${customGold} 金`
+  }
+  if (template.expValue === 20) return '特殊任務 +20'
+  if (template.expValue === 10) return '特級 +10'
+  if (template.expValue === 5) return '上等 +5'
+  if (template.expValue === 3) return '中等 +3'
+  return '一般 +1'
+}
+
 export default function QuestHub({
-  quests, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onReorderQuests, onClearCompleted,
+  quests, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onUpdateRewardConfig, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
   stages, onStageName, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
@@ -312,6 +325,7 @@ export default function QuestHub({
                         onToggleCore={onToggleCore}
                         onSetPriority={onSetPriority}
                         onSetExp={onSetExp}
+                        onUpdateRewardConfig={onUpdateRewardConfig}
                         onDemoteToInbox={onDemoteToInbox}
                         atk={atk}
                         onAddSubTask={onAddSubTask}
@@ -456,7 +470,7 @@ export default function QuestHub({
                           {template.priority === 'high' ? '優先' : template.priority === 'low' ? '最後' : '次要'}
                         </span>
                         <span className="rounded-full bg-orange-50 px-2 py-0.5 text-orange-500">
-                          {template.expValue === 10 ? '特級 +10' : template.expValue === 5 ? '上等 +5' : template.expValue === 3 ? '中等 +3' : '一般 +1'}
+                          {getQuestTierLabel(template)}
                         </span>
                         {(template.subTasks?.length ?? 0) > 0 && (
                           <span className="rounded-full bg-blue-50 px-2 py-0.5 text-blue-500">
