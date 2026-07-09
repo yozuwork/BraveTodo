@@ -300,8 +300,17 @@ export default function OtherSettings({
   currentLevel,
   levelingRules,
   onResetLevel,
+  heroCurrentLevel,
+  heroLevelingRules,
+  onResetHeroLevel,
 }) {
-  const maxLevel = getHighestConfiguredLevel(levelingRules);
+  const hasHeroTarget = typeof onResetHeroLevel === "function";
+  const [resetTarget, setResetTarget] = useState("life");
+  const effectiveTarget = hasHeroTarget ? resetTarget : "life";
+  const effectiveCurrentLevel = effectiveTarget === "life" ? currentLevel : heroCurrentLevel;
+  const effectiveLevelingRules = effectiveTarget === "life" ? levelingRules : heroLevelingRules;
+  const effectiveOnResetLevel = effectiveTarget === "life" ? onResetLevel : onResetHeroLevel;
+  const maxLevel = getHighestConfiguredLevel(effectiveLevelingRules);
   const [targetLevel, setTargetLevel] = useState(1);
   const [confirmed, setConfirmed] = useState(false);
   const {
@@ -339,9 +348,15 @@ export default function OtherSettings({
     }
     const completions = calcCompletionsForLevel(
       Number(targetLevel) || 1,
-      levelingRules,
+      effectiveLevelingRules,
     );
-    onResetLevel(completions);
+    effectiveOnResetLevel(completions);
+    setConfirmed(false);
+  };
+
+  const handleTargetChange = (nextTarget) => {
+    setResetTarget(nextTarget);
+    setTargetLevel(1);
     setConfirmed(false);
   };
 
@@ -569,9 +584,36 @@ export default function OtherSettings({
         <div>
           <p className="text-sm font-semibold text-black m-0">等級重置</p>
           <p className="text-xs text-gray-400 mt-0.5 m-0">
-            將目前等級重置到指定等級（目前 LV{currentLevel}）
+            將目前等級重置到指定等級（目前 LV{effectiveCurrentLevel}）
           </p>
         </div>
+
+        {hasHeroTarget && (
+          <div className="inline-flex w-fit rounded-lg border border-gray-200 bg-stone-50 p-1">
+            <button
+              type="button"
+              onClick={() => handleTargetChange("life")}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap ${
+                effectiveTarget === "life"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              LIFE 任務
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTargetChange("hero")}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap ${
+                effectiveTarget === "hero"
+                  ? "bg-white text-purple-600 shadow-sm"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              英雄任務
+            </button>
+          </div>
+        )}
 
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500 shrink-0">重置到</span>

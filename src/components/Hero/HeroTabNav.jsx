@@ -1,0 +1,46 @@
+const ALL_TABS = [
+  { key: 'Tasks',       label: '任務' },
+  { key: 'HuntMission', label: '討伐任務', huntOnly: true },
+  { key: 'Hunt',        label: '討伐' },
+  { key: 'RewardShop',  label: '獎勵商店' },
+  { key: 'Story',       label: '故事' },
+  { key: 'Npc',         label: 'NPC' },
+  { key: 'Map',         label: '地圖' },
+  { key: 'Skills',      label: 'Skills' },
+  { key: 'Inbox',       label: '收集箱' },
+]
+
+export default function HeroTabNav({ activeTab, onTabChange, hasActiveHunt }) {
+  const visibleTabs = ALL_TABS.filter((t) => {
+    if (t.huntOnly && !hasActiveHunt) return false
+    return true
+  })
+
+  return (
+    <nav className="flex gap-6 border-b-2 border-gray-200 overflow-x-auto">
+      {visibleTabs.map((tab) => (
+        <button
+          key={tab.key}
+          onClick={() => onTabChange(tab.key)}
+          className={`pb-3 uppercase text-sm font-semibold cursor-pointer relative bg-transparent border-none transition-colors whitespace-nowrap flex items-center gap-1.5
+            ${activeTab === tab.key
+              ? tab.key === 'HuntMission' ? 'text-red-500' : 'text-black'
+              : 'text-gray-400 hover:text-gray-600'
+            }`}
+          style={activeTab === tab.key ? {
+            borderBottom: `3px solid ${tab.key === 'HuntMission' ? '#ef4444' : 'black'}`,
+            marginBottom: '-2px',
+          } : undefined}
+        >
+          {tab.key === 'HuntMission' && hasActiveHunt && (
+            <span
+              className="inline-block w-2 h-2 rounded-full bg-red-500 shrink-0"
+              style={{ animation: 'ping 1.5s cubic-bezier(0,0,0.2,1) infinite' }}
+            />
+          )}
+          {tab.label}
+        </button>
+      ))}
+    </nav>
+  )
+}

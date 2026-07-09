@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Routes, Route, Navigate, NavLink, Outlet, useLocation, useSearchParams } from "react-router-dom";
+import { Routes, Route, Navigate, NavLink, Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import PersonIcon from "@mui/icons-material/Person";
 import PublicIcon from "@mui/icons-material/Public";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -38,6 +38,8 @@ import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
 import CharacterSettingsPage from "./pages/CharacterSettingsPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
+import HeroQuestPage from "./pages/HeroQuestPage";
+import HeroCharacterSettingsPage from "./pages/HeroCharacterSettingsPage";
 import { getAppTheme, THEME_EVENT } from "./utils/themeSettings";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
 
@@ -1043,6 +1045,35 @@ const WORK_TABS = [
 ]
 const WORK_MORE_TABS = WORK_TABS.filter((item) => item.tab !== "Tasks")
 
+const LIFE_SECTION_PATHS = ["/character", "/work", "/character-settings"]
+const HERO_SECTION_PATHS = ["/hero-quest", "/hero-character-settings"]
+
+const LIFE_SUB_NAV_ITEMS = [
+  { to: "/character", label: "角色", mobileLabel: "角色", icon: <PersonIcon sx={{ fontSize: 20 }} /> },
+  { to: "/work", label: "工作", mobileLabel: "任務", icon: <TaskAltIcon sx={{ fontSize: 20 }} /> },
+  { to: "/character-settings", label: "角色設定", mobileLabel: "設置", icon: <TuneIcon sx={{ fontSize: 20 }} /> },
+]
+
+const HERO_SUB_NAV_ITEMS = [
+  { to: "/hero-quest", label: "英雄任務", mobileLabel: "英雄", icon: <SportsMartialArtsIcon sx={{ fontSize: 20 }} /> },
+  { to: "/hero-character-settings", label: "角色設定", mobileLabel: "設置", icon: <TuneIcon sx={{ fontSize: 20 }} /> },
+]
+
+function TopLevelNavLink({ to, active, className, onClick, children }) {
+  return (
+    <Link
+      to={to}
+      onClick={(e) => {
+        if (active) e.preventDefault()
+        onClick?.()
+      }}
+      className={className}
+    >
+      {children}
+    </Link>
+  )
+}
+
 function UserAvatar({ user }) {
   return user.photoURL ? (
     <img src={user.photoURL} alt="avatar" className="w-full h-full object-cover" />
@@ -1094,10 +1125,11 @@ function Layout({ user, signIn, logOut }) {
   const [appTheme, setAppThemeState] = useState(getAppTheme)
   const location = useLocation()
   const activeWorkTab = new URLSearchParams(location.search).get("tab") || "Tasks"
-  const tasksActive = location.pathname === "/work" && activeWorkTab === "Tasks"
   const moreMenuActive =
     location.pathname === "/system-settings" ||
     (location.pathname === "/work" && WORK_MORE_TABS.some((item) => item.tab === activeWorkTab))
+  const isLifeSection = LIFE_SECTION_PATHS.includes(location.pathname)
+  const isHeroSection = HERO_SECTION_PATHS.includes(location.pathname)
 
   const closeMenus = () => {
     setShowUserMenu(false)
@@ -1128,10 +1160,21 @@ function Layout({ user, signIn, logOut }) {
             </div>
           </div>
           <nav className="flex items-center gap-1">
-            <NavLink to="/character" className={navLinkClass}>角色</NavLink>
-            <NavLink to="/work" className={navLinkClass}>工作</NavLink>
+            <TopLevelNavLink
+              to="/work"
+              active={isLifeSection}
+              className={navLinkClass({ isActive: isLifeSection })}
+            >
+              LIFE 任務
+            </TopLevelNavLink>
+            <TopLevelNavLink
+              to="/hero-quest"
+              active={isHeroSection}
+              className={navLinkClass({ isActive: isHeroSection })}
+            >
+              英雄任務
+            </TopLevelNavLink>
             <NavLink to="/gallery" className={navLinkClass}>世界圖庫</NavLink>
-            <NavLink to="/character-settings" className={navLinkClass}>角色設定</NavLink>
             <NavLink to="/system-settings" className={navLinkClass}>系統設置</NavLink>
           </nav>
           <div className="relative">
@@ -1151,24 +1194,53 @@ function Layout({ user, signIn, logOut }) {
             )}
           </div>
         </div>
+        {(isLifeSection || isHeroSection) && (
+          <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-11 flex items-center gap-1 border-t border-gray-50">
+            {(isLifeSection ? LIFE_SUB_NAV_ITEMS : HERO_SUB_NAV_ITEMS).map((item) => (
+              <NavLink key={item.to} to={item.to} className={navLinkClass}>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+        )}
       </header>
       <Outlet />
+      {(isLifeSection || isHeroSection) && (
+        <nav className="mobile-bottom-sub-nav fixed bottom-24 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-14 rounded-full p-1.5 backdrop-blur">
+          {(isLifeSection ? LIFE_SUB_NAV_ITEMS : HERO_SUB_NAV_ITEMS).map((item) => (
+            <NavLink key={item.to} to={item.to} className={mobileNavLinkClass} onClick={closeMenus}>
+              {item.icon}
+              <span className="text-[0.65rem] font-semibold">{item.mobileLabel}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
       <nav className="mobile-bottom-nav fixed bottom-4 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-16 rounded-full p-1.5 backdrop-blur">
-        <NavLink to="/work" className={() => mobileNavItemClass(tasksActive)} onClick={closeMenus}>
+        <TopLevelNavLink
+          to="/work"
+          active={isLifeSection}
+          className={mobileNavItemClass(isLifeSection)}
+          onClick={closeMenus}
+        >
           <TaskAltIcon sx={{ fontSize: 20 }} />
-          <span className="text-[0.65rem] font-semibold">任務</span>
-        </NavLink>
-        <NavLink to="/character" className={mobileNavLinkClass} onClick={closeMenus}>
-          <PersonIcon sx={{ fontSize: 20 }} />
-          <span className="text-[0.65rem] font-semibold">角色</span>
-        </NavLink>
-        <NavLink to="/gallery" className={mobileNavLinkClass} onClick={closeMenus}>
+          <span className="text-[0.65rem] font-semibold">LIFE 任務</span>
+        </TopLevelNavLink>
+        <TopLevelNavLink
+          to="/hero-quest"
+          active={isHeroSection}
+          className={mobileNavItemClass(isHeroSection)}
+          onClick={closeMenus}
+        >
+          <SportsMartialArtsIcon sx={{ fontSize: 20 }} />
+          <span className="text-[0.65rem] font-semibold">英雄任務</span>
+        </TopLevelNavLink>
+        <NavLink
+          to="/gallery"
+          onClick={closeMenus}
+          className={({ isActive }) => mobileNavItemClass(isActive)}
+        >
           <PublicIcon sx={{ fontSize: 20 }} />
           <span className="text-[0.65rem] font-semibold">圖庫</span>
-        </NavLink>
-        <NavLink to="/character-settings" className={mobileNavLinkClass} onClick={closeMenus}>
-          <TuneIcon sx={{ fontSize: 20 }} />
-          <span className="text-[0.65rem] font-semibold">設置</span>
         </NavLink>
         <button
           type="button"
@@ -1289,6 +1361,8 @@ export default function App() {
       <Route element={<Layout user={user} signIn={signIn} logOut={logOut} />}>
         <Route path="/character" element={<CharacterPage />} />
         <Route path="/work" element={<MainApp />} />
+        <Route path="/hero-quest" element={<HeroQuestPage />} />
+        <Route path="/hero-character-settings" element={<HeroCharacterSettingsPage />} />
         <Route path="/gallery" element={<WorldGallery />} />
         <Route path="/character-settings" element={<CharacterSettingsPage />} />
         <Route path="/system-settings" element={<SystemSettingsPage />} />
