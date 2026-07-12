@@ -18,6 +18,7 @@ import MapTab from './MapTab'
 import NpcTab from './NpcTab'
 import RewardShopTab from './RewardShopTab'
 import VocabularyInput from '../common/VocabularyInput'
+import { resolveCurrentStage } from '../../hooks/useStages'
 
 function getQuestTierLabel(template) {
   if ((template.rewardMode ?? 'tier') === 'custom') {
@@ -187,6 +188,7 @@ export default function QuestHub({
     setInboxInput('')
   }
 
+  const currentStage = resolveCurrentStage(stages, currentLevel)
   const hasCompleted = quests.some((q) => q.completed)
   const activeQuestCount = quests.filter((quest) => !quest.completed).length
   const taskSuggestions = getVocabularySuggestions?.(inputValue, ['task', 'inbox']) ?? []
@@ -203,9 +205,16 @@ export default function QuestHub({
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
       <div className="hidden md:flex flex-col gap-4 mb-5">
         <div className="flex items-end justify-between gap-6">
-          <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight">
-            米莉亞
-          </h1>
+          <div className="flex items-baseline gap-3 min-w-0">
+            <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight shrink-0">
+              米莉亞
+            </h1>
+            {currentStage?.className && (
+              <span className="text-gray-400 text-lg font-bold truncate">
+                {currentStage.className}
+              </span>
+            )}
+          </div>
           <p className="quest-log-count text-sm font-bold text-gray-400 m-0">
             <span className="text-purple-btn text-xl">{activeQuestCount}</span> 個進行中任務
           </p>
