@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="230" viewBox="0 0 180 230">
+<path d="M20 10h140v165l-70 45-70-45z" fill="#7B4BB3" stroke="#342D27" stroke-width="8"/>
+<path d="M32 24h116v140l-58 38-58-38z" fill="none" stroke="#B08AE0" stroke-width="3"/>
+<text x="90" y="78" text-anchor="middle" fill="#F5EEDC" font-size="24" font-family="serif">LEVEL</text>
+<text x="90" y="142" text-anchor="middle" fill="#F5EEDC" font-size="62" font-weight="700" font-family="serif">46</text>
+</svg>

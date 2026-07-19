@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="120" viewBox="0 0 520 120">
+<defs><linearGradient id="g" x1="0" x2="1"><stop stop-color="#765129"/><stop offset="1" stop-color="#342D27"/></linearGradient></defs>
+<rect x="5" y="5" width="510" height="110" rx="18" fill="url(#g)" stroke="#D4A743" stroke-width="4"/>
+<circle cx="62" cy="60" r="31" fill="#D4A743" stroke="#F0D17A" stroke-width="4"/>
+<text x="62" y="69" text-anchor="middle" fill="#765129" font-size="27" font-weight="700">G</text>
+<text x="112" y="48" fill="#E8C56A" font-size="16" letter-spacing="4">GOLD</text>
+<text x="112" y="86" fill="#FFF4D0" font-size="36" font-weight="700">174</text>
+<rect x="392" y="30" width="98" height="60" rx="12" fill="#342D27" stroke="#8F806A" stroke-width="2"/>
+<text x="441" y="67" text-anchor="middle" fill="#E8DDC5" font-size="16">獲得金幣</text>
+</svg>

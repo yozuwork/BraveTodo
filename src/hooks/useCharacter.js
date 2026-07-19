@@ -20,7 +20,7 @@ function playLevelUpSound() {
   void audio.play().catch(() => {})
 }
 
-const BASE_STATS = { atk: 5, def: 5, spd: 5 }
+const BASE_STATS = { hp: 100, atk: 5, def: 5, spd: 5 }
 
 export default function useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules) {
   const [avatar, setAvatar] = useState(() => cachedAvatar ?? defaultAvatar)
@@ -125,6 +125,7 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
 
   const stats = useMemo(
     () => ({
+      hp: { value: BASE_STATS.hp + level * 25, bonus: level * 25 },
       atk: { value: BASE_STATS.atk + level * 5, bonus: level * 5 },
       def: { value: BASE_STATS.def + level * 2, bonus: level * 2 },
       spd: { value: BASE_STATS.spd + level * 3, bonus: level * 3 },

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="110" viewBox="0 0 800 110">
+<style>.i{fill:none;stroke:#342D27;stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.t{font:14px sans-serif;fill:#342D27}</style>
+<g transform="translate(20,15)"><path class="i" d="M20 8v58M20 12h42l-8 12 8 12H20"/><text class="t" x="20" y="88">任務</text></g>
+<g transform="translate(120,15)"><path class="i" d="M20 8h40M20 66h40M27 8c0 22 26 22 26 29S27 44 27 66M53 8c0 22-26 22-26 29s26 7 26 29"/><text class="t" x="18" y="88">時代</text></g>
+<g transform="translate(220,15)"><path class="i" d="M14 28h52v38H14zM10 28h60M20 18h40M40 18v48"/><text class="t" x="2" y="88">獎勵商店</text></g>
+<g transform="translate(340,15)"><path class="i" d="M18 14h42v52H18zM27 26h24M27 38h24M27 50h18"/><text class="t" x="20" y="88">故事</text></g>
+<g transform="translate(440,15)"><circle class="i" cx="40" cy="27" r="13"/><path class="i" d="M16 66c4-18 44-18 48 0"/><text class="t" x="26" y="88">NPC</text></g>
+<g transform="translate(540,15)"><path class="i" d="M10 18l20-8 20 8 20-8v50l-20 8-20-8-20 8zM30 10v50M50 18v50"/><text class="t" x="24" y="88">地圖</text></g>
+<g transform="translate(640,15)"><path class="i" d="M40 8l8 18 20 2-15 14 5 20-18-10-18 10 5-20-15-14 20-2z"/><text class="t" x="12" y="88">SKILLS</text></g>
+<g transform="translate(740,15)"><path class="i" d="M10 25h60v41H10zM18 15h44l8 10H10zM32 39h16"/><text class="t" x="10" y="88">收集箱</text></g>
+</svg>

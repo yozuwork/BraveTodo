@@ -7,7 +7,10 @@ import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import TabNav from './TabNav'
+import { StatGlyph } from './FantasyIcons'
+import questEmptyIllustration from '../../assets/quest-empty-state.svg'
 import QuestItem from './QuestItem'
 import InboxItem from './InboxItem'
 import HuntTab from './HuntTab'
@@ -202,21 +205,26 @@ export default function QuestHub({
   }, [onSaveQuestTemplate])
 
   return (
-    <div className="mobile-work-hub flex-1 flex flex-col gap-5">
+    <div className="mobile-work-hub fantasy-parchment-panel fantasy-ornate-accents flex-1 flex flex-col gap-5 p-5 md:p-8">
       <div className="hidden md:flex flex-col gap-4 mb-5">
         <div className="flex items-end justify-between gap-6">
-          <div className="flex items-baseline gap-3 min-w-0">
-            <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--fantasy-purple)] text-[var(--fantasy-gold-pale)]">
+              <StatGlyph stat="def" className="h-5 w-5" />
+            </span>
+            <h1 className="text-[var(--fantasy-ink)] text-3xl font-extrabold m-0 tracking-tight shrink-0">
               米莉亞
             </h1>
             {currentStage?.className && (
-              <span className="text-gray-400 text-lg font-bold truncate">
+              <span className="text-[var(--fantasy-muted)] text-lg font-bold truncate">
                 {currentStage.className}
               </span>
             )}
           </div>
-          <p className="quest-log-count text-sm font-bold text-gray-400 m-0">
-            <span className="text-purple-btn text-xl">{activeQuestCount}</span> 個進行中任務
+          <p className="quest-log-count flex items-center gap-1.5 text-sm font-bold text-[var(--fantasy-muted)] m-0">
+            <StatGlyph stat="spd" className="h-4 w-4 text-[var(--fantasy-purple)]" />
+            <span className="text-[var(--fantasy-purple)] text-xl">{activeQuestCount}</span> 個進行中任務
+            <InfoOutlinedIcon sx={{ fontSize: 16, color: 'var(--fantasy-muted)' }} />
           </p>
         </div>
         <div>
@@ -231,13 +239,13 @@ export default function QuestHub({
       {activeTab === 'Tasks' && (
         <div className="flex flex-col gap-4">
           <div className="hidden md:block relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-btn pointer-events-none">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--fantasy-purple)] pointer-events-none">
               <AddIcon fontSize="small" />
             </span>
             <VocabularyInput
               type="text"
               wrapperClassName="relative"
-              className="w-full bg-white text-black border border-gray-200 rounded-xl max-md:rounded-2xl py-4 pl-12 pr-20 text-sm max-md:text-base focus:outline-none focus:border-purple-400 transition-colors placeholder:text-gray-400"
+              className="w-full bg-[var(--fantasy-parchment-1)] text-[var(--fantasy-ink)] border-2 border-[var(--fantasy-gold)]/60 rounded-xl max-md:rounded-2xl py-4 pl-12 pr-20 text-sm max-md:text-base focus:outline-none focus:border-[var(--fantasy-purple)] transition-colors placeholder:text-[var(--fantasy-muted)]"
               placeholder="輸入任務?"
               value={inputValue}
               onChange={setInputValue}
@@ -248,7 +256,7 @@ export default function QuestHub({
               }}
               onSelectSuggestion={commitQuestSuggestion}
             />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-mono pointer-events-none">
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--fantasy-muted)] text-xs font-mono pointer-events-none">
               ENTER ↵
             </span>
           </div>
@@ -259,15 +267,15 @@ export default function QuestHub({
               startIcon={<LibraryBooksOutlinedIcon />}
               onClick={() => setQuestTemplateDialogOpen(true)}
               sx={{
-                borderColor: '#d8b4fe',
-                color: '#a855f7',
-                bgcolor: '#faf5ff',
+                borderColor: 'var(--fantasy-gold)',
+                color: 'var(--fantasy-purple-dark)',
+                bgcolor: 'rgba(123,75,179,0.08)',
                 borderRadius: 99,
                 fontSize: '0.75rem',
                 fontWeight: 700,
                 textTransform: 'none',
                 px: 1.5,
-                '&:hover': { borderColor: '#c084fc', bgcolor: '#f3e8ff' },
+                '&:hover': { borderColor: 'var(--fantasy-purple)', bgcolor: 'rgba(123,75,179,0.16)' },
               }}
             >
               模板任務
@@ -294,9 +302,12 @@ export default function QuestHub({
 
           <div className="mobile-task-list-panel flex flex-col gap-3 max-md:bg-transparent max-md:border-0 max-md:rounded-none max-md:p-0 max-md:gap-0 max-md:shadow-none">
             {quests.length === 0 ? (
-              <div className="text-center py-16 text-gray-300">
-                <p className="text-lg font-semibold">No quests yet</p>
-                <p className="text-sm mt-1">Add your first quest above to begin your adventure!</p>
+              <div className="flex justify-center py-6">
+                <img
+                  src={questEmptyIllustration}
+                  alt="No quests yet"
+                  className="w-full max-w-md opacity-90"
+                />
               </div>
             ) : (
               [...quests]
@@ -360,7 +371,7 @@ export default function QuestHub({
           <button
             type="button"
             onClick={() => setMobileComposerOpen(true)}
-            className="mobile-fab fixed right-6 bottom-28 z-40 md:hidden w-16 h-16 rounded-full bg-purple-btn text-white shadow-[0_18px_35px_rgba(168,85,247,0.28)] flex items-center justify-center"
+            className="mobile-fab fixed right-6 bottom-28 z-40 md:hidden w-16 h-16 rounded-full bg-[var(--fantasy-purple)] text-[var(--fantasy-gold-pale)] border-2 border-[var(--fantasy-gold)] shadow-[0_18px_35px_rgba(123,75,179,0.35)] flex items-center justify-center"
             aria-label="新增任務"
           >
             <AddIcon sx={{ fontSize: 34 }} />
@@ -373,7 +384,7 @@ export default function QuestHub({
             onClick={() => setMobileComposerOpen(false)}
           >
             <div
-              className={`mobile-composer-panel absolute left-0 right-0 bottom-0 rounded-t-[32px] bg-white border-t border-gray-100 px-6 pt-8 pb-8 shadow-[0_-20px_60px_rgba(0,0,0,0.16)] transition-transform duration-300 ${
+              className={`mobile-composer-panel absolute left-0 right-0 bottom-0 rounded-t-[32px] bg-[linear-gradient(135deg,var(--fantasy-parchment-1),var(--fantasy-parchment-2))] border-t-2 border-[var(--fantasy-gold)] px-6 pt-8 pb-8 shadow-[0_-20px_60px_rgba(26,21,16,0.28)] transition-transform duration-300 ${
                 mobileComposerOpen ? 'translate-y-0' : 'translate-y-full'
               }`}
               onClick={(e) => e.stopPropagation()}
@@ -395,16 +406,16 @@ export default function QuestHub({
                   onSelectSuggestion={commitQuestSuggestion}
                   wrapperClassName="relative"
                   dropdownClassName="top-auto bottom-[calc(100%+10px)]"
-                  className="mobile-composer-input w-full bg-transparent text-black text-2xl font-semibold outline-none placeholder:text-gray-400 border-l-4 border-purple-btn pl-3"
+                  className="mobile-composer-input w-full bg-transparent text-[var(--fantasy-ink)] text-2xl font-semibold outline-none placeholder:text-[var(--fantasy-muted)] border-l-4 border-[var(--fantasy-gold)] pl-3"
                   placeholder="輸入任務?"
                 />
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm text-gray-400">按 Enter 新增</span>
+                  <span className="text-sm text-[var(--fantasy-muted)]">按 Enter 新增</span>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setMobileComposerOpen(false)}
-                      className="px-4 py-2 rounded-full bg-gray-100 text-gray-600 text-sm font-semibold"
+                      className="px-4 py-2 rounded-full bg-[var(--fantasy-parchment-3)] text-[var(--fantasy-ink)] text-sm font-semibold"
                     >
                       取消
                     </button>
@@ -412,7 +423,7 @@ export default function QuestHub({
                       type="button"
                       onClick={submitQuestInput}
                       disabled={!inputValue.trim()}
-                      className="px-5 py-2 rounded-full bg-purple-btn text-white text-sm font-bold disabled:opacity-40"
+                      className="px-5 py-2 rounded-full bg-[var(--fantasy-purple)] text-[var(--fantasy-gold-pale)] text-sm font-bold disabled:opacity-40"
                     >
                       新增
                     </button>

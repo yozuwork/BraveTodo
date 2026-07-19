@@ -10,6 +10,103 @@
   --color-common: #a1a1aa;
 }
 
+:root {
+  --fantasy-ink: #2a2118;
+  --fantasy-wood-dark: #1a1510;
+  --fantasy-wood: #342d27;
+  --fantasy-wood-light: #4a3f34;
+  --fantasy-gold: #d4a743;
+  --fantasy-gold-light: #f0d17a;
+  --fantasy-gold-pale: #fff4d0;
+  --fantasy-purple: #7b4bb3;
+  --fantasy-purple-light: #b08ae0;
+  --fantasy-purple-dark: #5c3689;
+  --fantasy-parchment-1: #eadfc8;
+  --fantasy-parchment-2: #d8c8a8;
+  --fantasy-parchment-3: #c5b08b;
+  --fantasy-muted: #746b61;
+  --fantasy-muted-dark: #8f806a;
+}
+
+.fantasy-parchment-panel {
+  position: relative;
+  background-image:
+    radial-gradient(circle at 85% 8%, rgba(123, 75, 179, 0.1), transparent 22rem),
+    url('./assets/parchment-tile.svg');
+  background-size: auto, cover;
+  background-position: center, center;
+  background-repeat: no-repeat, no-repeat;
+  border-radius: 20px;
+  border: 3px solid var(--fantasy-gold);
+  box-shadow:
+    inset 0 0 0 5px var(--fantasy-wood),
+    inset 0 0 0 8px var(--fantasy-gold),
+    0 18px 40px rgba(26, 21, 16, 0.22);
+}
+
+.fantasy-ornate-accents::before,
+.fantasy-ornate-accents::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  background: var(--fantasy-purple);
+  border: 2px solid var(--fantasy-wood);
+  transform: translateX(-50%) rotate(45deg);
+  z-index: 2;
+}
+
+.fantasy-ornate-accents::before {
+  top: -8px;
+}
+
+.fantasy-ornate-accents::after {
+  bottom: -8px;
+}
+
+.fantasy-wood-panel {
+  background: linear-gradient(135deg, var(--fantasy-wood-light) 0%, var(--fantasy-wood-dark) 100%);
+  border: 2px solid var(--fantasy-gold);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.fantasy-portrait-frame {
+  background: var(--fantasy-wood-dark);
+  border: 3px solid var(--fantasy-gold);
+  border-radius: 20px;
+  box-shadow:
+    inset 0 0 0 5px var(--fantasy-wood),
+    inset 0 0 0 8px var(--fantasy-gold),
+    0 18px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* 9-slice: keep the carved end-caps crisp, stretch only the plain middle.
+   No "fill" on the slice - the source's inset rim line spans nearly the full
+   image, so letting border-image stretch it as the center fill double-draws
+   it against the independently-stretched edge strips, producing a visible
+   seam rectangle. A plain gradient center avoids that artifact entirely. */
+.fantasy-topbar-frame {
+  background: linear-gradient(90deg, #5e4a36 0%, #49392c 18%, #342a22 46%, #46382b 76%, #2e251d 100%);
+  border-style: solid;
+  border-width: 8px 110px;
+  border-image-source: url('./assets/top-bar-bg.svg');
+  border-image-slice: 8 110;
+  border-image-width: 8px 110px;
+  border-image-repeat: stretch;
+}
+
+.fantasy-tab-banner {
+  background: linear-gradient(180deg, #8e6caf 0%, #8161a1 44%, #6e517f 100%);
+  border-style: solid;
+  border-width: 10px 24px;
+  border-image-source: url('./assets/active-tab.svg');
+  border-image-slice: 10 24;
+  border-image-width: 10px 24px;
+  border-image-repeat: stretch;
+}
+
 body {
   margin: 0;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -707,22 +804,23 @@ body::after {
   }
 
   html[data-app-theme="light"] .mobile-fab {
-    background: #a855f7 !important;
-    box-shadow: 0 18px 35px rgba(168, 85, 247, 0.28) !important;
+    background: var(--fantasy-purple) !important;
+    border-color: var(--fantasy-gold) !important;
+    box-shadow: 0 18px 35px rgba(123, 75, 179, 0.35) !important;
   }
 
   html[data-app-theme="light"] .mobile-composer-panel {
-    background: #ffffff !important;
-    border-color: #e5e7eb !important;
-    box-shadow: 0 -20px 60px rgba(15, 23, 42, 0.16) !important;
+    background: linear-gradient(135deg, var(--fantasy-parchment-1), var(--fantasy-parchment-2)) !important;
+    border-color: var(--fantasy-gold) !important;
+    box-shadow: 0 -20px 60px rgba(26, 21, 16, 0.28) !important;
   }
 
   html[data-app-theme="light"] .mobile-composer-input {
-    color: #111827 !important;
-    border-left-color: #a855f7 !important;
+    color: var(--fantasy-ink) !important;
+    border-left-color: var(--fantasy-gold) !important;
   }
 
   html[data-app-theme="light"] .mobile-composer-input::placeholder {
-    color: #9ca3af !important;
+    color: var(--fantasy-muted) !important;
   }
 }

@@ -17,6 +17,7 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import CharacterCard from "./components/Sidebar/CharacterCard";
 import HuntSideCard from "./components/Sidebar/HuntSideCard";
 import StatsCard from "./components/Sidebar/StatsCard";
+import StatsStrip from "./components/Sidebar/StatsStrip";
 import QuestHub from "./components/Main/QuestHub";
 import LevelUpEffect from "./components/LevelUpEffect/LevelUpEffect";
 import ImageUploadFeedback from "./components/common/ImageUploadFeedback";
@@ -42,13 +43,14 @@ import HeroQuestPage from "./pages/HeroQuestPage";
 import HeroCharacterSettingsPage from "./pages/HeroCharacterSettingsPage";
 import { getAppTheme, THEME_EVENT } from "./utils/themeSettings";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
+import logoBadge from "./assets/logo-badge.svg";
 
-function GoldDisplay({ gold, className = "" }) {
+function GoldDisplay({ gold, className = "", onGetGold }) {
   return (
-    <div className={`rounded-2xl border border-amber-200/70 bg-[linear-gradient(135deg,rgba(120,53,15,0.88),rgba(24,24,27,0.96))] px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.24)] ${className}`}>
+    <div className={`fantasy-wood-panel px-4 py-3 ${className}`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-400/14 ring-1 ring-amber-200/20">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--fantasy-gold)] ring-2 ring-[var(--fantasy-gold-light)]">
             <svg
               width="128"
               height="128"
@@ -90,17 +92,23 @@ function GoldDisplay({ gold, className = "" }) {
             </svg>
           </div>
           <div className="min-w-0">
-            <p className="m-0 text-[0.65rem] font-black uppercase tracking-[0.24em] text-amber-200/70">
+            <p className="m-0 text-[0.65rem] font-black uppercase tracking-[0.24em] text-[var(--fantasy-gold-light)]">
               Gold
             </p>
-            <p className="m-0 text-2xl font-extrabold leading-none text-amber-50">
+            <p className="m-0 text-2xl font-extrabold leading-none text-[var(--fantasy-gold-pale)]">
               {gold.toLocaleString()}
             </p>
           </div>
         </div>
-        <span className="rounded-full border border-amber-200/15 bg-black/20 px-2.5 py-1 text-[0.65rem] font-bold text-amber-100/80">
-          持有金幣
-        </span>
+        {onGetGold && (
+          <button
+            type="button"
+            onClick={onGetGold}
+            className="shrink-0 rounded-xl border border-[var(--fantasy-muted-dark)] bg-black/20 px-3 py-2 text-xs font-bold text-[var(--fantasy-parchment-1)] transition-colors hover:bg-black/35"
+          >
+            獲得金幣 ›
+          </button>
+        )}
       </div>
     </div>
   );
@@ -808,8 +816,13 @@ function MainApp() {
                     }
                     imagePosition={imagePosition}
                     onImagePositionChange={updateImagePosition}
+                    subtitle={currentStage.className}
                   />
-                  <GoldDisplay gold={gold} />
+                  <StatsStrip stats={stats} />
+                  <GoldDisplay
+                    gold={gold}
+                    onGetGold={() => handleTabChange("RewardShop")}
+                  />
                 </>
               )}
             </aside>
@@ -1017,10 +1030,17 @@ function CharacterPage() {
 
 // ── Shared layout with header ─────────────────────────────────
 const navLinkClass = ({ isActive }) =>
-  `px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+  `px-4 py-1.5 text-sm font-bold tracking-wide transition-colors ${
     isActive
-      ? 'text-purple-600 bg-purple-50'
-      : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'
+      ? 'fantasy-tab-banner text-[var(--fantasy-gold-pale)]'
+      : 'rounded-full border border-transparent text-[var(--fantasy-parchment-2)] hover:bg-white/10 hover:text-[var(--fantasy-gold-light)]'
+  }`
+
+const subNavLinkClass = ({ isActive }) =>
+  `px-3 py-1.5 rounded-lg text-sm font-semibold transition-colors border-b-2 ${
+    isActive
+      ? 'text-[var(--fantasy-gold-pale)] border-[var(--fantasy-gold)]'
+      : 'text-[var(--fantasy-parchment-2)] border-transparent hover:text-[var(--fantasy-gold-light)]'
   }`
 
 const mobileNavLinkClass = ({ isActive }) =>
@@ -1059,7 +1079,7 @@ const HERO_SUB_NAV_ITEMS = [
   { to: "/hero-character-settings", label: "角色設定", mobileLabel: "設置", icon: <TuneIcon sx={{ fontSize: 20 }} /> },
 ]
 
-function TopLevelNavLink({ to, active, className, onClick, children }) {
+function TopLevelNavLink({ to, active, className, style, onClick, children }) {
   return (
     <Link
       to={to}
@@ -1068,6 +1088,7 @@ function TopLevelNavLink({ to, active, className, onClick, children }) {
         onClick?.()
       }}
       className={className}
+      style={style}
     >
       {children}
     </Link>
@@ -1152,12 +1173,10 @@ function Layout({ user, signIn, logOut }) {
 
   return (
     <div className="app-shell min-h-screen bg-stone-50 relative overflow-x-hidden pb-24 md:pb-0">
-      <header className="hidden md:block sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+      <header className="fantasy-topbar-frame hidden md:block sticky top-0 z-50 shadow-[0_10px_30px_rgba(0,0,0,0.3)]">
         <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-14 flex items-center justify-between gap-8">
           <div className="app-brand flex items-center gap-3 shrink-0">
-            <div className="app-brand-mark flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-600 text-lg font-black">
-              米
-            </div>
+            <img src={logoBadge} alt="logo" className="h-10 w-10" />
           </div>
           <nav className="flex items-center gap-1">
             <TopLevelNavLink
@@ -1180,7 +1199,7 @@ function Layout({ user, signIn, logOut }) {
           <div className="relative">
             <button
               onClick={() => setShowUserMenu((v) => !v)}
-              className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors"
+              className="w-8 h-8 rounded-full overflow-hidden border-2 border-[var(--fantasy-gold)] hover:border-[var(--fantasy-gold-light)] transition-colors"
             >
               <UserAvatar user={user} />
             </button>
@@ -1195,12 +1214,14 @@ function Layout({ user, signIn, logOut }) {
           </div>
         </div>
         {(isLifeSection || isHeroSection) && (
-          <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-11 flex items-center gap-1 border-t border-gray-50">
-            {(isLifeSection ? LIFE_SUB_NAV_ITEMS : HERO_SUB_NAV_ITEMS).map((item) => (
-              <NavLink key={item.to} to={item.to} className={navLinkClass}>
-                {item.label}
-              </NavLink>
-            ))}
+          <div className="fantasy-topbar-frame border-t border-black/20">
+            <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-11 flex items-center gap-1">
+              {(isLifeSection ? LIFE_SUB_NAV_ITEMS : HERO_SUB_NAV_ITEMS).map((item) => (
+                <NavLink key={item.to} to={item.to} className={subNavLinkClass}>
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
           </div>
         )}
       </header>

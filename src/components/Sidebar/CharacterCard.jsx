@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import Chip from '@mui/material/Chip'
 import EditIcon from '@mui/icons-material/Edit'
 import OpenWithIcon from '@mui/icons-material/OpenWith'
 import OpenInFullIcon from '@mui/icons-material/OpenInFull'
@@ -8,6 +7,7 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff'
 import CollectionsIcon from '@mui/icons-material/Collections'
 import defaultAvatar from '../../assets/hero.jpg'
 import GalleryImagePicker from '../common/GalleryImagePicker'
+import { StatGlyph } from '../Main/FantasyIcons'
 
 function useFallbackImage() {
   return (e) => {
@@ -18,7 +18,7 @@ function useFallbackImage() {
   }
 }
 
-export default function CharacterCard({ level, avatar, avatars, onAvatarChange, imagePosition, onImagePositionChange }) {
+export default function CharacterCard({ level, avatar, avatars, onAvatarChange, imagePosition, onImagePositionChange, subtitle }) {
   const fileInputRef = useRef(null)
   const containerRef = useRef(null)
   const dragState = useRef(null)
@@ -126,7 +126,7 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
     >
       <div
         ref={containerRef}
-        className="bg-black rounded-2xl border border-green-border shadow-[0_0_15px_rgba(0,255,0,0.3)] relative overflow-hidden"
+        className="fantasy-portrait-frame relative overflow-hidden"
         style={{ height: cardSize.height }}
         onPointerMove={handleResizeMove}
         onPointerUp={handleResizeUp}
@@ -170,19 +170,28 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
           )}
         </div>
 
-        <Chip
-          label={`Level ${level}`}
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            bgcolor: '#a855f7',
-            color: 'white',
-            fontWeight: 700,
-            fontSize: '0.75rem',
-            textTransform: 'uppercase',
+        <div
+          className="absolute top-4 right-4 z-10"
+          style={{
+            padding: '3px',
+            background: 'var(--fantasy-gold)',
+            clipPath: 'polygon(9% 0%, 91% 0%, 91% 76%, 50% 100%, 9% 76%)',
           }}
-        />
+        >
+          <div
+            className="flex flex-col items-center justify-center px-3.5 pt-2.5 pb-4 text-[var(--fantasy-gold-pale)]"
+            style={{
+              background: 'var(--fantasy-purple)',
+              border: '1px solid var(--fantasy-purple-light)',
+              clipPath: 'polygon(9% 0%, 91% 0%, 91% 76%, 50% 100%, 9% 76%)',
+            }}
+          >
+            <span className="text-[0.55rem] font-bold uppercase tracking-[0.22em] leading-none opacity-90">
+              Level
+            </span>
+            <span className="mt-1 text-xl font-extrabold leading-none">{level}</span>
+          </div>
+        </div>
 
         <button
           className="absolute bottom-2 left-2 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/75 transition-colors z-10"
@@ -210,6 +219,15 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
           <OpenInFullIcon sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, transform: 'rotate(90deg)' }} />
         </div>
       </div>
+
+      {subtitle && (
+        <div className="fantasy-wood-panel flex items-center gap-2.5 px-3.5 py-2.5">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--fantasy-purple)] text-[var(--fantasy-gold-pale)]">
+            <StatGlyph stat="weapon" className="h-4 w-4" />
+          </span>
+          <span className="text-sm font-bold text-[var(--fantasy-gold-pale)] truncate">{subtitle}</span>
+        </div>
+      )}
 
       {effectiveAvatars.length > 1 && (
         <div className="flex items-center justify-center gap-2 px-1 py-1 overflow-x-auto">

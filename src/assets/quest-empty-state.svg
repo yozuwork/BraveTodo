@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="360" viewBox="0 0 720 360">
+<g fill="none" stroke="#746B61" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".82">
+  <path d="M310 88l78 0 20 28-20 94h-92l-20-94z"/>
+  <path d="M296 104h92M304 132h65M304 154h52M304 176h58"/>
+  <path d="M418 84l42 24-82 104-28 10 10-29z"/>
+  <path d="M443 101l15 12"/>
+  <path d="M250 255h220"/>
+  <path d="M330 62l4-16M362 58l8-14M397 66l14-12"/>
+</g>
+<text x="360" y="288" text-anchor="middle" fill="#342D27" font-size="32" font-family="serif">No quests yet</text>
+<text x="360" y="324" text-anchor="middle" fill="#746B61" font-size="18">Add your first quest above to begin your adventure!</text>
+</svg>
