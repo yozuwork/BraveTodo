@@ -589,6 +589,368 @@ body::after {
   pointer-events: none;
 }
 
+/* ============================================================
+   BLACK & WHITE MANGA THEME
+   ============================================================ */
+
+html[data-app-theme="manga"] {
+  --mobile-detail-backdrop: rgba(0, 0, 0, 0.62);
+  --mobile-detail-surface: #ffffff;
+  --mobile-detail-text: #050505;
+  --mobile-detail-muted: #333333;
+  --mobile-detail-soft: #eeeeec;
+  --mobile-detail-field-bg: #ffffff;
+  --mobile-detail-border: #050505;
+  --mobile-detail-shadow: 8px -8px 0 #050505;
+  --mobile-detail-accent: #050505;
+  --mobile-quest-divider: #050505;
+  --mobile-quest-row-shadow: none;
+}
+
+html[data-app-theme="manga"] body {
+  color: #050505;
+  background-color: #f7f7f5;
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.14) 0.7px, transparent 0.8px);
+  background-size: 4px 4px;
+  font-family: Arial, "Noto Sans TC", sans-serif;
+}
+
+html[data-app-theme="manga"] body::after {
+  display: none;
+}
+
+html[data-app-theme="manga"][data-manga-images="mono"] img {
+  filter: grayscale(1) contrast(1.12);
+}
+
+html[data-app-theme="manga"][data-manga-images="color"] img {
+  filter: none;
+}
+
+html[data-app-theme="manga"] .app-shell,
+html[data-app-theme="manga"] .mobile-page-surface,
+html[data-app-theme="manga"] main {
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+html[data-app-theme="manga"] header,
+html[data-app-theme="manga"] .mobile-app-header,
+html[data-app-theme="manga"] .mobile-bottom-nav {
+  background: #ffffff !important;
+  border-color: #050505 !important;
+  box-shadow: none !important;
+}
+
+html[data-app-theme="manga"] header {
+  border-bottom-width: 2px !important;
+}
+
+html[data-app-theme="manga"] .app-brand-mark {
+  color: #050505 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  font-size: 2rem !important;
+}
+
+html[data-app-theme="manga"] .app-brand-title,
+html[data-app-theme="manga"] header nav a,
+html[data-app-theme="manga"] .mobile-app-header button {
+  color: #050505 !important;
+}
+
+html[data-app-theme="manga"] header nav a[aria-current="page"] {
+  color: #050505 !important;
+  background: #eeeeec !important;
+  border: 2px solid #050505;
+  box-shadow: 3px 3px 0 #050505;
+}
+
+html[data-app-theme="manga"] .work-side-nav {
+  margin: 1.5rem 0 1.5rem 1.5rem;
+  min-height: auto;
+  align-self: flex-start;
+  border: 2px solid #050505 !important;
+  border-radius: 7px;
+  background: #ffffff;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+html[data-app-theme="manga"] .work-side-nav button {
+  color: #050505 !important;
+  border: 0 !important;
+  border-bottom: 1px solid #050505 !important;
+  border-radius: 0 !important;
+  padding: 1rem !important;
+  background: #ffffff !important;
+}
+
+html[data-app-theme="manga"] .work-side-nav button:last-child {
+  border-bottom: 0 !important;
+}
+
+html[data-app-theme="manga"] .work-side-nav button[class*="bg-purple-50"] {
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.18) 0.7px, transparent 0.8px) !important;
+  background-size: 4px 4px !important;
+  font-weight: 900 !important;
+}
+
+html[data-app-theme="manga"][data-manga-interaction="ink"] .work-side-nav button:hover,
+html[data-app-theme="manga"][data-manga-interaction="ink"] .work-side-nav button[class*="bg-purple-50"],
+html[data-app-theme="manga"][data-manga-interaction="ink"] header nav a:hover,
+html[data-app-theme="manga"][data-manga-interaction="ink"] header nav a[aria-current="page"],
+html[data-app-theme="manga"][data-manga-interaction="ink"] .work-status-tabs button:hover,
+html[data-app-theme="manga"][data-manga-interaction="ink"] .work-status-tabs button:has(span),
+html[data-app-theme="manga"][data-manga-interaction="ink"] .mobile-bottom-nav-item:hover,
+html[data-app-theme="manga"][data-manga-interaction="ink"] .mobile-bottom-nav-item.is-active {
+  color: #ffffff !important;
+  background: #050505 !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html[data-app-theme="manga"][data-manga-interaction="ink"] .mobile-fullscreen-menu a:hover,
+html[data-app-theme="manga"][data-manga-interaction="ink"] .mobile-fullscreen-menu a[class*="bg-purple-50"] {
+  color: #ffffff !important;
+  background: #050505 !important;
+}
+
+html[data-app-theme="manga"][data-manga-interaction="ink"] .work-side-nav button:hover svg,
+html[data-app-theme="manga"][data-manga-interaction="ink"] .work-side-nav button[class*="bg-purple-50"] svg,
+html[data-app-theme="manga"][data-manga-interaction="ink"] .mobile-bottom-nav-item:hover svg,
+html[data-app-theme="manga"][data-manga-interaction="ink"] .mobile-bottom-nav-item.is-active svg {
+  color: #ffffff !important;
+}
+
+html[data-app-theme="manga"][data-manga-interaction="ink"] .work-status-tabs button:has(span) span {
+  background: #ffffff !important;
+}
+
+html[data-app-theme="manga"] .work-character-summary,
+html[data-app-theme="manga"] .mobile-task-list-panel > div > .mobile-quest-item,
+html[data-app-theme="manga"] .mobile-composer-panel,
+html[data-app-theme="manga"] .mobile-more-menu,
+html[data-app-theme="manga"] .mobile-user-menu,
+html[data-app-theme="manga"] main [class*="bg-white"][class*="border"] {
+  background: #ffffff !important;
+  border: 2px solid #050505 !important;
+  border-radius: 7px !important;
+  box-shadow: none !important;
+}
+
+html[data-app-theme="manga"] .work-character-summary > div:first-child > div:first-child {
+  border-right: 2px solid #050505;
+  border-radius: 5px 0 0 5px !important;
+}
+
+html[data-app-theme="manga"] .work-character-summary button,
+html[data-app-theme="manga"] main button[class*="border"],
+html[data-app-theme="manga"] main [role="button"][class*="border"] {
+  color: #050505 !important;
+  background: #ffffff !important;
+  border-color: #050505 !important;
+  border-width: 2px !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.2);
+}
+
+html[data-app-theme="manga"] .work-character-summary .work-avatar-resize-handle {
+  color: #ffffff !important;
+  background: #050505 !important;
+  border: 0 !important;
+  border-radius: 4px 0 0 0 !important;
+  box-shadow: none !important;
+}
+
+html[data-app-theme="manga"] .MuiDialog-paper {
+  color: #050505 !important;
+  background: #ffffff !important;
+  border: 2px solid #050505 !important;
+  border-radius: 7px !important;
+  box-shadow: 8px 8px 0 #050505 !important;
+}
+
+html[data-app-theme="manga"] .MuiDialog-paper button {
+  color: #050505 !important;
+  background: #ffffff !important;
+  border-color: #050505 !important;
+  border-radius: 0 !important;
+}
+
+html[data-app-theme="manga"][data-manga-interaction="ink"] .MuiDialog-paper button:hover {
+  color: #ffffff !important;
+  background: #050505 !important;
+}
+
+html[data-app-theme="manga"] .work-status-tabs {
+  border-color: #050505 !important;
+}
+
+html[data-app-theme="manga"] .work-status-tabs button {
+  color: #050505 !important;
+  font-weight: 800 !important;
+}
+
+html[data-app-theme="manga"] .work-status-tabs button span {
+  height: 4px !important;
+  background: #050505 !important;
+}
+
+html[data-app-theme="manga"] input,
+html[data-app-theme="manga"] textarea,
+html[data-app-theme="manga"] select,
+html[data-app-theme="manga"] .MuiOutlinedInput-root {
+  color: #050505 !important;
+  background: #ffffff !important;
+  border-radius: 5px !important;
+}
+
+html[data-app-theme="manga"] input[class*="border"],
+html[data-app-theme="manga"] textarea[class*="border"] {
+  border: 2px solid #050505 !important;
+}
+
+html[data-app-theme="manga"] .MuiOutlinedInput-notchedOutline {
+  border-color: #050505 !important;
+  border-width: 2px !important;
+}
+
+html[data-app-theme="manga"] .text-purple-btn,
+html[data-app-theme="manga"] .text-purple-400,
+html[data-app-theme="manga"] .text-purple-500,
+html[data-app-theme="manga"] .text-purple-600,
+html[data-app-theme="manga"] .text-purple-700,
+html[data-app-theme="manga"] .text-violet-500,
+html[data-app-theme="manga"] .text-violet-600 {
+  color: #050505 !important;
+}
+
+html[data-app-theme="manga"] .bg-purple-btn,
+html[data-app-theme="manga"] .bg-purple-400,
+html[data-app-theme="manga"] .bg-purple-500,
+html[data-app-theme="manga"] .bg-purple-600 {
+  background: #050505 !important;
+}
+
+html[data-app-theme="manga"] .bg-purple-50,
+html[data-app-theme="manga"] .bg-purple-100,
+html[data-app-theme="manga"] .bg-violet-50 {
+  background: #eeeeec !important;
+}
+
+html[data-app-theme="manga"] .border-purple-100,
+html[data-app-theme="manga"] .border-purple-200,
+html[data-app-theme="manga"] .border-purple-300,
+html[data-app-theme="manga"] .border-purple-400,
+html[data-app-theme="manga"] .border-slate-100,
+html[data-app-theme="manga"] .border-slate-200,
+html[data-app-theme="manga"] .border-gray-100,
+html[data-app-theme="manga"] .border-gray-200 {
+  border-color: #050505 !important;
+}
+
+html[data-app-theme="manga"] .rounded-xl,
+html[data-app-theme="manga"] .rounded-2xl,
+html[data-app-theme="manga"] .rounded-3xl {
+  border-radius: 7px !important;
+}
+
+html[data-app-theme="manga"] .shadow-sm,
+html[data-app-theme="manga"] .shadow-md,
+html[data-app-theme="manga"] .shadow-lg,
+html[data-app-theme="manga"] .shadow-2xl {
+  box-shadow: none !important;
+}
+
+@media (max-width: 767px) {
+  .mobile-fullscreen-menu {
+    width: 100% !important;
+    min-width: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  html[data-app-theme="manga"] .mobile-fullscreen-menu {
+    border: 0 !important;
+    border-top: 2px solid #050505 !important;
+    border-radius: 0 !important;
+  }
+
+  .hunt-duel-card {
+    min-height: 220px !important;
+  }
+
+  .hunt-duel-card > div:nth-of-type(1) {
+    width: 42% !important;
+    min-width: 0 !important;
+  }
+
+  .hunt-duel-card > div:nth-of-type(2) {
+    padding: 1rem !important;
+  }
+
+  .hunt-duel-card h1,
+  .hunt-duel-card h2 {
+    font-size: 1.35rem !important;
+  }
+
+  .hunt-task-panel {
+    padding: 1rem !important;
+  }
+
+  .hunt-task-row {
+    gap: 0.65rem !important;
+    padding: 0.75rem !important;
+  }
+
+  .work-character-avatar {
+    width: 118px !important;
+    height: 118px !important;
+  }
+
+  html[data-app-theme="manga"] .mobile-app-header {
+    border-bottom: 2px solid #050505 !important;
+  }
+
+  html[data-app-theme="manga"] .mobile-bottom-nav {
+    height: 76px;
+    border-top: 2px solid #050505 !important;
+    padding: 0 !important;
+  }
+
+  html[data-app-theme="manga"] .mobile-bottom-nav-item {
+    color: #050505 !important;
+    border-right: 1px solid #050505;
+    border-radius: 0 !important;
+  }
+
+  html[data-app-theme="manga"] .mobile-bottom-nav-item:last-child {
+    border-right: 0;
+  }
+
+  html[data-app-theme="manga"] .mobile-bottom-nav-item.is-active {
+    color: #050505 !important;
+    background-image: radial-gradient(circle, rgba(0, 0, 0, 0.2) 0.7px, transparent 0.8px) !important;
+    background-size: 4px 4px !important;
+    box-shadow: inset 0 4px 0 #050505;
+  }
+
+  html[data-app-theme="manga"] .work-character-summary > div:first-child > div:first-child {
+    border: 2px solid #050505;
+    border-radius: 5px !important;
+  }
+
+  html[data-app-theme="manga"] .mobile-task-list-panel > div > .mobile-quest-item {
+    border: 2px solid #050505 !important;
+    box-shadow: none !important;
+  }
+
+  html[data-app-theme="manga"] .mobile-quest-actions {
+    border-color: #050505 !important;
+  }
+}
+
 /* 2026 LIFE task workspace */
 .work-side-nav {
   min-height: calc(100vh - 72px);

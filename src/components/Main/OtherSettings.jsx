@@ -8,11 +8,9 @@ import TitleIcon from "@mui/icons-material/Title";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import CollectionsIcon from "@mui/icons-material/Collections";
-import PaletteIcon from "@mui/icons-material/Palette";
 import { isSoundEnabled, setSoundEnabled } from "../../utils/soundSettings";
 import GalleryImagePicker from "../common/GalleryImagePicker";
 import { resolveImg } from "../../utils/imageSrc";
-import { getAppTheme, setAppTheme, THEME_EVENT } from "../../utils/themeSettings";
 import {
   applyFaviconUrl,
   getCachedFaviconUrl,
@@ -21,6 +19,17 @@ import {
 } from "../../utils/faviconSettings";
 import { calcCompletionsForLevel, getHighestConfiguredLevel } from "../../utils/levelingRules";
 import useWorkFeatureVisibility, { WORK_FEATURE_OPTIONS } from "../../hooks/useWorkFeatureVisibility";
+import {
+  getAppTheme,
+  getMangaImageMode,
+  getMangaInteractionMode,
+  setAppTheme,
+  setMangaImageMode,
+  setMangaInteractionMode,
+  THEME_EVENT,
+  MANGA_IMAGE_EVENT,
+  MANGA_INTERACTION_EVENT,
+} from "../../utils/themeSettings";
 
 const TITLE_KEY = "brave-todo:pageTitle";
 const DEFAULT_TITLE = "Vanguard Hub";
@@ -227,33 +236,41 @@ function SoundToggleCard() {
 
 function ThemeSettingsCard() {
   const [theme, setTheme] = useState(getAppTheme);
+  const [mangaImageMode, setMangaImageModeState] = useState(getMangaImageMode);
+  const [mangaInteractionMode, setMangaInteractionModeState] = useState(getMangaInteractionMode);
 
   useEffect(() => {
-    const handleThemeChange = (event) => setTheme(event.detail || getAppTheme());
-    window.addEventListener(THEME_EVENT, handleThemeChange);
-    return () => window.removeEventListener(THEME_EVENT, handleThemeChange);
+    const syncTheme = (event) => setTheme(event.detail || getAppTheme());
+    const syncMangaImages = (event) => setMangaImageModeState(event.detail || getMangaImageMode());
+    const syncMangaInteraction = (event) => setMangaInteractionModeState(event.detail || getMangaInteractionMode());
+    window.addEventListener(THEME_EVENT, syncTheme);
+    window.addEventListener(MANGA_IMAGE_EVENT, syncMangaImages);
+    window.addEventListener(MANGA_INTERACTION_EVENT, syncMangaInteraction);
+    window.addEventListener("storage", syncTheme);
+    window.addEventListener("storage", syncMangaImages);
+    window.addEventListener("storage", syncMangaInteraction);
+    return () => {
+      window.removeEventListener(THEME_EVENT, syncTheme);
+      window.removeEventListener(MANGA_IMAGE_EVENT, syncMangaImages);
+      window.removeEventListener(MANGA_INTERACTION_EVENT, syncMangaInteraction);
+      window.removeEventListener("storage", syncTheme);
+      window.removeEventListener("storage", syncMangaImages);
+      window.removeEventListener("storage", syncMangaInteraction);
+    };
   }, []);
 
-  const updateTheme = (nextTheme) => {
-    setTheme(nextTheme);
-    setAppTheme(nextTheme);
-  };
-
-  const themeOptions = [
+  const options = [
     {
       key: "light",
-      label: "白色",
-      swatches: ["#ffffff", "#fafaf9", "#a855f7"],
+      label: "預設白色",
+      description: "目前的清爽紫色介面",
+      swatches: ["#ffffff", "#f8fafc", "#a855f7"],
     },
     {
-      key: "retro",
-      label: "美式復古",
-      swatches: ["#e8d8c9", "#4b607f", "#f3701e"],
-    },
-    {
-      key: "dark",
-      label: "黑色",
-      swatches: ["#111111", "#4b607f", "#f3701e"],
+      key: "manga",
+      label: "黑白漫畫",
+      description: "粗黑框、網點與灰階圖片",
+      swatches: ["#ffffff", "#cfcfcf", "#111111"],
     },
   ];
 
@@ -261,38 +278,63 @@ function ThemeSettingsCard() {
     <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
       <div>
         <p className="text-sm font-semibold text-black m-0">外觀主題</p>
-        <p className="text-xs text-gray-400 mt-0.5 m-0">
-          保留預設白色，也可以切換成美式復古配色
-        </p>
+        <p className="text-xs text-gray-400 mt-0.5 m-0">選擇整個應用程式的顯示風格</p>
       </div>
-      <div className="flex items-center gap-2">
-        <PaletteIcon sx={{ fontSize: 20, color: "#a855f7" }} />
-        <div className="inline-flex flex-wrap rounded-lg border border-gray-200 bg-stone-50 p-1 gap-1">
-          {themeOptions.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => updateTheme(option.key)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-bold transition-colors ${
-                theme === option.key
-                  ? "bg-white text-purple-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              <span className="flex -space-x-1" aria-hidden="true">
-                {option.swatches.map((color) => (
-                  <span
-                    key={color}
-                    className="block h-3.5 w-3.5 rounded-full border border-white shadow-sm"
-                    style={{ backgroundColor: color }}
-                  />
-                ))}
-              </span>
-              {option.label}
-            </button>
-          ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {options.map((option) => (
+          <button
+            key={option.key}
+            type="button"
+            onClick={() => setAppTheme(option.key)}
+            className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+              theme === option.key
+                ? "border-purple-400 bg-purple-50"
+                : "border-gray-200 bg-stone-50 hover:border-purple-200"
+            }`}
+          >
+            <span className="flex -space-x-1" aria-hidden="true">
+              {option.swatches.map((color) => (
+                <span key={color} className="h-5 w-5 rounded-full border border-white shadow-sm" style={{ backgroundColor: color }} />
+              ))}
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-bold text-gray-800">{option.label}</span>
+              <span className="mt-0.5 block text-xs text-gray-400">{option.description}</span>
+            </span>
+            {theme === option.key && <span className="ml-auto text-xs font-bold text-purple-600">使用中</span>}
+          </button>
+        ))}
+      </div>
+      {theme === "manga" && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-stone-50 px-4 py-4">
+            <div>
+              <p className="m-0 text-sm font-semibold text-gray-800">漫畫圖片模式</p>
+              <p className="m-0 mt-0.5 text-xs text-gray-400">選擇圖片保留彩色或套用灰階</p>
+            </div>
+            <div className="inline-flex w-fit rounded-lg border border-gray-300 bg-white p-1">
+              {[["mono", "黑白"], ["color", "彩色"]].map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setMangaImageMode(key)} className={`rounded-md px-4 py-1.5 text-xs font-bold transition-colors ${mangaImageMode === key ? "bg-black text-white" : "bg-transparent text-gray-500"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-stone-50 px-4 py-4">
+            <div>
+              <p className="m-0 text-sm font-semibold text-gray-800">互動強調</p>
+              <p className="m-0 mt-0.5 text-xs text-gray-400">調整 hover 與選中時的顯示方式</p>
+            </div>
+            <div className="inline-flex w-fit rounded-lg border border-gray-300 bg-white p-1">
+              {[["ink", "黑底白字"], ["soft", "網點淡色"]].map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setMangaInteractionMode(key)} className={`rounded-md px-4 py-1.5 text-xs font-bold transition-colors ${mangaInteractionMode === key ? "bg-black text-white" : "bg-transparent text-gray-500"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

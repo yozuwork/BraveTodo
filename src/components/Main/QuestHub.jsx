@@ -19,6 +19,73 @@ import RewardShopTab from './RewardShopTab'
 import VocabularyInput from '../common/VocabularyInput'
 import { resolveCurrentStage } from '../../hooks/useStages'
 
+const AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size'
+
+function ResizableWorkAvatar({ avatar, imagePosition }) {
+  const [size, setSize] = useState(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem(AVATAR_SIZE_KEY) || 'null')
+      if (stored?.width && stored?.height) return stored
+    } catch {
+      // Use the default size if the saved value is malformed.
+    }
+    return { width: 168, height: 168 }
+  })
+  const resizeRef = useRef(null)
+
+  const startResize = (event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    resizeRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      width: size.width,
+      height: size.height,
+    }
+  }
+
+  const resize = (event) => {
+    if (!resizeRef.current) return
+    const next = {
+      width: Math.min(520, Math.max(130, resizeRef.current.width + event.clientX - resizeRef.current.startX)),
+      height: Math.min(420, Math.max(110, resizeRef.current.height + event.clientY - resizeRef.current.startY)),
+    }
+    resizeRef.current.next = next
+    setSize(next)
+  }
+
+  const finishResize = () => {
+    if (!resizeRef.current) return
+    const finalSize = resizeRef.current.next ?? size
+    resizeRef.current = null
+    localStorage.setItem(AVATAR_SIZE_KEY, JSON.stringify(finalSize))
+  }
+
+  return (
+    <div
+      className="work-character-avatar relative shrink-0 overflow-hidden rounded-xl bg-purple-50 md:rounded-none"
+      style={{ width: size.width, height: size.height }}
+      onPointerMove={resize}
+      onPointerUp={finishResize}
+      onPointerCancel={finishResize}
+    >
+      {avatar && (
+        <img src={avatar} alt="米莉亞" className="h-full w-full object-cover" style={{ objectPosition: `${imagePosition?.x ?? 50}% ${imagePosition?.y ?? 50}%` }} draggable={false} />
+      )}
+      <button
+        type="button"
+        onPointerDown={startResize}
+        className="work-avatar-resize-handle absolute bottom-0 right-0 hidden h-7 w-7 cursor-nwse-resize items-end justify-end bg-black/55 p-1 text-white md:flex"
+        title="拖曳調整頭像寬高"
+        aria-label="調整頭像寬高"
+      >
+        <span className="block h-2.5 w-2.5 border-b-2 border-r-2 border-white" />
+      </button>
+    </div>
+  )
+}
+
 function getQuestTierLabel(template) {
   if ((template.rewardMode ?? 'tier') === 'custom') {
     const customExp = Math.max(1, Number(template.customExp) || Number(template.expValue) || 1)
@@ -69,6 +136,7 @@ export default function QuestHub({
   const [questTemplateSavedNotice, setQuestTemplateSavedNotice] = useState(false)
   const [taskFilter, setTaskFilter] = useState('all')
   const mobileInputRef = useRef(null)
+  const desktopInputRef = useRef(null)
 
   // ── Drag-and-drop state ──
   const questDragId = useRef(null)
@@ -207,20 +275,21 @@ export default function QuestHub({
     }
   }, [onSaveQuestTemplate])
 
+  const handleOpenQuestComposer = () => {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      desktopInputRef.current?.focus()
+      desktopInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+    setMobileComposerOpen(true)
+  }
+
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
+      {activeTab !== 'HuntMission' && (
       <section className="work-character-summary flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:flex-row md:items-stretch">
         <div className="flex min-w-0 flex-1 items-center gap-4 p-3 md:gap-7 md:p-0">
-          <div className="h-[118px] w-[118px] shrink-0 overflow-hidden rounded-xl bg-purple-50 md:h-[168px] md:w-[168px] md:rounded-none">
-            {avatar && (
-              <img
-                src={avatar}
-                alt="米莉亞"
-                className="h-full w-full object-cover"
-                style={{ objectPosition: `${imagePosition?.x ?? 50}% ${imagePosition?.y ?? 50}%` }}
-              />
-            )}
-          </div>
+          <ResizableWorkAvatar avatar={avatar} imagePosition={imagePosition} />
           <div className="min-w-0 py-1 md:py-5">
             <h1 className="m-0 text-2xl font-extrabold tracking-wide text-slate-900 md:text-3xl">米莉亞</h1>
             <p className="m-0 mt-2 text-sm font-medium text-slate-500 md:text-base">
@@ -237,18 +306,27 @@ export default function QuestHub({
           </div>
         </div>
         {activeTab === 'Tasks' && (
-          <div className="border-t border-slate-100 p-3 md:flex md:w-[210px] md:items-start md:justify-center md:border-l md:border-t-0 md:p-6">
+          <div className="flex flex-col gap-2 border-t border-slate-100 p-3 md:w-[220px] md:justify-start md:border-l md:border-t-0 md:p-6">
             <button
               type="button"
-              onClick={() => setMobileComposerOpen(true)}
+              onClick={handleOpenQuestComposer}
               className="flex w-full items-center justify-center gap-2 rounded-full border border-purple-300 bg-white px-4 py-2.5 text-sm font-bold text-purple-600 transition-colors hover:bg-purple-50"
             >
               <AddIcon sx={{ fontSize: 19 }} />
               新增任務
             </button>
+            <button
+              type="button"
+              onClick={() => setQuestTemplateDialogOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-purple-300 bg-white px-4 py-2.5 text-sm font-bold text-purple-600 transition-colors hover:bg-purple-50"
+            >
+              <LibraryBooksOutlinedIcon sx={{ fontSize: 18 }} />
+              模板任務
+            </button>
           </div>
         )}
       </section>
+      )}
 
       {activeTab === 'Tasks' && (
         <div className="flex flex-col gap-4">
@@ -275,6 +353,7 @@ export default function QuestHub({
 
           <div className="relative">
             <VocabularyInput
+              ref={desktopInputRef}
               type="text"
               wrapperClassName="relative"
               className="w-full bg-white text-black border border-slate-200 rounded-xl py-4 pl-5 pr-20 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-slate-400"
@@ -292,34 +371,6 @@ export default function QuestHub({
               ENTER ↵
             </span>
           </div>
-          <div className="flex items-center justify-between gap-3 overflow-x-auto py-1">
-            <div className="flex shrink-0 items-center gap-2">
-              <span className="rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs font-semibold text-purple-600">◇ 任務 ⌄</span>
-              <span className="h-5 w-5 rounded border-2 border-slate-300 bg-white" />
-              <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">次要 ⌄</span>
-              <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">一般 +1 ⌄</span>
-            </div>
-            <Button
-              variant="outlined"
-              size="small"
-              startIcon={<LibraryBooksOutlinedIcon />}
-              onClick={() => setQuestTemplateDialogOpen(true)}
-              sx={{
-                borderColor: '#d8b4fe',
-                color: '#a855f7',
-                bgcolor: '#faf5ff',
-                borderRadius: 99,
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                textTransform: 'none',
-                px: 1.5,
-                '&:hover': { borderColor: '#c084fc', bgcolor: '#f3e8ff' },
-              }}
-            >
-              模板任務
-            </Button>
-          </div>
-
           {hasCompleted && (
             <div className="flex justify-end">
               <Button
@@ -561,6 +612,11 @@ export default function QuestHub({
       {activeTab === 'HuntMission' && (
         <HuntMission
           target={activeHuntTarget}
+          heroAvatar={avatar}
+          heroImagePosition={imagePosition}
+          heroClassName={currentStage?.className}
+          heroLevel={currentLevel}
+          activeQuestCount={activeQuestCount}
           onAddHuntTask={huntTaskHandlers.onAddHuntTask}
           onToggleHuntTask={huntTaskHandlers.onToggleHuntTask}
           onRemoveHuntTask={huntTaskHandlers.onRemoveHuntTask}
@@ -578,10 +634,16 @@ export default function QuestHub({
           onRemove={onRemoveMonster}
           onAvatarChange={onMonsterAvatarChange}
           currentLevel={currentLevel}
-          onStartHunt={onStartHunt}
+          onStartHunt={(id) => {
+            onStartHunt(id)
+            onTabChange('HuntMission')
+          }}
           onStopHunt={onStopHunt}
           stages={stages}
-          onStartStageBossHunt={onStartStageBossHunt}
+          onStartStageBossHunt={(id) => {
+            onStartStageBossHunt(id)
+            onTabChange('HuntMission')
+          }}
           onStopStageBossHunt={onStopStageBossHunt}
           onCompleteStageBossHunt={onCompleteStageBossHunt}
           onStageBossNameChange={onStageBossNameChange}

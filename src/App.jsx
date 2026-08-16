@@ -17,7 +17,6 @@ import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import CharacterCard from "./components/Sidebar/CharacterCard";
-import HuntSideCard from "./components/Sidebar/HuntSideCard";
 import StatsCard from "./components/Sidebar/StatsCard";
 import QuestHub from "./components/Main/QuestHub";
 import LevelUpEffect from "./components/LevelUpEffect/LevelUpEffect";
@@ -41,7 +40,6 @@ import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
 import CharacterSettingsPage from "./pages/CharacterSettingsPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
-import { getAppTheme, THEME_EVENT } from "./utils/themeSettings";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
 
 function GoldDisplay({ gold, className = "" }) {
@@ -107,10 +105,25 @@ function GoldDisplay({ gold, className = "" }) {
   );
 }
 
-function WorkSidebar({ activeTab, onTabChange, isFeatureVisible }) {
+function WorkSidebar({ activeTab, onTabChange, isFeatureVisible, hasActiveHunt }) {
+  const sidebarTabs = WORK_TABS
+    .filter((item) => isFeatureVisible(item.tab))
+    .flatMap((item) => (
+      item.tab === 'Hunt' && hasActiveHunt
+        ? [
+            item,
+            {
+              tab: 'HuntMission',
+              label: '討伐任務',
+              icon: <TaskAltIcon sx={{ fontSize: 18 }} />,
+            },
+          ]
+        : [item]
+    ))
+
   return (
     <aside className="work-side-nav hidden w-[210px] shrink-0 flex-col gap-2 border-r border-slate-100 px-5 py-8 md:flex">
-      {WORK_TABS.filter((item) => isFeatureVisible(item.tab)).map((item) => {
+      {sidebarTabs.map((item) => {
         const active = activeTab === item.tab
         return (
           <button
@@ -619,7 +632,6 @@ function MainApp() {
       : null;
 
   const hasActiveHunt = activeHuntTarget !== null;
-  const isOnHuntMission = activeTab === "HuntMission" && hasActiveHunt;
 
   const resolveHuntTaskCompleted = useCallback(
     (binding) => {
@@ -823,15 +835,9 @@ function MainApp() {
     <>
       <div className="mobile-page-surface flex min-h-screen items-stretch justify-center bg-[#fbfcfe] pb-20 md:min-h-[calc(100vh-72px)] md:bg-white md:pb-0">
         <div className="flex w-full max-w-[1440px]">
-          <WorkSidebar activeTab={activeTab} onTabChange={handleTabChange} isFeatureVisible={isWorkFeatureVisible} />
+          <WorkSidebar activeTab={activeTab} onTabChange={handleTabChange} isFeatureVisible={isWorkFeatureVisible} hasActiveHunt={hasActiveHunt} />
           <div className="w-full min-w-0 px-4 py-4 md:px-8 md:py-8 lg:px-10">
             <div className="w-full">
-              {isOnHuntMission && (
-                <div className="mb-6 hidden md:block max-w-sm">
-                  <HuntSideCard target={activeHuntTarget} />
-                </div>
-              )}
-
             {/* Quest Hub */}
             <div className="w-full">
               <QuestHub
@@ -1118,7 +1124,6 @@ function UserMenu({ user, signIn, logOut, onClose, mobile = false }) {
 function Layout({ user, signIn, logOut }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
-  const [appTheme, setAppThemeState] = useState(getAppTheme)
   const { isVisible: isWorkFeatureVisible } = useWorkFeatureVisibility()
   const location = useLocation()
   const activeWorkTab = new URLSearchParams(location.search).get("tab") || "Tasks"
@@ -1132,20 +1137,6 @@ function Layout({ user, signIn, logOut }) {
     setShowUserMenu(false)
     setShowMoreMenu(false)
   }
-
-  useEffect(() => {
-    document.documentElement.dataset.appTheme = appTheme
-  }, [appTheme])
-
-  useEffect(() => {
-    const handleThemeChange = (event) => setAppThemeState(event.detail || getAppTheme())
-    window.addEventListener(THEME_EVENT, handleThemeChange)
-    window.addEventListener('storage', handleThemeChange)
-    return () => {
-      window.removeEventListener(THEME_EVENT, handleThemeChange)
-      window.removeEventListener('storage', handleThemeChange)
-    }
-  }, [])
 
   return (
     <div className="app-shell min-h-screen bg-stone-50 relative overflow-x-hidden pb-24 md:pb-0">
@@ -1235,7 +1226,7 @@ function Layout({ user, signIn, logOut }) {
       {isWorkPage ? (
         <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-50 flex h-[76px] border-t border-slate-100 bg-white px-2 pb-2 pt-1 md:hidden">
           {WORK_MOBILE_TABS.filter((item) => isWorkFeatureVisible(item.tab)).map((item) => {
-            const active = activeWorkTab === item.tab
+            const active = activeWorkTab === item.tab || (item.tab === 'Hunt' && activeWorkTab === 'HuntMission')
             return (
               <Link
                 key={item.tab}
@@ -1248,6 +1239,14 @@ function Layout({ user, signIn, logOut }) {
               </Link>
             )
           })}
+          <Link
+            to="/gallery"
+            onClick={closeMenus}
+            className={mobileNavItemClass(false)}
+          >
+            <PublicIcon sx={{ fontSize: 20 }} />
+            <span className="text-[0.65rem] font-semibold">圖庫</span>
+          </Link>
         </nav>
       ) : (
       <nav className="mobile-bottom-nav fixed bottom-4 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-16 rounded-full p-1.5 backdrop-blur">
@@ -1284,13 +1283,28 @@ function Layout({ user, signIn, logOut }) {
       </nav>
       )}
       {showMoreMenu && (
-        <div className={`mobile-more-menu fixed z-50 md:hidden bg-white border border-gray-100 rounded-3xl shadow-lg p-2 min-w-[190px] ${isWorkPage ? 'left-4 top-20' : 'right-5 bottom-24'}`}>
+        <div className="mobile-more-menu mobile-fullscreen-menu fixed inset-x-0 bottom-0 top-[72px] z-50 flex flex-col overflow-y-auto bg-white p-5 md:hidden">
+          <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-4">
+            <div>
+              <p className="m-0 text-lg font-extrabold text-gray-900">功能選單</p>
+              <p className="m-0 mt-1 text-xs text-gray-400">LIFE 任務與系統功能</p>
+            </div>
+            <button type="button" onClick={closeMenus} className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xl text-gray-600" aria-label="關閉選單">×</button>
+          </div>
+          <NavLink
+            to="/work"
+            onClick={closeMenus}
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${location.pathname === '/work' && activeWorkTab === 'Tasks' ? 'text-purple-btn bg-purple-50' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            <TaskAltIcon sx={{ fontSize: 20 }} />
+            任務
+          </NavLink>
           {WORK_MORE_TABS.filter((item) => isWorkFeatureVisible(item.tab)).map((item) => (
             <NavLink
               key={item.tab}
               to={`/work?tab=${item.tab}`}
               onClick={closeMenus}
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
                 location.pathname === "/work" && activeWorkTab === item.tab
                   ? "text-purple-btn bg-purple-50"
                   : "text-gray-600 hover:bg-gray-50"
@@ -1301,9 +1315,19 @@ function Layout({ user, signIn, logOut }) {
             </NavLink>
           ))}
           <NavLink
+            to="/gallery"
+            onClick={closeMenus}
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+              location.pathname === '/gallery' ? 'text-purple-btn bg-purple-50' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <PublicIcon sx={{ fontSize: 20 }} />
+            圖庫
+          </NavLink>
+          <NavLink
             to="/system-settings"
             onClick={closeMenus}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
               location.pathname === "/system-settings"
                 ? "text-purple-btn bg-purple-50"
                 : "text-gray-600 hover:bg-gray-50"
