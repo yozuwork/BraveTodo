@@ -14,6 +14,8 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import MenuIcon from "@mui/icons-material/Menu";
+import NotificationsNoneOutlinedIcon from "@mui/icons-material/NotificationsNoneOutlined";
 import CharacterCard from "./components/Sidebar/CharacterCard";
 import HuntSideCard from "./components/Sidebar/HuntSideCard";
 import StatsCard from "./components/Sidebar/StatsCard";
@@ -34,12 +36,11 @@ import useRewardShop from "./hooks/useRewardShop";
 import useRewardSettings from "./hooks/useRewardSettings";
 import useAuth from "./hooks/useAuth";
 import useVocabulary from "./hooks/useVocabulary";
+import useWorkFeatureVisibility from "./hooks/useWorkFeatureVisibility";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
 import CharacterSettingsPage from "./pages/CharacterSettingsPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
-import HeroQuestPage from "./pages/HeroQuestPage";
-import HeroCharacterSettingsPage from "./pages/HeroCharacterSettingsPage";
 import { getAppTheme, THEME_EVENT } from "./utils/themeSettings";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
 
@@ -106,6 +107,31 @@ function GoldDisplay({ gold, className = "" }) {
   );
 }
 
+function WorkSidebar({ activeTab, onTabChange, isFeatureVisible }) {
+  return (
+    <aside className="work-side-nav hidden w-[210px] shrink-0 flex-col gap-2 border-r border-slate-100 px-5 py-8 md:flex">
+      {WORK_TABS.filter((item) => isFeatureVisible(item.tab)).map((item) => {
+        const active = activeTab === item.tab
+        return (
+          <button
+            key={item.tab}
+            type="button"
+            onClick={() => onTabChange(item.tab)}
+            className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
+              active
+                ? 'bg-purple-50 text-purple-600'
+                : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
+          >
+            {item.icon}
+            <span>{item.label}</span>
+          </button>
+        )
+      })}
+    </aside>
+  )
+}
+
 function normalizeQuestRewardTier(expValue) {
   if (expValue === 2) return 3;
   if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10 || expValue === 20)
@@ -126,6 +152,7 @@ function parseRewardCost(cost) {
 
 function MainApp() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isVisible: isWorkFeatureVisible } = useWorkFeatureVisibility();
 
   const {
     quests,
@@ -140,6 +167,7 @@ function MainApp() {
     togglePin,
     toggleCoreTask,
     setQuestPriority,
+    setQuestStatus,
     updateQuestExp,
     updateQuestRewardConfig,
     reorderQuests,
@@ -164,7 +192,6 @@ function MainApp() {
     adjustGold,
     resetGold,
     level,
-    expProgress,
     coreTaskProgress,
     stats,
   } = useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules);
@@ -530,6 +557,12 @@ function MainApp() {
 
   const activeTab = searchParams.get("tab") || "Tasks";
 
+  useEffect(() => {
+    if (activeTab !== 'HuntMission' && !isWorkFeatureVisible(activeTab)) {
+      setSearchParams({})
+    }
+  }, [activeTab, isWorkFeatureVisible, setSearchParams])
+
   const handleTabChange = useCallback(
     (tab) => {
       if (tab === activeTab) return;
@@ -788,34 +821,19 @@ function MainApp() {
 
   return (
     <>
-      <div className="mobile-page-surface flex justify-center items-start bg-stone-50 md:bg-transparent p-5 md:p-10 pb-6 md:pb-10 min-h-screen md:min-h-0">
-        <div className="w-full max-w-[1200px] flex flex-col gap-8">
-          <div className="w-full flex flex-col md:flex-row gap-6 md:gap-10">
-            {/* Sidebar */}
-            <aside
-              className="hidden md:flex w-full md:w-[380px] md:shrink-0 flex-col gap-6 md:gap-8"
-            >
-              {isOnHuntMission ? (
-                <HuntSideCard target={activeHuntTarget} />
-              ) : (
-                <>
-                  <CharacterCard
-                    level={level}
-                    avatar={currentStage.avatarSrc}
-                    avatars={currentStage.avatarSrcs}
-                    onAvatarChange={(file) =>
-                      updateStageAvatar(currentStage.id, file)
-                    }
-                    imagePosition={imagePosition}
-                    onImagePositionChange={updateImagePosition}
-                  />
-                  <GoldDisplay gold={gold} />
-                </>
+      <div className="mobile-page-surface flex min-h-screen items-stretch justify-center bg-[#fbfcfe] pb-20 md:min-h-[calc(100vh-72px)] md:bg-white md:pb-0">
+        <div className="flex w-full max-w-[1440px]">
+          <WorkSidebar activeTab={activeTab} onTabChange={handleTabChange} isFeatureVisible={isWorkFeatureVisible} />
+          <div className="w-full min-w-0 px-4 py-4 md:px-8 md:py-8 lg:px-10">
+            <div className="w-full">
+              {isOnHuntMission && (
+                <div className="mb-6 hidden md:block max-w-sm">
+                  <HuntSideCard target={activeHuntTarget} />
+                </div>
               )}
-            </aside>
 
             {/* Quest Hub */}
-            <div className="w-full flex-1">
+            <div className="w-full">
               <QuestHub
                 quests={quests}
                 questTemplates={questTemplates}
@@ -829,6 +847,7 @@ function MainApp() {
                 onTogglePin={togglePin}
                 onToggleCore={toggleCoreTask}
                 onSetPriority={setQuestPriority}
+                onSetStatus={setQuestStatus}
                 onSetExp={handleQuestExpChange}
                 onUpdateRewardConfig={handleQuestRewardConfigChange}
                 onReorderQuests={reorderQuests}
@@ -852,6 +871,8 @@ function MainApp() {
                 onRemoveSubTask={removeSubTask}
                 onUpdateSubTask={handleUpdateSubTask}
                 currentLevel={level}
+                avatar={currentStage.avatarSrc}
+                imagePosition={imagePosition}
                 onResetLevel={handleResetLevel}
                 monsters={monsters}
                 onAddMonster={addMonster}
@@ -930,8 +951,8 @@ function MainApp() {
               />
             </div>
           </div>
-          <WorkBottomProgress expProgress={expProgress} />
         </div>
+      </div>
       </div>
 
       <LevelUpEffect visible={showLevelUp} onComplete={handleLevelUpComplete} />
@@ -948,25 +969,6 @@ function useDatabaseFavicon(user) {
     if (!user) return;
     loadFaviconUrl().catch(() => {});
   }, [user]);
-}
-
-function WorkBottomProgress({ expProgress }) {
-  return (
-    <div className="work-bottom-exp-hud hidden md:block w-full">
-      <div className="w-full rounded-xl border border-gray-100 bg-white px-3 py-3 shadow-lg">
-        <div className="flex items-center justify-between text-sm font-extrabold text-gray-400">
-          <span>EXP</span>
-          <span>{Math.round(expProgress)}%</span>
-        </div>
-        <div className="mt-2 h-3 rounded-full bg-gray-100 overflow-hidden">
-          <div
-            className="h-full rounded-full bg-purple-btn transition-all"
-            style={{ width: `${Math.min(100, Math.max(0, expProgress))}%` }}
-          />
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function CharacterPage() {
@@ -1044,19 +1046,13 @@ const WORK_TABS = [
   { tab: "Inbox", label: "收集箱", icon: <Inventory2OutlinedIcon sx={{ fontSize: 18 }} /> },
 ]
 const WORK_MORE_TABS = WORK_TABS.filter((item) => item.tab !== "Tasks")
+const WORK_MOBILE_TABS = WORK_TABS.filter((item) => ["Tasks", "Hunt", "Map", "Skills", "Inbox"].includes(item.tab))
 
 const LIFE_SECTION_PATHS = ["/character", "/work", "/character-settings"]
-const HERO_SECTION_PATHS = ["/hero-quest", "/hero-character-settings"]
-
 const LIFE_SUB_NAV_ITEMS = [
   { to: "/character", label: "角色", mobileLabel: "角色", icon: <PersonIcon sx={{ fontSize: 20 }} /> },
   { to: "/work", label: "工作", mobileLabel: "任務", icon: <TaskAltIcon sx={{ fontSize: 20 }} /> },
   { to: "/character-settings", label: "角色設定", mobileLabel: "設置", icon: <TuneIcon sx={{ fontSize: 20 }} /> },
-]
-
-const HERO_SUB_NAV_ITEMS = [
-  { to: "/hero-quest", label: "英雄任務", mobileLabel: "英雄", icon: <SportsMartialArtsIcon sx={{ fontSize: 20 }} /> },
-  { to: "/hero-character-settings", label: "角色設定", mobileLabel: "設置", icon: <TuneIcon sx={{ fontSize: 20 }} /> },
 ]
 
 function TopLevelNavLink({ to, active, className, onClick, children }) {
@@ -1089,7 +1085,7 @@ function UserMenu({ user, signIn, logOut, onClose, mobile = false }) {
     <div
       className={`mobile-user-menu rounded-xl shadow-lg py-2 min-w-[180px] z-50 ${
         mobile
-          ? 'fixed right-5 bottom-24 bg-white border border-gray-100'
+          ? 'fixed right-4 top-20 bg-white border border-gray-100'
           : 'absolute right-0 top-10 bg-white border border-gray-100'
       }`}
     >
@@ -1123,13 +1119,14 @@ function Layout({ user, signIn, logOut }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const [appTheme, setAppThemeState] = useState(getAppTheme)
+  const { isVisible: isWorkFeatureVisible } = useWorkFeatureVisibility()
   const location = useLocation()
   const activeWorkTab = new URLSearchParams(location.search).get("tab") || "Tasks"
   const moreMenuActive =
     location.pathname === "/system-settings" ||
     (location.pathname === "/work" && WORK_MORE_TABS.some((item) => item.tab === activeWorkTab))
   const isLifeSection = LIFE_SECTION_PATHS.includes(location.pathname)
-  const isHeroSection = HERO_SECTION_PATHS.includes(location.pathname)
+  const isWorkPage = location.pathname === "/work"
 
   const closeMenus = () => {
     setShowUserMenu(false)
@@ -1152,14 +1149,15 @@ function Layout({ user, signIn, logOut }) {
 
   return (
     <div className="app-shell min-h-screen bg-stone-50 relative overflow-x-hidden pb-24 md:pb-0">
-      <header className="hidden md:block sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-        <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-14 flex items-center justify-between gap-8">
+      <header className="hidden md:block sticky top-0 z-50 bg-white border-b border-gray-100">
+        <div className="max-w-[1440px] mx-auto px-8 h-[72px] flex items-center gap-12">
           <div className="app-brand flex items-center gap-3 shrink-0">
             <div className="app-brand-mark flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-600 text-lg font-black">
               米
             </div>
+            <span className="app-brand-title text-xl font-extrabold tracking-wide text-slate-700">米莉亞</span>
           </div>
-          <nav className="flex items-center gap-1">
+          <nav className="flex flex-1 items-center gap-3">
             <TopLevelNavLink
               to="/work"
               active={isLifeSection}
@@ -1167,17 +1165,13 @@ function Layout({ user, signIn, logOut }) {
             >
               LIFE 任務
             </TopLevelNavLink>
-            <TopLevelNavLink
-              to="/hero-quest"
-              active={isHeroSection}
-              className={navLinkClass({ isActive: isHeroSection })}
-            >
-              英雄任務
-            </TopLevelNavLink>
-            <NavLink to="/gallery" className={navLinkClass}>世界圖庫</NavLink>
+            <NavLink to="/gallery" className={navLinkClass}>圖庫</NavLink>
             <NavLink to="/system-settings" className={navLinkClass}>系統設置</NavLink>
           </nav>
-          <div className="relative">
+          <div className="relative ml-auto flex items-center gap-5">
+            <button type="button" className="text-slate-500 hover:text-purple-600 transition-colors" aria-label="通知">
+              <NotificationsNoneOutlinedIcon sx={{ fontSize: 25 }} />
+            </button>
             <button
               onClick={() => setShowUserMenu((v) => !v)}
               className="w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors"
@@ -1194,9 +1188,9 @@ function Layout({ user, signIn, logOut }) {
             )}
           </div>
         </div>
-        {(isLifeSection || isHeroSection) && (
+        {isLifeSection && !isWorkPage && (
           <div className="max-w-[1200px] mx-auto px-4 md:px-10 h-11 flex items-center gap-1 border-t border-gray-50">
-            {(isLifeSection ? LIFE_SUB_NAV_ITEMS : HERO_SUB_NAV_ITEMS).map((item) => (
+            {LIFE_SUB_NAV_ITEMS.map((item) => (
               <NavLink key={item.to} to={item.to} className={navLinkClass}>
                 {item.label}
               </NavLink>
@@ -1204,10 +1198,33 @@ function Layout({ user, signIn, logOut }) {
           </div>
         )}
       </header>
+      <header className="mobile-app-header sticky top-0 z-50 flex h-[72px] items-center justify-between border-b border-slate-100 bg-white px-5 md:hidden">
+        <button
+          type="button"
+          onClick={() => { setShowUserMenu(false); setShowMoreMenu((value) => !value) }}
+          className="flex h-10 w-10 items-center justify-start bg-transparent text-slate-500"
+          aria-label="開啟選單"
+        >
+          <MenuIcon sx={{ fontSize: 25 }} />
+        </button>
+        <div className="app-brand-mark flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-2xl font-black text-purple-600">米</div>
+        <div className="flex items-center gap-3">
+          <button type="button" className="text-slate-500" aria-label="通知">
+            <NotificationsNoneOutlinedIcon sx={{ fontSize: 24 }} />
+          </button>
+          <button
+            type="button"
+            onClick={() => { setShowMoreMenu(false); setShowUserMenu((value) => !value) }}
+            className="h-9 w-9 overflow-hidden rounded-full border-2 border-slate-200"
+          >
+            <UserAvatar user={user} />
+          </button>
+        </div>
+      </header>
       <Outlet />
-      {(isLifeSection || isHeroSection) && (
+      {isLifeSection && !isWorkPage && (
         <nav className="mobile-bottom-sub-nav fixed bottom-24 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-14 rounded-full p-1.5 backdrop-blur">
-          {(isLifeSection ? LIFE_SUB_NAV_ITEMS : HERO_SUB_NAV_ITEMS).map((item) => (
+          {LIFE_SUB_NAV_ITEMS.map((item) => (
             <NavLink key={item.to} to={item.to} className={mobileNavLinkClass} onClick={closeMenus}>
               {item.icon}
               <span className="text-[0.65rem] font-semibold">{item.mobileLabel}</span>
@@ -1215,6 +1232,24 @@ function Layout({ user, signIn, logOut }) {
           ))}
         </nav>
       )}
+      {isWorkPage ? (
+        <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-50 flex h-[76px] border-t border-slate-100 bg-white px-2 pb-2 pt-1 md:hidden">
+          {WORK_MOBILE_TABS.filter((item) => isWorkFeatureVisible(item.tab)).map((item) => {
+            const active = activeWorkTab === item.tab
+            return (
+              <Link
+                key={item.tab}
+                to={`/work?tab=${item.tab}`}
+                onClick={closeMenus}
+                className={mobileNavItemClass(active)}
+              >
+                {item.icon}
+                <span className="text-[0.65rem] font-semibold">{item.label}</span>
+              </Link>
+            )
+          })}
+        </nav>
+      ) : (
       <nav className="mobile-bottom-nav fixed bottom-4 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-16 rounded-full p-1.5 backdrop-blur">
         <TopLevelNavLink
           to="/work"
@@ -1224,15 +1259,6 @@ function Layout({ user, signIn, logOut }) {
         >
           <TaskAltIcon sx={{ fontSize: 20 }} />
           <span className="text-[0.65rem] font-semibold">LIFE 任務</span>
-        </TopLevelNavLink>
-        <TopLevelNavLink
-          to="/hero-quest"
-          active={isHeroSection}
-          className={mobileNavItemClass(isHeroSection)}
-          onClick={closeMenus}
-        >
-          <SportsMartialArtsIcon sx={{ fontSize: 20 }} />
-          <span className="text-[0.65rem] font-semibold">英雄任務</span>
         </TopLevelNavLink>
         <NavLink
           to="/gallery"
@@ -1256,9 +1282,10 @@ function Layout({ user, signIn, logOut }) {
           <span className="text-[0.65rem] font-semibold">更多</span>
         </button>
       </nav>
+      )}
       {showMoreMenu && (
-        <div className="mobile-more-menu fixed right-5 bottom-24 z-50 md:hidden bg-white border border-gray-100 rounded-3xl shadow-lg p-2 min-w-[190px]">
-          {WORK_MORE_TABS.map((item) => (
+        <div className={`mobile-more-menu fixed z-50 md:hidden bg-white border border-gray-100 rounded-3xl shadow-lg p-2 min-w-[190px] ${isWorkPage ? 'left-4 top-20' : 'right-5 bottom-24'}`}>
+          {WORK_MORE_TABS.filter((item) => isWorkFeatureVisible(item.tab)).map((item) => (
             <NavLink
               key={item.tab}
               to={`/work?tab=${item.tab}`}
@@ -1361,8 +1388,6 @@ export default function App() {
       <Route element={<Layout user={user} signIn={signIn} logOut={logOut} />}>
         <Route path="/character" element={<CharacterPage />} />
         <Route path="/work" element={<MainApp />} />
-        <Route path="/hero-quest" element={<HeroQuestPage />} />
-        <Route path="/hero-character-settings" element={<HeroCharacterSettingsPage />} />
         <Route path="/gallery" element={<WorldGallery />} />
         <Route path="/character-settings" element={<CharacterSettingsPage />} />
         <Route path="/system-settings" element={<SystemSettingsPage />} />

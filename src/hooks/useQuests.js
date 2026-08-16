@@ -45,10 +45,16 @@ function normalizeSubTask(subTask = {}) {
 }
 
 function normalizeQuest(quest = {}) {
+  const status = quest.completed
+    ? 'completed'
+    : quest.status === 'progress'
+      ? 'progress'
+      : 'pending'
   return {
     id: quest.id ?? Date.now(),
     text: quest.text ?? '',
     completed: Boolean(quest.completed),
+    status,
     isCore: Boolean(quest.isCore),
     pinned: Boolean(quest.pinned),
     priority: quest.priority ?? 'normal',
@@ -188,6 +194,7 @@ export default function useQuests() {
         id: Date.now(),
         text,
         completed: false,
+        status: 'pending',
         isCore: false,
         pinned: false,
         priority: 'normal',
@@ -210,6 +217,7 @@ export default function useQuests() {
       id: now,
       text: source.text,
       completed: false,
+      status: 'pending',
       isCore: false,
       pinned: false,
       priority: source.priority,
@@ -257,6 +265,13 @@ export default function useQuests() {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, priority } : q)))
   }, [])
 
+  const setQuestStatus = useCallback((id, status) => {
+    const nextStatus = status === 'progress' ? 'progress' : 'pending'
+    setQuests((prev) => prev.map((q) => (
+      q.id === id && !q.completed ? { ...q, status: nextStatus } : q
+    )))
+  }, [])
+
   const togglePin = useCallback((id) => {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, pinned: !q.pinned } : q)))
   }, [])
@@ -269,7 +284,11 @@ export default function useQuests() {
       if (target.completed === completed) return prev
       const exp = getEffectiveQuestExp(target)
       completionDelta = completed ? exp : -exp
-      return prev.map((q) => (q.id === id ? { ...q, completed } : q))
+      return prev.map((q) => (
+        q.id === id
+          ? { ...q, completed, status: completed ? 'completed' : 'pending' }
+          : q
+      ))
     })
     if (completionDelta !== 0) {
       setLifetimeCompletions((c) => {
@@ -452,6 +471,7 @@ export default function useQuests() {
     togglePin,
     toggleCoreTask,
     setQuestPriority,
+    setQuestStatus,
     updateQuestExp,
     updateQuestRewardConfig,
     reorderQuests,

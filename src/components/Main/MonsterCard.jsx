@@ -170,7 +170,7 @@ export default function MonsterCard({
             <button
               onClick={() => setGalleryOpen(true)}
               className="w-7 h-7 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20"
-              title="從世界圖庫選擇"
+              title="從圖庫選擇"
             >
               <CollectionsIcon sx={{ fontSize: 14, color: 'white' }} />
             </button>

@@ -77,7 +77,7 @@ export default function MapTab({
           <p className="text-sm mt-1">新增第一張地圖卡片，開始整理你的世界。</p>
         </div>
       ) : (
-        <div className="flex flex-wrap items-start gap-5">
+        <div className="flex w-full flex-wrap items-start gap-5">
           {maps.map((map) => (
             <div
               key={map.id}
@@ -86,8 +86,12 @@ export default function MapTab({
               onDragOver={(e) => handleDragOver(e, map.id)}
               onDrop={(e) => handleDrop(e, map.id)}
               onDragEnd={handleDragEnd}
-              className="relative group/drag"
-              style={{ opacity: dragIdRef.current === map.id ? 0.42 : 1 }}
+              className="relative group/drag shrink-0"
+              style={{
+                width: Math.max(220, Number(map.cardW) || 220),
+                maxWidth: '100%',
+                opacity: dragIdRef.current === map.id ? 0.42 : 1,
+              }}
             >
               {dragOverId === map.id && insertBefore && (
                 <div className="absolute left-0 right-0 -top-2 h-1 rounded-full bg-emerald-400 z-20" />

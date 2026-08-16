@@ -15,7 +15,7 @@ const createMap = () => {
     description: '',
     cover: null,
     coverPosition: { x: 50, y: 50 },
-    cardW: 560,
+    cardW: 220,
     cardH: 390,
     createdAt: now,
     updatedAt: now,
@@ -32,17 +32,21 @@ export default function useMaps() {
     getDoc(MAPS_DOC).then((snap) => {
       let nextMaps = []
       if (snap.exists()) {
-        nextMaps = (snap.data().items ?? []).map((map) => ({
-          name: '未命名地圖',
-          description: '',
-          cover: null,
-          coverPosition: { x: 50, y: 50 },
-          cardW: 560,
-          cardH: 390,
-          createdAt: map.id ?? Date.now(),
-          updatedAt: map.id ?? Date.now(),
-          ...map,
-        }))
+        nextMaps = (snap.data().items ?? []).map((map) => {
+          const usedOldDefaultSize = Number(map.cardW) === 560 && Number(map.cardH) === 390
+          return {
+            name: '未命名地圖',
+            description: '',
+            cover: null,
+            coverPosition: { x: 50, y: 50 },
+            cardW: usedOldDefaultSize ? 220 : (Number(map.cardW) || 220),
+            cardH: Number(map.cardH) || 390,
+            createdAt: map.id ?? Date.now(),
+            updatedAt: map.id ?? Date.now(),
+            ...map,
+            ...(usedOldDefaultSize ? { cardW: 220 } : {}),
+          }
+        })
       }
       cachedMaps = nextMaps
       setMaps(nextMaps)

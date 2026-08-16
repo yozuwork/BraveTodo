@@ -198,7 +198,7 @@ export default function CharacterCard({ level, avatar, avatars, onAvatarChange, 
           className="absolute bottom-2 left-10 w-7 h-7 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/75 transition-colors z-10"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); setGalleryOpen(true) }}
-          title="從世界圖庫選擇"
+          title="從圖庫選擇"
         >
           <CollectionsIcon sx={{ color: 'rgba(255,255,255,0.75)', fontSize: 15 }} />
         </button>

@@ -150,7 +150,7 @@ function normalizeNonNegativeInt(value, fallback = 0) {
 
 export default function QuestItem({
   quest, onSaveTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
-  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetExp,
+  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetStatus, onSetExp,
   onUpdateRewardConfig,
   onDemoteToInbox,
   activeHuntTarget,
@@ -470,6 +470,9 @@ export default function QuestItem({
               }}
             >
               {quest.text}
+              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-400 md:hidden">
+                {rewardBadgeText}
+              </span>
               {subTasks.length > 0 && (
                 <span className="ml-2 text-xs text-gray-400 font-normal">
                   {completedSubs}/{subTasks.length}
@@ -483,16 +486,21 @@ export default function QuestItem({
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                onTogglePin(quest.id)
+                if (!quest.completed) {
+                  onSetStatus?.(quest.id, quest.status === 'progress' ? 'pending' : 'progress')
+                }
               }}
-              aria-label={quest.pinned ? '取消置頂任務' : '置頂任務'}
-              className="md:hidden order-2 shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full bg-transparent border-none p-0 ml-auto"
+              aria-label="切換任務狀態"
+              disabled={quest.completed}
+              className={`md:hidden order-2 shrink-0 inline-flex items-center justify-center rounded-full border-none px-3 py-1.5 text-[11px] font-bold ml-auto ${
+                quest.completed
+                  ? 'bg-slate-100 text-slate-500'
+                  : quest.status === 'progress'
+                    ? 'bg-purple-50 text-purple-600'
+                    : 'bg-violet-50 text-violet-500'
+              }`}
             >
-              {quest.pinned ? (
-                <PushPinIcon sx={{ fontSize: 20, color: '#a855f7' }} />
-              ) : (
-                <PushPinOutlinedIcon sx={{ fontSize: 20, color: '#cbd5e1', transform: 'rotate(45deg)' }} />
-              )}
+              {quest.completed ? '已完成' : quest.status === 'progress' ? '進行中' : '待處理'}
             </button>
           )}
 
@@ -680,6 +688,23 @@ export default function QuestItem({
                 {subTasks[0].text}
               </p>
             )}
+          </div>
+        )}
+
+        {!editing && (
+          <div className="mobile-quest-actions hidden w-full items-center justify-end gap-1 border-t border-slate-100 pt-2 md:hidden" onClick={(e) => e.stopPropagation()}>
+            <button type="button" onClick={() => onTogglePin(quest.id)} className="flex h-8 w-9 items-center justify-center text-slate-400" aria-label="置頂">
+              {quest.pinned ? <PushPinIcon sx={{ fontSize: 17, color: '#a855f7' }} /> : <PushPinOutlinedIcon sx={{ fontSize: 17, transform: 'rotate(45deg)' }} />}
+            </button>
+            <button type="button" onClick={() => onToggleCore(quest.id)} className="flex h-8 w-9 items-center justify-center text-slate-400" aria-label="核心任務">
+              {quest.isCore ? <StarIcon sx={{ fontSize: 18, color: '#f59e0b' }} /> : <StarBorderIcon sx={{ fontSize: 18 }} />}
+            </button>
+            <button type="button" onClick={() => onSaveTemplate?.(quest)} className="flex h-8 w-9 items-center justify-center text-slate-400" aria-label="存為模板">
+              <LibraryBooksOutlinedIcon sx={{ fontSize: 18 }} />
+            </button>
+            <button type="button" onClick={() => onRemove(quest.id)} className="flex h-8 w-9 items-center justify-center text-slate-400" aria-label="刪除">
+              <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+            </button>
           </div>
         )}
 

@@ -7,7 +7,6 @@ import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
-import TabNav from './TabNav'
 import QuestItem from './QuestItem'
 import InboxItem from './InboxItem'
 import HuntTab from './HuntTab'
@@ -34,7 +33,7 @@ function getQuestTierLabel(template) {
 }
 
 export default function QuestHub({
-  quests, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetExp, onUpdateRewardConfig, onReorderQuests, onClearCompleted,
+  quests, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetStatus, onSetExp, onUpdateRewardConfig, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
   stages, onStageName, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
@@ -42,7 +41,7 @@ export default function QuestHub({
   levelingRules, onUpdateExpPerLevel,
   atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
-  currentLevel, onResetLevel,
+  currentLevel, avatar, imagePosition, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
   onStartHunt, onStopHunt,
   onStartStageBossHunt, onStopStageBossHunt, onCompleteStageBossHunt,
@@ -68,6 +67,7 @@ export default function QuestHub({
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false)
   const [questTemplateDialogOpen, setQuestTemplateDialogOpen] = useState(false)
   const [questTemplateSavedNotice, setQuestTemplateSavedNotice] = useState(false)
+  const [taskFilter, setTaskFilter] = useState('all')
   const mobileInputRef = useRef(null)
 
   // ── Drag-and-drop state ──
@@ -191,6 +191,12 @@ export default function QuestHub({
   const currentStage = resolveCurrentStage(stages, currentLevel)
   const hasCompleted = quests.some((q) => q.completed)
   const activeQuestCount = quests.filter((quest) => !quest.completed).length
+  const visibleQuests = quests.filter((quest) => {
+    if (taskFilter === 'completed') return quest.completed
+    if (taskFilter === 'progress') return !quest.completed && quest.status === 'progress'
+    if (taskFilter === 'pending') return !quest.completed && quest.status !== 'progress'
+    return true
+  })
   const taskSuggestions = getVocabularySuggestions?.(inputValue, ['task', 'inbox']) ?? []
   const inboxSuggestions = getVocabularySuggestions?.(inboxInput, ['inbox', 'task']) ?? []
 
@@ -203,41 +209,75 @@ export default function QuestHub({
 
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
-      <div className="hidden md:flex flex-col gap-4 mb-5">
-        <div className="flex items-end justify-between gap-6">
-          <div className="flex items-baseline gap-3 min-w-0">
-            <h1 className="text-black text-4xl font-extrabold uppercase m-0 tracking-tight shrink-0">
-              米莉亞
-            </h1>
-            {currentStage?.className && (
-              <span className="text-gray-400 text-lg font-bold truncate">
-                {currentStage.className}
-              </span>
+      <section className="work-character-summary flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:flex-row md:items-stretch">
+        <div className="flex min-w-0 flex-1 items-center gap-4 p-3 md:gap-7 md:p-0">
+          <div className="h-[118px] w-[118px] shrink-0 overflow-hidden rounded-xl bg-purple-50 md:h-[168px] md:w-[168px] md:rounded-none">
+            {avatar && (
+              <img
+                src={avatar}
+                alt="米莉亞"
+                className="h-full w-full object-cover"
+                style={{ objectPosition: `${imagePosition?.x ?? 50}% ${imagePosition?.y ?? 50}%` }}
+              />
             )}
           </div>
-          <p className="quest-log-count text-sm font-bold text-gray-400 m-0">
-            <span className="text-purple-btn text-xl">{activeQuestCount}</span> 個進行中任務
-          </p>
+          <div className="min-w-0 py-1 md:py-5">
+            <h1 className="m-0 text-2xl font-extrabold tracking-wide text-slate-900 md:text-3xl">米莉亞</h1>
+            <p className="m-0 mt-2 text-sm font-medium text-slate-500 md:text-base">
+              {currentStage?.className || '初心者'}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <span className="rounded-full border border-purple-300 px-2.5 py-1 text-[11px] font-bold text-purple-600">
+                LEVEL {currentLevel}
+              </span>
+              <span className="text-sm font-medium text-slate-500">
+                <b className="mr-1 text-purple-600">{activeQuestCount}</b> 個進行中任務
+              </span>
+            </div>
+          </div>
         </div>
-        <div>
-          <TabNav
-            activeTab={activeTab}
-            onTabChange={onTabChange}
-            hasActiveHunt={hasActiveHunt}
-          />
-        </div>
-      </div>
+        {activeTab === 'Tasks' && (
+          <div className="border-t border-slate-100 p-3 md:flex md:w-[210px] md:items-start md:justify-center md:border-l md:border-t-0 md:p-6">
+            <button
+              type="button"
+              onClick={() => setMobileComposerOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-purple-300 bg-white px-4 py-2.5 text-sm font-bold text-purple-600 transition-colors hover:bg-purple-50"
+            >
+              <AddIcon sx={{ fontSize: 19 }} />
+              新增任務
+            </button>
+          </div>
+        )}
+      </section>
 
       {activeTab === 'Tasks' && (
         <div className="flex flex-col gap-4">
-          <div className="hidden md:block relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-purple-btn pointer-events-none">
-              <AddIcon fontSize="small" />
-            </span>
+          <nav className="work-status-tabs flex border-b border-slate-200">
+            {[
+              ['all', '全部'],
+              ['pending', '待處理'],
+              ['progress', '進行中'],
+              ['completed', '已完成'],
+            ].map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTaskFilter(key)}
+                className={`relative flex-1 bg-transparent px-2 py-3 text-sm font-semibold transition-colors md:flex-none md:px-5 ${
+                  taskFilter === key ? 'text-purple-600' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {label}
+                {taskFilter === key && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-purple-500" />}
+              </button>
+            ))}
+          </nav>
+
+          <div className="relative">
             <VocabularyInput
               type="text"
               wrapperClassName="relative"
-              className="w-full bg-white text-black border border-gray-200 rounded-xl max-md:rounded-2xl py-4 pl-12 pr-20 text-sm max-md:text-base focus:outline-none focus:border-purple-400 transition-colors placeholder:text-gray-400"
+              className="w-full bg-white text-black border border-slate-200 rounded-xl py-4 pl-5 pr-20 text-sm focus:outline-none focus:border-purple-400 transition-colors placeholder:text-slate-400"
               placeholder="輸入任務?"
               value={inputValue}
               onChange={setInputValue}
@@ -252,7 +292,13 @@ export default function QuestHub({
               ENTER ↵
             </span>
           </div>
-          <div className="hidden md:flex justify-end">
+          <div className="flex items-center justify-between gap-3 overflow-x-auto py-1">
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="rounded-lg border border-purple-200 bg-white px-3 py-2 text-xs font-semibold text-purple-600">◇ 任務 ⌄</span>
+              <span className="h-5 w-5 rounded border-2 border-slate-300 bg-white" />
+              <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">次要 ⌄</span>
+              <span className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-500">一般 +1 ⌄</span>
+            </div>
             <Button
               variant="outlined"
               size="small"
@@ -292,14 +338,14 @@ export default function QuestHub({
             </div>
           )}
 
-          <div className="mobile-task-list-panel flex flex-col gap-3 max-md:bg-transparent max-md:border-0 max-md:rounded-none max-md:p-0 max-md:gap-0 max-md:shadow-none">
-            {quests.length === 0 ? (
+          <div className="mobile-task-list-panel flex flex-col gap-3">
+            {visibleQuests.length === 0 ? (
               <div className="text-center py-16 text-gray-300">
-                <p className="text-lg font-semibold">No quests yet</p>
-                <p className="text-sm mt-1">Add your first quest above to begin your adventure!</p>
+                <p className="text-lg font-semibold">這個分類還沒有任務</p>
+                <p className="text-sm mt-1">從上方輸入一個新任務吧！</p>
               </div>
             ) : (
-              [...quests]
+              [...visibleQuests]
                 .sort((a, b) => {
                   if (a.completed !== b.completed) return a.completed ? 1 : -1
                   if (a.pinned !== b.pinned) return b.pinned ? 1 : -1
@@ -333,6 +379,7 @@ export default function QuestHub({
                         onTogglePin={onTogglePin}
                         onToggleCore={onToggleCore}
                         onSetPriority={onSetPriority}
+                        onSetStatus={onSetStatus}
                         onSetExp={onSetExp}
                         onUpdateRewardConfig={onUpdateRewardConfig}
                         onDemoteToInbox={onDemoteToInbox}
@@ -357,15 +404,6 @@ export default function QuestHub({
                 })
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setMobileComposerOpen(true)}
-            className="mobile-fab fixed right-6 bottom-28 z-40 md:hidden w-16 h-16 rounded-full bg-purple-btn text-white shadow-[0_18px_35px_rgba(168,85,247,0.28)] flex items-center justify-center"
-            aria-label="新增任務"
-          >
-            <AddIcon sx={{ fontSize: 34 }} />
-          </button>
-
           <div
             className={`mobile-composer-backdrop fixed inset-0 z-[60] md:hidden transition-colors ${
               mobileComposerOpen ? 'bg-black/65 pointer-events-auto' : 'bg-black/0 pointer-events-none'

@@ -613,7 +613,7 @@ function SaveDetailDialog({ save, open, busy, onClose, onPatch, onLoad, onDelete
                               setGalleryOpen(true)
                             }}
                             className="w-6 h-6 rounded-full bg-black/65 hover:bg-black/85 flex items-center justify-center"
-                            title="從世界圖庫選擇"
+                            title="從圖庫選擇"
                           >
                             <CollectionsIcon sx={{ fontSize: 13, color: 'white' }} />
                           </button>

@@ -589,7 +589,77 @@ body::after {
   pointer-events: none;
 }
 
+/* 2026 LIFE task workspace */
+.work-side-nav {
+  min-height: calc(100vh - 72px);
+}
+
+.work-character-summary img {
+  user-select: none;
+}
+
+.mobile-task-list-panel > div > .mobile-quest-item {
+  box-shadow: 0 3px 14px rgba(15, 23, 42, 0.045);
+}
+
+@media (min-width: 768px) {
+  .mobile-task-list-panel > div > .mobile-quest-item {
+    min-height: 74px;
+    align-items: center;
+    border-color: #eef2f7;
+    border-radius: 14px;
+    padding: 1rem 1.25rem;
+  }
+}
+
 @media (max-width: 767px) {
+  body::after {
+    display: none;
+  }
+
+  .mobile-page-surface {
+    padding-bottom: 5.5rem !important;
+  }
+
+  .work-character-summary {
+    border-radius: 14px !important;
+  }
+
+  .mobile-task-list-panel {
+    display: flex !important;
+    gap: 0.75rem !important;
+  }
+
+  .mobile-task-list-panel > div > .mobile-quest-item {
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 0.65rem !important;
+    overflow: hidden !important;
+    border: 1px solid #eef2f7 !important;
+    border-radius: 13px !important;
+    background: #ffffff !important;
+    padding: 0.9rem !important;
+    box-shadow: 0 3px 14px rgba(15, 23, 42, 0.045) !important;
+  }
+
+  .mobile-task-list-panel .mobile-quest-title {
+    font-size: 0.875rem !important;
+    line-height: 1.35rem !important;
+  }
+
+  .mobile-task-list-panel .mobile-quest-summary {
+    display: none;
+  }
+
+  .mobile-task-list-panel .mobile-quest-actions {
+    display: flex !important;
+  }
+
+  .mobile-task-list-panel .mobile-quest-item:last-child {
+    border: 1px solid #eef2f7 !important;
+    box-shadow: 0 3px 14px rgba(15, 23, 42, 0.045) !important;
+  }
+
   .mobile-quest-detail-backdrop {
     background: var(--mobile-detail-backdrop) !important;
   }

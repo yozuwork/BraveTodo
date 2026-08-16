@@ -7,7 +7,7 @@ import OpenInFullIcon from '@mui/icons-material/OpenInFull'
 import EditIcon from '@mui/icons-material/Edit'
 import { resolveImg } from '../../utils/imageSrc'
 
-const MIN_CARD_W = 280
+const MIN_CARD_W = 220
 const MAX_CARD_W = 980
 const MIN_CARD_H = 230
 const MAX_CARD_H = 760
@@ -19,7 +19,7 @@ export default function MapCard({
   onRemove,
   onCoverChange,
 }) {
-  const { id, name, description, cover, coverPosition = { x: 50, y: 50 }, cardW = 560, cardH = 390 } = map
+  const { id, name, description, cover, coverPosition = { x: 50, y: 50 }, cardW = 220, cardH = 390 } = map
   const [open, setOpen] = useState(false)
   const [resizeMode, setResizeMode] = useState(false)
   const [nameDraft, setNameDraft] = useState(name)
@@ -156,7 +156,7 @@ export default function MapCard({
       <div
         className="relative flex flex-col rounded-2xl overflow-hidden shadow-md select-none border border-emerald-100 bg-white hover:-translate-y-0.5 hover:shadow-lg transition-all"
         style={{
-          width: `min(${cardW}px, 100%)`,
+          width: '100%',
           height: cardH,
           flexShrink: 0,
         }}

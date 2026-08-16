@@ -20,6 +20,7 @@ import {
   saveFaviconUrl,
 } from "../../utils/faviconSettings";
 import { calcCompletionsForLevel, getHighestConfiguredLevel } from "../../utils/levelingRules";
+import useWorkFeatureVisibility, { WORK_FEATURE_OPTIONS } from "../../hooks/useWorkFeatureVisibility";
 
 const TITLE_KEY = "brave-todo:pageTitle";
 const DEFAULT_TITLE = "Vanguard Hub";
@@ -300,17 +301,9 @@ export default function OtherSettings({
   currentLevel,
   levelingRules,
   onResetLevel,
-  heroCurrentLevel,
-  heroLevelingRules,
-  onResetHeroLevel,
 }) {
-  const hasHeroTarget = typeof onResetHeroLevel === "function";
-  const [resetTarget, setResetTarget] = useState("life");
-  const effectiveTarget = hasHeroTarget ? resetTarget : "life";
-  const effectiveCurrentLevel = effectiveTarget === "life" ? currentLevel : heroCurrentLevel;
-  const effectiveLevelingRules = effectiveTarget === "life" ? levelingRules : heroLevelingRules;
-  const effectiveOnResetLevel = effectiveTarget === "life" ? onResetLevel : onResetHeroLevel;
-  const maxLevel = getHighestConfiguredLevel(effectiveLevelingRules);
+  const { visibility: workFeatureVisibility, setFeatureVisible, resetVisibility } = useWorkFeatureVisibility();
+  const maxLevel = getHighestConfiguredLevel(levelingRules);
   const [targetLevel, setTargetLevel] = useState(1);
   const [confirmed, setConfirmed] = useState(false);
   const {
@@ -348,15 +341,9 @@ export default function OtherSettings({
     }
     const completions = calcCompletionsForLevel(
       Number(targetLevel) || 1,
-      effectiveLevelingRules,
+      levelingRules,
     );
-    effectiveOnResetLevel(completions);
-    setConfirmed(false);
-  };
-
-  const handleTargetChange = (nextTarget) => {
-    setResetTarget(nextTarget);
-    setTargetLevel(1);
+    onResetLevel(completions);
     setConfirmed(false);
   };
 
@@ -367,6 +354,47 @@ export default function OtherSettings({
       </div>
 
       <ThemeSettingsCard />
+
+      <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-black m-0">LIFE 功能顯示</p>
+            <p className="text-xs text-gray-400 mt-0.5 m-0">
+              關閉後，對應功能會從電腦與手機的 icon 選單隱藏
+            </p>
+          </div>
+          <Button
+            variant="text"
+            size="small"
+            startIcon={<RestoreIcon />}
+            onClick={resetVisibility}
+            sx={{ color: '#9ca3af', fontSize: '0.75rem', fontWeight: 600, textTransform: 'none' }}
+          >
+            全部顯示
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {WORK_FEATURE_OPTIONS.map((feature) => (
+            <label
+              key={feature.key}
+              className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-gray-100 bg-stone-50 px-4 py-3 transition-colors hover:border-purple-200"
+            >
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-gray-800">{feature.label}</span>
+                <span className="mt-0.5 block text-xs text-gray-400">{feature.description}</span>
+              </span>
+              <Switch
+                checked={workFeatureVisibility[feature.key] !== false}
+                onChange={(event) => setFeatureVisible(feature.key, event.target.checked)}
+                size="small"
+                sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#a855f7' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#a855f7' } }}
+              />
+            </label>
+          ))}
+        </div>
+        <p className="m-0 text-[11px] text-gray-400">「任務」是 LIFE 的主要入口，因此會固定顯示。</p>
+      </div>
 
       {/* Favicon card */}
       <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
@@ -584,36 +612,9 @@ export default function OtherSettings({
         <div>
           <p className="text-sm font-semibold text-black m-0">等級重置</p>
           <p className="text-xs text-gray-400 mt-0.5 m-0">
-            將目前等級重置到指定等級（目前 LV{effectiveCurrentLevel}）
+            將目前等級重置到指定等級（目前 LV{currentLevel}）
           </p>
         </div>
-
-        {hasHeroTarget && (
-          <div className="inline-flex w-fit rounded-lg border border-gray-200 bg-stone-50 p-1">
-            <button
-              type="button"
-              onClick={() => handleTargetChange("life")}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap ${
-                effectiveTarget === "life"
-                  ? "bg-white text-purple-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              LIFE 任務
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTargetChange("hero")}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap ${
-                effectiveTarget === "hero"
-                  ? "bg-white text-purple-600 shadow-sm"
-                  : "text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              英雄任務
-            </button>
-          </div>
-        )}
 
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500 shrink-0">重置到</span>

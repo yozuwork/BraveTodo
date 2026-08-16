@@ -166,7 +166,7 @@ function StageEditModal({
                 type="button"
                 onClick={() => setGalleryOpen(true)}
                 className="shrink-0 w-14 h-14 rounded-lg border-2 border-dashed border-purple-200 flex items-center justify-center text-purple-400 hover:border-purple-400 hover:bg-purple-50 transition-colors cursor-pointer bg-transparent"
-                title="從世界圖庫選擇"
+                title="從圖庫選擇"
               >
                 <CollectionsIcon sx={{ fontSize: 21 }} />
               </button>

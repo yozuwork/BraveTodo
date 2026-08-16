@@ -147,7 +147,7 @@ export default function WorldGallery() {
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-black m-0">世界圖庫</h1>
+          <h1 className="text-xl font-bold text-black m-0">圖庫</h1>
           <p className="text-sm text-gray-400 mt-1 m-0">管理與瀏覽所有已上傳的圖片資源</p>
         </div>
         <Button

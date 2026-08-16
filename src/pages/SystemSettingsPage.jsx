@@ -7,11 +7,6 @@ import useCharacter from '../hooks/useCharacter'
 import useStages, { resolveCurrentStage } from '../hooks/useStages'
 import useMonsters from '../hooks/useMonsters'
 import useLevelingRules from '../hooks/useLevelingRules'
-import useHeroQuests from '../hooks/useHeroQuests'
-import useHeroCharacter from '../hooks/useHeroCharacter'
-import useHeroStages from '../hooks/useHeroStages'
-import useHeroMonsters from '../hooks/useHeroMonsters'
-import useHeroLevelingRules from '../hooks/useHeroLevelingRules'
 
 const SYSTEM_TABS = [
   { key: 'general', label: '其他設定' },
@@ -39,28 +34,6 @@ export default function SystemSettingsPage() {
       resetGold()
     },
     [resetLifetimeCompletions, resetStageBossHunts, resetMonsterHunts, resetGold],
-  )
-
-  const {
-    lifetimeCompletions: heroLifetimeCompletions,
-    resetLifetimeCompletions: resetHeroLifetimeCompletions,
-  } = useHeroQuests()
-  const { rules: heroLevelingRules } = useHeroLevelingRules()
-  const { level: heroLevel, resetGold: resetHeroGold } = useHeroCharacter(
-    heroLifetimeCompletions,
-    heroLevelingRules,
-  )
-  const { resetStageBossHunts: resetHeroStageBossHunts } = useHeroStages()
-  const { resetMonsterHunts: resetHeroMonsterHunts } = useHeroMonsters()
-
-  const handleResetHeroLevel = useCallback(
-    (completions) => {
-      resetHeroLifetimeCompletions(completions)
-      resetHeroStageBossHunts()
-      resetHeroMonsterHunts()
-      resetHeroGold()
-    },
-    [resetHeroLifetimeCompletions, resetHeroStageBossHunts, resetHeroMonsterHunts, resetHeroGold],
   )
 
   return (
@@ -97,9 +70,6 @@ export default function SystemSettingsPage() {
                 currentLevel={level}
                 levelingRules={levelingRules}
                 onResetLevel={handleResetLevel}
-                heroCurrentLevel={heroLevel}
-                heroLevelingRules={heroLevelingRules}
-                onResetHeroLevel={handleResetHeroLevel}
               />
               <StorageUsage />
             </>

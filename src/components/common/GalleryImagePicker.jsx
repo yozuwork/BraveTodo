@@ -75,7 +75,7 @@ export default function GalleryImagePicker({
       PaperProps={{ sx: { borderRadius: 3 } }}
     >
       <DialogTitle sx={{ fontSize: '1rem', fontWeight: 800, pb: 1 }}>
-        從世界圖庫選擇圖片
+        從圖庫選擇圖片
       </DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
         <div className="flex gap-0 border-b border-gray-200 mb-4">
