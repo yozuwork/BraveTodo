@@ -16,6 +16,7 @@ import SkillTab from './SkillTab'
 import MapTab from './MapTab'
 import NpcTab from './NpcTab'
 import RewardShopTab from './RewardShopTab'
+import CharacterSettings from './CharacterSettings'
 import VocabularyInput from '../common/VocabularyInput'
 import { resolveCurrentStage } from '../../hooks/useStages'
 
@@ -105,7 +106,8 @@ export default function QuestHub({
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
   stages, onStageName, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
-  levelingRules, onUpdateExpPerLevel,
+  levelingRules, onUpdateExpPerLevel, onUpdateLevelRange, onAddLevelingRule, onRemoveLevelingRule,
+  rewardSettings, onUpdateRewardGold,
   atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
   currentLevel, avatar, imagePosition, onResetLevel,
@@ -221,7 +223,7 @@ export default function QuestHub({
     if (!hasActiveHunt && activeTab === 'HuntMission') {
       onTabChange('Tasks')
     }
-    if (activeTab === 'Stages' || activeTab === 'Leveling' || activeTab === 'CharacterSettings' || activeTab === 'Other') {
+    if (activeTab === 'Stages' || activeTab === 'Leveling' || activeTab === 'Other') {
       onTabChange('Tasks')
     }
   }, [hasActiveHunt, activeTab, onTabChange])
@@ -286,7 +288,7 @@ export default function QuestHub({
 
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
-      {activeTab !== 'HuntMission' && (
+      {activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && (
       <section className="work-character-summary flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:flex-row md:items-stretch">
         <div className="flex min-w-0 flex-1 items-center gap-4 p-3 md:gap-7 md:p-0">
           <ResizableWorkAvatar avatar={avatar} imagePosition={imagePosition} />
@@ -795,6 +797,28 @@ export default function QuestHub({
             )}
           </div>
         </div>
+      )}
+
+      {activeTab === 'CharacterSettings' && (
+        <CharacterSettings
+          stages={stages}
+          onStageName={onStageName}
+          onStageAvatar={onStageAvatar}
+          onStageAvatarReplace={onStageAvatarReplace}
+          onStageAvatarRemove={onStageAvatarRemove}
+          onStageLevel={onStageLevel}
+          onAddStage={onAddStage}
+          onRemoveStage={onRemoveStage}
+          onReorderStages={onReorderStages}
+          onStageAvatarPosition={onStageAvatarPosition}
+          levelingRules={levelingRules}
+          onUpdateExpPerLevel={onUpdateExpPerLevel}
+          onUpdateLevelRange={onUpdateLevelRange}
+          onAddLevelingRule={onAddLevelingRule}
+          onRemoveLevelingRule={onRemoveLevelingRule}
+          rewardSettings={rewardSettings}
+          onUpdateRewardGold={onUpdateRewardGold}
+        />
       )}
     </div>
   )

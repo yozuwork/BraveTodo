@@ -38,7 +38,6 @@ import useVocabulary from "./hooks/useVocabulary";
 import useWorkFeatureVisibility from "./hooks/useWorkFeatureVisibility";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
-import CharacterSettingsPage from "./pages/CharacterSettingsPage";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
 
@@ -123,24 +122,41 @@ function WorkSidebar({ activeTab, onTabChange, isFeatureVisible, hasActiveHunt }
 
   return (
     <aside className="work-side-nav hidden w-[210px] shrink-0 flex-col gap-2 border-r border-slate-100 px-5 py-8 md:flex">
-      {sidebarTabs.map((item) => {
-        const active = activeTab === item.tab
-        return (
-          <button
-            key={item.tab}
-            type="button"
-            onClick={() => onTabChange(item.tab)}
-            className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
-              active
-                ? 'bg-purple-50 text-purple-600'
-                : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-            }`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        )
-      })}
+      <div className="flex flex-col gap-2">
+        {sidebarTabs.map((item) => {
+          const active = activeTab === item.tab
+          return (
+            <button
+              key={item.tab}
+              type="button"
+              onClick={() => onTabChange(item.tab)}
+              className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
+                active
+                  ? 'bg-purple-50 text-purple-600'
+                  : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="mt-3 border-t border-slate-200 pt-4">
+        <button
+          type="button"
+          onClick={() => onTabChange('CharacterSettings')}
+          className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
+            activeTab === 'CharacterSettings'
+              ? 'bg-purple-50 text-purple-600'
+              : 'bg-transparent text-slate-500 hover:bg-purple-50 hover:text-purple-600'
+          }`}
+        >
+          <TuneIcon sx={{ fontSize: 18 }} />
+          <span>角色設定</span>
+        </button>
+      </div>
     </aside>
   )
 }
@@ -197,7 +213,13 @@ function MainApp() {
     unbindQuestFromHuntTask,
     loaded: questsLoaded,
   } = useQuests();
-  const { rules: levelingRules, updateExpPerLevel } = useLevelingRules();
+  const {
+    rules: levelingRules,
+    updateExpPerLevel,
+    updateLevelRange,
+    addLevelingRule,
+    removeLevelingRule,
+  } = useLevelingRules();
   const {
     imagePosition,
     updateImagePosition,
@@ -285,7 +307,7 @@ function MainApp() {
     updateRewardTemplate,
     removeRewardTemplate,
   } = useRewardShop();
-  const { rewardSettings } = useRewardSettings();
+  const { rewardSettings, updateRewardGold } = useRewardSettings();
   const {
     skills,
     addSkill,
@@ -571,7 +593,7 @@ function MainApp() {
   const activeTab = searchParams.get("tab") || "Tasks";
 
   useEffect(() => {
-    if (activeTab !== 'HuntMission' && !isWorkFeatureVisible(activeTab)) {
+    if (activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && !isWorkFeatureVisible(activeTab)) {
       setSearchParams({})
     }
   }, [activeTab, isWorkFeatureVisible, setSearchParams])
@@ -871,6 +893,11 @@ function MainApp() {
                 inboxItems={inboxItems}
                 levelingRules={levelingRules}
                 onUpdateExpPerLevel={updateExpPerLevel}
+                onUpdateLevelRange={updateLevelRange}
+                onAddLevelingRule={addLevelingRule}
+                onRemoveLevelingRule={removeLevelingRule}
+                rewardSettings={rewardSettings}
+                onUpdateRewardGold={updateRewardGold}
                 atk={stats.atk.value}
                 onAddSubTask={handleAddSubTask}
                 onToggleSubTask={toggleSubTask}
@@ -1058,7 +1085,7 @@ const LIFE_SECTION_PATHS = ["/character", "/work", "/character-settings"]
 const LIFE_SUB_NAV_ITEMS = [
   { to: "/character", label: "角色", mobileLabel: "角色", icon: <PersonIcon sx={{ fontSize: 20 }} /> },
   { to: "/work", label: "工作", mobileLabel: "任務", icon: <TaskAltIcon sx={{ fontSize: 20 }} /> },
-  { to: "/character-settings", label: "角色設定", mobileLabel: "設置", icon: <TuneIcon sx={{ fontSize: 20 }} /> },
+  { to: "/work?tab=CharacterSettings", label: "角色設定", mobileLabel: "設置", icon: <TuneIcon sx={{ fontSize: 20 }} /> },
 ]
 
 function TopLevelNavLink({ to, active, className, onClick, children }) {
@@ -1129,6 +1156,7 @@ function Layout({ user, signIn, logOut }) {
   const activeWorkTab = new URLSearchParams(location.search).get("tab") || "Tasks"
   const moreMenuActive =
     location.pathname === "/system-settings" ||
+    (location.pathname === "/work" && activeWorkTab === "CharacterSettings") ||
     (location.pathname === "/work" && WORK_MORE_TABS.some((item) => item.tab === activeWorkTab))
   const isLifeSection = LIFE_SECTION_PATHS.includes(location.pathname)
   const isWorkPage = location.pathname === "/work"
@@ -1314,6 +1342,19 @@ function Layout({ user, signIn, logOut }) {
               {item.label}
             </NavLink>
           ))}
+          <div className="my-2 border-t border-gray-100" />
+          <NavLink
+            to="/work?tab=CharacterSettings"
+            onClick={closeMenus}
+            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
+              location.pathname === '/work' && activeWorkTab === 'CharacterSettings'
+                ? 'text-purple-btn bg-purple-50'
+                : 'text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            <TuneIcon sx={{ fontSize: 20 }} />
+            角色設定
+          </NavLink>
           <NavLink
             to="/gallery"
             onClick={closeMenus}
@@ -1413,7 +1454,7 @@ export default function App() {
         <Route path="/character" element={<CharacterPage />} />
         <Route path="/work" element={<MainApp />} />
         <Route path="/gallery" element={<WorldGallery />} />
-        <Route path="/character-settings" element={<CharacterSettingsPage />} />
+        <Route path="/character-settings" element={<Navigate to="/work?tab=CharacterSettings" replace />} />
         <Route path="/system-settings" element={<SystemSettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/work" replace />} />
