@@ -253,7 +253,7 @@ export default function useStages() {
 
   const replaceStageAvatar = useCallback((id, avatarIndex, file) => {
     if (!file || avatarIndex < 0) return
-    const getDataUrl = typeof file === 'string' ? Promise.resolve(file) : compressImage(file, 1000, 0.85)
+    const getDataUrl = typeof file === 'string' ? Promise.resolve(file) : compressImage(file, 1000, 0.85, true)
     getDataUrl.then(async (src) => {
       const newId = await storeImage(src)
       setImageSrcs((prev) => { const next = { ...prev, [newId]: src }; cachedImageSrcs = next; return next })
@@ -264,7 +264,7 @@ export default function useStages() {
         removeStoredImage(current[avatarIndex])
         return { ...s, avatarIds: current.map((a, i) => i === avatarIndex ? newId : a) }
       }))
-    })
+    }).catch((error) => console.error('Failed to replace stage avatar:', error))
   }, [])
 
   const removeStageAvatar = useCallback((id, avatarIndex) => {
@@ -285,7 +285,7 @@ export default function useStages() {
 
   const updateStageBossAvatar = useCallback((stageId, file) => {
     if (!file) return
-    const getDataUrl = typeof file === 'string' ? Promise.resolve(file) : compressImage(file, 1000, 0.85)
+    const getDataUrl = typeof file === 'string' ? Promise.resolve(file) : compressImage(file, 1000, 0.85, true)
     getDataUrl.then(async (src) => {
       const newId = await storeImage(src)
       setImageSrcs((prev) => { const next = { ...prev, [newId]: src }; cachedImageSrcs = next; return next })
@@ -294,7 +294,7 @@ export default function useStages() {
         if (cur.bossAvatarId) removeStoredImage(cur.bossAvatarId)
         return { ...prev, [stageId]: { ...cur, bossAvatarId: newId } }
       })
-    })
+    }).catch((error) => console.error('Failed to update stage boss avatar:', error))
   }, [])
 
   const startStageBossHunt = useCallback((stageId) => {

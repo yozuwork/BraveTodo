@@ -10,8 +10,133 @@ import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import CollectionsIcon from '@mui/icons-material/Collections'
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
 import defaultAvatar from '../../assets/hero.jpg'
 import GalleryImagePicker from '../common/GalleryImagePicker'
+
+function getStageImageSrcs(stage) {
+  if (!stage) return []
+  const customAvatarCount = stage.avatars?.length ?? (stage.avatar ? 1 : 0)
+  if (customAvatarCount > 0) {
+    return (stage.avatarSrcs ?? (stage.avatarSrc ? [stage.avatarSrc] : []))
+      .slice(0, customAvatarCount)
+      .filter(Boolean)
+  }
+  return stage.avatarSrc ? [stage.avatarSrc] : []
+}
+
+function getImageExtension(src) {
+  const mimeMatch = src?.match(/^data:image\/([a-zA-Z0-9.+-]+);/)
+  if (mimeMatch) return mimeMatch[1].replace('jpeg', 'jpg').replace('svg+xml', 'svg')
+  const pathMatch = src?.split(/[?#]/)[0].match(/\.([a-zA-Z0-9]+)$/)
+  return pathMatch?.[1] ?? 'png'
+}
+
+async function downloadImage(src, stageName, index = 0) {
+  if (!src) return
+  const safeName = (stageName || 'stage-image').replace(/[\\/:*?"<>|]/g, '-').trim() || 'stage-image'
+  const fileName = `${safeName}${index > 0 ? `-${index + 1}` : ''}.${getImageExtension(src)}`
+  let href = src
+  let objectUrl = null
+
+  try {
+    if (!src.startsWith('data:')) {
+      const response = await fetch(src)
+      if (!response.ok) throw new Error('Image download failed')
+      objectUrl = URL.createObjectURL(await response.blob())
+      href = objectUrl
+    }
+
+    const link = document.createElement('a')
+    link.href = href
+    link.download = fileName
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  } catch {
+    const link = document.createElement('a')
+    link.href = src
+    link.download = fileName
+    link.target = '_blank'
+    link.rel = 'noopener noreferrer'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+  } finally {
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
+  }
+}
+
+function StageImagePreview({ stage, open, onClose }) {
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const imageSrcs = getStageImageSrcs(stage)
+
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [stage?.id, open])
+
+  const safeIndex = Math.min(selectedIndex, Math.max(0, imageSrcs.length - 1))
+  const selectedSrc = imageSrcs[safeIndex]
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      fullWidth
+      maxWidth="md"
+      PaperProps={{ sx: { borderRadius: 3, mx: 2, overflow: 'hidden' } }}
+    >
+      <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700, pb: 1 }}>
+        {stage?.className || '查看圖片'}
+      </DialogTitle>
+      <DialogContent sx={{ pt: 1 }}>
+        {selectedSrc && (
+          <div className="flex flex-col gap-3">
+            <div className="flex min-h-[280px] max-h-[70vh] items-center justify-center overflow-hidden rounded-xl bg-stone-950 p-2">
+              <img
+                src={selectedSrc}
+                alt={`${stage?.className || '階段'} 圖片 ${safeIndex + 1}`}
+                className="max-h-[68vh] max-w-full object-contain"
+              />
+            </div>
+            {imageSrcs.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {imageSrcs.map((src, index) => (
+                  <button
+                    key={`${src}-${index}`}
+                    type="button"
+                    onClick={() => setSelectedIndex(index)}
+                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 bg-white p-0 ${
+                      safeIndex === index ? 'border-purple-500' : 'border-gray-200'
+                    }`}
+                    aria-label={`查看第 ${index + 1} 張圖片`}
+                  >
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button onClick={onClose} sx={{ color: '#6b7280', textTransform: 'none' }}>
+          關閉
+        </Button>
+        <Button
+          variant="contained"
+          startIcon={<DownloadOutlinedIcon />}
+          onClick={() => downloadImage(selectedSrc, stage?.className, safeIndex)}
+          disabled={!selectedSrc}
+          sx={{ bgcolor: '#a855f7', borderRadius: 99, textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#9333ea' } }}
+        >
+          下載圖片
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
 
 
 // ── Mobile edit modal ────────────────────────────────────────
@@ -253,9 +378,10 @@ function StageEditModal({
 // ── Stage row ────────────────────────────────────────────────
 function StageRow({
   stage, canDelete, onRemove, onEdit,
+  onPreview,
   isDragOver, insertBefore,
   onDragStart, onDragOver, onDrop, onDragEnd,
-  onAvatarChange,
+  onAvatarChange, onReplaceAvatar,
   onPositionChange,
 }) {
   const fileInputRef = useRef(null)
@@ -327,7 +453,7 @@ function StageRow({
       {/* Avatar */}
       <div
         className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-purple-200 cursor-grab"
-        title="點擊上傳圖片，拖移調整顯示位置"
+        title={avatarSrcs.length > 0 ? '點擊替換第一張圖片，拖移調整顯示位置' : '點擊設定第一張圖片'}
       >
         <img
           src={stage.avatarSrc}
@@ -348,10 +474,13 @@ function StageRow({
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        multiple
         className="hidden"
         onChange={(e) => {
-          onAvatarChange(stage.id, e.target.files)
+          const file = e.target.files?.[0]
+          if (file) {
+            if (avatarSrcs.length > 0) onReplaceAvatar(stage.id, 0, file)
+            else onAvatarChange(stage.id, [file])
+          }
           e.target.value = ''
         }}
       />
@@ -366,37 +495,60 @@ function StageRow({
       </div>
 
       {/* Edit */}
-      <IconButton
-        size="small"
-        onClick={onEdit}
-        aria-label="編輯階段"
-        sx={{
-          minWidth: 40,
-          minHeight: 40,
-          color: '#a855f7',
-          bgcolor: '#faf5ff',
-          borderRadius: 2,
-          '&:hover': { bgcolor: '#f3e8ff' },
-        }}
-      >
-        <EditOutlinedIcon fontSize="small" />
-      </IconButton>
-
-      {/* Delete */}
-      <IconButton
-        size="small"
-        onClick={() => onRemove(stage.id)}
-        disabled={!canDelete}
-        sx={{
-          minWidth: 40,
-          minHeight: 40,
-          color: canDelete ? '#d1d5db' : 'transparent',
-          '&:hover': { color: '#ef4444' },
-          transition: 'color 0.15s',
-        }}
-      >
-        <DeleteOutlineIcon fontSize="small" />
-      </IconButton>
+      <div className="grid shrink-0 grid-cols-2 gap-1 sm:flex sm:items-center">
+        <IconButton
+          size="small"
+          onClick={() => onPreview(stage)}
+          disabled={!stage.avatarSrc}
+          aria-label="查看圖片"
+          title="查看圖片"
+          sx={{ minWidth: 40, minHeight: 40, color: '#64748b', '&:hover': { bgcolor: '#f1f5f9', color: '#334155' } }}
+        >
+          <VisibilityOutlinedIcon fontSize="small" />
+        </IconButton>
+        <IconButton
+          size="small"
+          onClick={() => downloadImage(stage.avatarSrc, stage.className)}
+          disabled={!stage.avatarSrc}
+          aria-label="下載圖片"
+          title="下載圖片"
+          sx={{ minWidth: 40, minHeight: 40, color: '#64748b', '&:hover': { bgcolor: '#f1f5f9', color: '#334155' } }}
+        >
+          <DownloadOutlinedIcon fontSize="small" />
+        </IconButton>
+        <IconButton
+          size="small"
+          onClick={onEdit}
+          aria-label="編輯階段"
+          title="編輯階段"
+          sx={{
+            minWidth: 40,
+            minHeight: 40,
+            color: '#a855f7',
+            bgcolor: '#faf5ff',
+            borderRadius: 2,
+            '&:hover': { bgcolor: '#f3e8ff' },
+          }}
+        >
+          <EditOutlinedIcon fontSize="small" />
+        </IconButton>
+        <IconButton
+          size="small"
+          onClick={() => onRemove(stage.id)}
+          disabled={!canDelete}
+          aria-label="刪除階段"
+          title="刪除階段"
+          sx={{
+            minWidth: 40,
+            minHeight: 40,
+            color: canDelete ? '#d1d5db' : 'transparent',
+            '&:hover': { color: '#ef4444' },
+            transition: 'color 0.15s',
+          }}
+        >
+          <DeleteOutlineIcon fontSize="small" />
+        </IconButton>
+      </div>
     </div>
   )
 }
@@ -406,6 +558,7 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
   const [dragOverId, setDragOverId] = useState(null)
   const [insertBefore, setInsertBefore] = useState(true)
   const [editingStageId, setEditingStageId] = useState(null)
+  const [previewStage, setPreviewStage] = useState(null)
 
   const editingStage = stages.find((s) => s.id === editingStageId) ?? null
 
@@ -450,6 +603,7 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
             canDelete={stages.length > 1}
             onRemove={onRemoveStage}
             onEdit={() => setEditingStageId(stage.id)}
+            onPreview={setPreviewStage}
             isDragOver={dragOverId === stage.id}
             insertBefore={insertBefore}
             onDragStart={handleDragStart}
@@ -457,6 +611,7 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
             onDrop={handleDrop}
             onDragEnd={handleDragEnd}
             onAvatarChange={onAvatarChange}
+            onReplaceAvatar={onReplaceAvatar}
             onPositionChange={onPositionChange}
           />
         ))}
@@ -490,6 +645,11 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
         onRemoveAvatar={onRemoveAvatar}
         onLevelChange={onLevelChange}
         onPositionChange={onPositionChange}
+      />
+      <StageImagePreview
+        stage={previewStage}
+        open={previewStage !== null}
+        onClose={() => setPreviewStage(null)}
       />
     </div>
   )
