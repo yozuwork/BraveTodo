@@ -142,7 +142,7 @@ function StageImagePreview({ stage, open, onClose }) {
 // ── Mobile edit modal ────────────────────────────────────────
 function StageEditModal({
   stage, open, onClose,
-  onNameChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange,
+  onNameChange, onInfoChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange,
   onPositionChange,
 }) {
   const fileInputRef = useRef(null)
@@ -328,6 +328,19 @@ function StageEditModal({
             />
           </div>
 
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">角色資訊</label>
+            <textarea
+              value={stage.characterInfo ?? ''}
+              onChange={(e) => onInfoChange(stage.id, e.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="輸入這個階段的角色背景、能力、稱號或備註…"
+              className="w-full resize-y text-sm leading-6 text-gray-700 bg-stone-50 border border-gray-200 rounded-lg px-3 py-2.5 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200 transition-colors"
+            />
+            <p className="m-0 mt-1 text-right text-[0.68rem] text-gray-400">{(stage.characterInfo ?? '').length} / 500</p>
+          </div>
+
           {/* Level range */}
           <div>
             <label className="text-xs font-semibold text-gray-500 mb-1.5 block">等級範圍</label>
@@ -436,6 +449,7 @@ function StageRow({
       onDrop={(e) => onDrop(e, stage.id)}
       onDragEnd={onDragEnd}
       className={`bg-white rounded-xl px-4 py-5 flex items-center gap-3 border transition-colors relative
+        flex-wrap md:flex-nowrap
         ${isDragOver && insertBefore ? 'border-t-2 border-t-purple-400 border-x-gray-100 border-b-gray-100' : ''}
         ${isDragOver && !insertBefore ? 'border-b-2 border-b-purple-400 border-x-gray-100 border-t-gray-100' : ''}
         ${!isDragOver ? 'border-gray-100 hover:border-gray-200' : ''}
@@ -549,11 +563,18 @@ function StageRow({
           <DeleteOutlineIcon fontSize="small" />
         </IconButton>
       </div>
+
+      <div className="order-last w-full rounded-lg border border-slate-100 bg-slate-50/80 px-3 py-2.5 md:order-none md:w-auto md:max-w-[440px] md:flex-[1.5]">
+        <p className="m-0 text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">角色資訊</p>
+        <p className={`m-0 mt-1 whitespace-pre-wrap break-words text-xs leading-5 ${stage.characterInfo?.trim() ? 'text-slate-600' : 'text-slate-400'}`}>
+          {stage.characterInfo?.trim() || '尚未填寫，點擊鉛筆編輯這個階段的角色資訊。'}
+        </p>
+      </div>
     </div>
   )
 }
 
-export default function StageSettings({ stages, onNameChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onAddStage, onRemoveStage, onReorderStages, onPositionChange }) {
+export default function StageSettings({ stages, onNameChange, onInfoChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onAddStage, onRemoveStage, onReorderStages, onPositionChange }) {
   const dragId = useRef(null)
   const [dragOverId, setDragOverId] = useState(null)
   const [insertBefore, setInsertBefore] = useState(true)
@@ -640,6 +661,7 @@ export default function StageSettings({ stages, onNameChange, onAvatarChange, on
         open={editingStageId !== null}
         onClose={() => setEditingStageId(null)}
         onNameChange={onNameChange}
+        onInfoChange={onInfoChange}
         onAvatarChange={onAvatarChange}
         onReplaceAvatar={onReplaceAvatar}
         onRemoveAvatar={onRemoveAvatar}

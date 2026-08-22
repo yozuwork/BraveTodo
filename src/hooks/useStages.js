@@ -8,10 +8,10 @@ import { storeImage, fetchImageSrcs, removeStoredImage } from '../utils/imageSto
 const STAGES_DOC = doc(db, 'meta', 'stages')
 
 const DEFAULT_STAGES = [
-  { id: 1, minLevel: 1,  maxLevel: 10,  className: '初心者' },
-  { id: 2, minLevel: 10, maxLevel: 30,  className: '見習戰士' },
-  { id: 3, minLevel: 30, maxLevel: 70,  className: '冒險者' },
-  { id: 4, minLevel: 70, maxLevel: 120, className: '英雄' },
+  { id: 1, minLevel: 1,  maxLevel: 10,  className: '初心者', characterInfo: '' },
+  { id: 2, minLevel: 10, maxLevel: 30,  className: '見習戰士', characterInfo: '' },
+  { id: 3, minLevel: 30, maxLevel: 70,  className: '冒險者', characterInfo: '' },
+  { id: 4, minLevel: 70, maxLevel: 120, className: '英雄', characterInfo: '' },
 ]
 
 const DEFAULT_BOSS_NAMES = {
@@ -116,6 +116,7 @@ export default function useStages() {
             minLevel: s.minLevel,
             maxLevel: s.maxLevel,
             className: s.className,
+            characterInfo: typeof s.characterInfo === 'string' ? s.characterInfo : '',
             avatarIds: rawAvatars.filter(Boolean).map(migrateRef).filter(Boolean),
             avatarPositions: Array.isArray(s.avatarPositions) ? s.avatarPositions : [],
           }
@@ -156,8 +157,9 @@ export default function useStages() {
     if (skipWriteRef.current) { skipWriteRef.current = false; return }
     cachedStages = stages
     cachedBossHunts = bossHunts
-    const toSave = stages.map(({ id, minLevel, maxLevel, className, avatarIds, avatarPositions }) => ({
+    const toSave = stages.map(({ id, minLevel, maxLevel, className, characterInfo, avatarIds, avatarPositions }) => ({
       id, minLevel, maxLevel, className,
+      characterInfo: typeof characterInfo === 'string' ? characterInfo : '',
       avatarIds: (Array.isArray(avatarIds) ? avatarIds : []).filter(Boolean),
       avatarPositions: sanitize(Array.isArray(avatarPositions) ? avatarPositions : []),
     }))
@@ -192,6 +194,10 @@ export default function useStages() {
     setStages((prev) => prev.map((s) => s.id === id ? { ...s, className: newName } : s))
   }, [])
 
+  const updateStageCharacterInfo = useCallback((id, characterInfo) => {
+    setStages((prev) => prev.map((s) => s.id === id ? { ...s, characterInfo } : s))
+  }, [])
+
   const updateStageLevel = useCallback((id, field, value) => {
     const num = parseInt(value, 10)
     if (isNaN(num) || num < 0) return
@@ -204,7 +210,7 @@ export default function useStages() {
       const last = sorted[sorted.length - 1]
       const newMin = last ? last.maxLevel : 1
       const newId = Math.max(0, ...prev.map((s) => s.id)) + 1
-      return [...prev, { id: newId, minLevel: newMin, maxLevel: newMin + 10, className: '新階段', avatarIds: [], avatarPositions: [] }]
+      return [...prev, { id: newId, minLevel: newMin, maxLevel: newMin + 10, className: '新階段', characterInfo: '', avatarIds: [], avatarPositions: [] }]
     })
   }, [])
 
@@ -409,6 +415,7 @@ export default function useStages() {
   return {
     stages: stagesWithDefaults,
     updateStageName,
+    updateStageCharacterInfo,
     updateStageLevel,
     addStage,
     removeStage,

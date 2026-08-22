@@ -12,6 +12,7 @@ const SETTING_TABS = [
 export default function CharacterSettings({
   stages,
   onStageName,
+  onStageInfo,
   onStageAvatar,
   onStageAvatarReplace,
   onStageAvatarRemove,
@@ -60,6 +61,7 @@ export default function CharacterSettings({
         <StageSettings
           stages={stages}
           onNameChange={onStageName}
+          onInfoChange={onStageInfo}
           onAvatarChange={onStageAvatar}
           onReplaceAvatar={onStageAvatarReplace}
           onRemoveAvatar={onStageAvatarRemove}

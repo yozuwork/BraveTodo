@@ -14,6 +14,7 @@ export default function CharacterSettingsPage() {
   const {
     stages,
     updateStageName,
+    updateStageCharacterInfo,
     updateStageAvatar,
     replaceStageAvatar,
     removeStageAvatar,
@@ -34,6 +35,7 @@ export default function CharacterSettingsPage() {
         <CharacterSettings
           stages={stages}
           onStageName={updateStageName}
+          onStageInfo={updateStageCharacterInfo}
           onStageAvatar={updateStageAvatar}
           onStageAvatarReplace={replaceStageAvatar}
           onStageAvatarRemove={removeStageAvatar}

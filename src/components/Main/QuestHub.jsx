@@ -104,7 +104,7 @@ export default function QuestHub({
   quests, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetStatus, onSetExp, onUpdateRewardConfig, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
-  stages, onStageName, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
+  stages, onStageName, onStageInfo, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
   levelingRules, onUpdateExpPerLevel, onUpdateLevelRange, onAddLevelingRule, onRemoveLevelingRule,
   rewardSettings, onUpdateRewardGold,
@@ -290,7 +290,7 @@ export default function QuestHub({
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
       {activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && (
       <section className="work-character-summary flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:flex-row md:items-stretch">
-        <div className="flex min-w-0 flex-1 items-center gap-4 p-3 md:gap-7 md:p-0">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 p-3 md:flex-nowrap md:gap-7 md:p-0">
           <ResizableWorkAvatar avatar={avatar} imagePosition={imagePosition} />
           <div className="min-w-0 py-1 md:py-5">
             <h1 className="m-0 text-2xl font-extrabold tracking-wide text-slate-900 md:text-3xl">米莉亞</h1>
@@ -305,6 +305,12 @@ export default function QuestHub({
                 <b className="mr-1 text-purple-600">{activeQuestCount}</b> 個進行中任務
               </span>
             </div>
+          </div>
+          <div className="order-last w-full rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3 md:order-none md:ml-auto md:mr-6 md:w-auto md:max-w-[420px] md:flex-1">
+            <p className="m-0 text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">角色資訊</p>
+            <p className={`m-0 mt-1 whitespace-pre-wrap break-words text-sm leading-6 ${currentStage?.characterInfo?.trim() ? 'text-slate-600' : 'text-slate-400'}`}>
+              {currentStage?.characterInfo?.trim() || '尚未填寫目前階段的角色資訊。'}
+            </p>
           </div>
         </div>
         {activeTab === 'Tasks' && (
@@ -803,6 +809,7 @@ export default function QuestHub({
         <CharacterSettings
           stages={stages}
           onStageName={onStageName}
+          onStageInfo={onStageInfo}
           onStageAvatar={onStageAvatar}
           onStageAvatarReplace={onStageAvatarReplace}
           onStageAvatarRemove={onStageAvatarRemove}

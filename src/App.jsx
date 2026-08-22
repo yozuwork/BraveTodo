@@ -233,6 +233,7 @@ function MainApp() {
   const {
     stages,
     updateStageName,
+    updateStageCharacterInfo,
     updateStageAvatar,
     replaceStageAvatar,
     removeStageAvatar,
@@ -883,6 +884,7 @@ function MainApp() {
                 onDemoteToInbox={handleDemoteToInbox}
                 stages={stages}
                 onStageName={updateStageName}
+                onStageInfo={updateStageCharacterInfo}
                 onStageAvatar={updateStageAvatar}
                 onStageAvatarReplace={replaceStageAvatar}
                 onStageAvatarRemove={removeStageAvatar}
