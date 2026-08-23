@@ -28,6 +28,10 @@ export default function CharacterSettings({
   onRemoveLevelingRule,
   rewardSettings,
   onUpdateRewardGold,
+  onUpdateRewardColor,
+  autoExpSettings,
+  onAutoExpEnabled,
+  onUpdateAutoExpThreshold,
 }) {
   const [activeSetting, setActiveSetting] = useState('stages')
 
@@ -87,6 +91,10 @@ export default function CharacterSettings({
         <RewardSettings
           rewardSettings={rewardSettings}
           onUpdateRewardGold={onUpdateRewardGold}
+          onUpdateRewardColor={onUpdateRewardColor}
+          autoExpSettings={autoExpSettings}
+          onAutoExpEnabled={onAutoExpEnabled}
+          onUpdateAutoExpThreshold={onUpdateAutoExpThreshold}
         />
       )}
     </div>

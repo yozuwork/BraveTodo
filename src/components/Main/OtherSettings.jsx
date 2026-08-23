@@ -19,6 +19,7 @@ import {
 } from "../../utils/faviconSettings";
 import { calcCompletionsForLevel, getHighestConfiguredLevel } from "../../utils/levelingRules";
 import useWorkFeatureVisibility, { WORK_FEATURE_OPTIONS } from "../../hooks/useWorkFeatureVisibility";
+import useTaskDisplaySettings from "../../hooks/useTaskDisplaySettings";
 import {
   getAppTheme,
   getMangaImageMode,
@@ -345,6 +346,7 @@ export default function OtherSettings({
   onResetLevel,
 }) {
   const { visibility: workFeatureVisibility, setFeatureVisible, resetVisibility } = useWorkFeatureVisibility();
+  const { showCompletedInAll, setShowCompletedInAll } = useTaskDisplaySettings();
   const maxLevel = getHighestConfiguredLevel(levelingRules);
   const [targetLevel, setTargetLevel] = useState(1);
   const [confirmed, setConfirmed] = useState(false);
@@ -396,6 +398,24 @@ export default function OtherSettings({
       </div>
 
       <ThemeSettingsCard />
+
+      <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white px-5 py-5">
+        <div>
+          <p className="m-0 text-sm font-semibold text-black">在「全部」顯示已完成任務</p>
+          <p className="m-0 mt-1 text-xs leading-5 text-gray-400">
+            預設關閉。關閉時已完成任務只會出現在「已完成」分頁。
+          </p>
+        </div>
+        <Switch
+          checked={showCompletedInAll}
+          onChange={(event) => setShowCompletedInAll(event.target.checked)}
+          sx={{
+            '& .MuiSwitch-switchBase.Mui-checked': { color: '#a855f7' },
+            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#a855f7' },
+          }}
+          inputProps={{ 'aria-label': '在全部中顯示已完成任務' }}
+        />
+      </div>
 
       <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">

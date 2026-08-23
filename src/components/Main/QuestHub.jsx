@@ -3,11 +3,15 @@ import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
-import Button from '@mui/material/Button'
+import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined'
+import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined'
+import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import QuestItem from './QuestItem'
+import QuestCard from './QuestCard'
+import QuestDetailDrawer from './QuestDetailDrawer'
 import InboxItem from './InboxItem'
 import HuntTab from './HuntTab'
 import HuntMission from './HuntMission'
@@ -21,6 +25,35 @@ import VocabularyInput from '../common/VocabularyInput'
 import { resolveCurrentStage } from '../../hooks/useStages'
 
 const AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size'
+const QUEST_VIEW_KEY = 'brave-todo:quest-view'
+const QUEST_CARD_SIZE_KEY = 'brave-todo:quest-card-size'
+
+function ComicExperienceBar({ level, progress, currentExp, expToNextLevel }) {
+  const safeProgress = Math.min(100, Math.max(0, Number(progress) || 0))
+  const remainingExp = Math.max(0, expToNextLevel - currentExp)
+
+  return (
+    <div className="comic-exp" aria-label={`等級 ${level} 經驗值 ${currentExp} / ${expToNextLevel}`}>
+      <div className="comic-exp__meta">
+        <span className="comic-exp__title">經驗值 <b>EXP</b></span>
+        <span className="comic-exp__level">Lv.{level}</span>
+        <span className="comic-exp__remaining">距離 Lv.{level + 1} 還差 {remainingExp}</span>
+      </div>
+      <div
+        className="comic-exp__track"
+        role="progressbar"
+        aria-valuemin="0"
+        aria-valuemax={expToNextLevel}
+        aria-valuenow={currentExp}
+      >
+        <div className="comic-exp__fill" style={{ width: `${safeProgress}%` }}>
+          <span className="comic-exp__speed-lines" />
+        </div>
+        <span className="comic-exp__value">{currentExp} / {expToNextLevel}</span>
+      </div>
+    </div>
+  )
+}
 
 function ResizableWorkAvatar({ avatar, imagePosition }) {
   const [size, setSize] = useState(() => {
@@ -101,16 +134,17 @@ function getQuestTierLabel(template) {
 }
 
 export default function QuestHub({
-  quests, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetStatus, onSetExp, onUpdateRewardConfig, onReorderQuests, onClearCompleted,
+  quests, showCompletedInAll, globalCardCoverRatio, onAllCardCoverRatioChange, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onQuestCoverChange, onQuestCardMediaChange, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetStatus, onSetExp, onUpdateRewardConfig, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
   stages, onStageName, onStageInfo, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
   levelingRules, onUpdateExpPerLevel, onUpdateLevelRange, onAddLevelingRule, onRemoveLevelingRule,
-  rewardSettings, onUpdateRewardGold,
+  rewardSettings, onUpdateRewardGold, onUpdateRewardColor,
+  autoExpSettings, onAutoExpEnabled, onUpdateAutoExpThreshold,
   atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
-  currentLevel, avatar, imagePosition, onResetLevel,
+  currentLevel, expProgress, currentExp, expToNextLevel, avatar, imagePosition, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
   onStartHunt, onStopHunt,
   onStartStageBossHunt, onStopStageBossHunt, onCompleteStageBossHunt,
@@ -137,6 +171,9 @@ export default function QuestHub({
   const [questTemplateDialogOpen, setQuestTemplateDialogOpen] = useState(false)
   const [questTemplateSavedNotice, setQuestTemplateSavedNotice] = useState(false)
   const [taskFilter, setTaskFilter] = useState('all')
+  const [questView, setQuestView] = useState(() => localStorage.getItem(QUEST_VIEW_KEY) || 'list')
+  const [questCardSize, setQuestCardSize] = useState(() => localStorage.getItem(QUEST_CARD_SIZE_KEY) || 'medium')
+  const [selectedQuestId, setSelectedQuestId] = useState(null)
   const mobileInputRef = useRef(null)
   const desktopInputRef = useRef(null)
 
@@ -150,6 +187,10 @@ export default function QuestHub({
   const [inboxInsertBefore, setInboxInsertBefore] = useState(true)
 
   const handleQuestDragStart = useCallback((e, id) => {
+    if (e.target.closest('button, input, textarea, select, label, a')) {
+      e.preventDefault()
+      return
+    }
     questDragId.current = id
     e.dataTransfer.effectAllowed = 'move'
   }, [])
@@ -265,10 +306,12 @@ export default function QuestHub({
     if (taskFilter === 'completed') return quest.completed
     if (taskFilter === 'progress') return !quest.completed && quest.status === 'progress'
     if (taskFilter === 'pending') return !quest.completed && quest.status !== 'progress'
-    return true
+    return showCompletedInAll || !quest.completed
   })
   const taskSuggestions = getVocabularySuggestions?.(inputValue, ['task', 'inbox']) ?? []
   const inboxSuggestions = getVocabularySuggestions?.(inboxInput, ['inbox', 'task']) ?? []
+  const selectedQuest = quests.find((quest) => quest.id === selectedQuestId) ?? null
+  const rewardColorMap = new Map(rewardSettings.map((item) => [Number(item.expValue), item.color]))
 
   const handleSaveQuestTemplate = useCallback((quest) => {
     const templateId = onSaveQuestTemplate?.(quest)
@@ -286,31 +329,51 @@ export default function QuestHub({
     setMobileComposerOpen(true)
   }
 
+  const changeQuestView = (view) => {
+    setQuestView(view)
+    localStorage.setItem(QUEST_VIEW_KEY, view)
+  }
+
+  const changeQuestCardSize = (size) => {
+    setQuestCardSize(size)
+    localStorage.setItem(QUEST_CARD_SIZE_KEY, size)
+  }
+
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
       {activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && (
       <section className="work-character-summary flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:flex-row md:items-stretch">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-4 p-3 md:flex-nowrap md:gap-7 md:p-0">
+        <div className="flex min-w-0 flex-1 flex-col gap-4 p-3 md:flex-row md:gap-0 md:p-0">
           <ResizableWorkAvatar avatar={avatar} imagePosition={imagePosition} />
-          <div className="min-w-0 py-1 md:py-5">
-            <h1 className="m-0 text-2xl font-extrabold tracking-wide text-slate-900 md:text-3xl">米莉亞</h1>
-            <p className="m-0 mt-2 text-sm font-medium text-slate-500 md:text-base">
-              {currentStage?.className || '初心者'}
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
-              <span className="rounded-full border border-purple-300 px-2.5 py-1 text-[11px] font-bold text-purple-600">
-                LEVEL {currentLevel}
-              </span>
-              <span className="text-sm font-medium text-slate-500">
-                <b className="mr-1 text-purple-600">{activeQuestCount}</b> 個進行中任務
-              </span>
+          <div className="flex min-w-0 flex-1 flex-col md:px-7 md:py-4">
+            <div className="flex min-w-0 flex-1 flex-col gap-4 md:flex-row md:items-center md:gap-7">
+              <div className="min-w-0 py-1">
+                <h1 className="m-0 text-2xl font-extrabold tracking-wide text-slate-900 md:text-3xl">米莉亞</h1>
+                <p className="m-0 mt-2 text-sm font-medium text-slate-500 md:text-base">
+                  {currentStage?.className || '初心者'}
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <span className="rounded-full border border-purple-300 px-2.5 py-1 text-[11px] font-bold text-purple-600">
+                    LEVEL {currentLevel}
+                  </span>
+                  <span className="text-sm font-medium text-slate-500">
+                    <b className="mr-1 text-purple-600">{activeQuestCount}</b> 個進行中任務
+                  </span>
+                </div>
+              </div>
+              <div className="w-full rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3 md:ml-auto md:max-w-[420px] md:flex-1">
+                <p className="m-0 text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">角色資訊</p>
+                <p className={`m-0 mt-1 whitespace-pre-wrap break-words text-sm leading-6 ${currentStage?.characterInfo?.trim() ? 'text-slate-600' : 'text-slate-400'}`}>
+                  {currentStage?.characterInfo?.trim() || '尚未填寫目前階段的角色資訊。'}
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="order-last w-full rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3 md:order-none md:ml-auto md:mr-6 md:w-auto md:max-w-[420px] md:flex-1">
-            <p className="m-0 text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">角色資訊</p>
-            <p className={`m-0 mt-1 whitespace-pre-wrap break-words text-sm leading-6 ${currentStage?.characterInfo?.trim() ? 'text-slate-600' : 'text-slate-400'}`}>
-              {currentStage?.characterInfo?.trim() || '尚未填寫目前階段的角色資訊。'}
-            </p>
+            <ComicExperienceBar
+              level={currentLevel}
+              progress={expProgress}
+              currentExp={currentExp}
+              expToNextLevel={expToNextLevel}
+            />
           </div>
         </div>
         {activeTab === 'Tasks' && (
@@ -357,6 +420,60 @@ export default function QuestHub({
                 {taskFilter === key && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-purple-500" />}
               </button>
             ))}
+            <div className="ml-auto flex shrink-0 items-stretch">
+              <button
+                type="button"
+                onClick={() => changeQuestView('list')}
+                className={`quest-toolbar-option flex w-10 items-center justify-center transition-colors ${questView === 'list' ? 'is-active' : ''}`}
+                title="列表檢視"
+                aria-label="列表檢視"
+                aria-pressed={questView === 'list'}
+              >
+                <ViewListOutlinedIcon sx={{ fontSize: 20 }} />
+              </button>
+              <button
+                type="button"
+                onClick={() => changeQuestView('card')}
+                className={`quest-toolbar-option flex w-10 items-center justify-center transition-colors ${questView === 'card' ? 'is-active' : ''}`}
+                title="卡片檢視"
+                aria-label="卡片檢視"
+                aria-pressed={questView === 'card'}
+              >
+                <GridViewOutlinedIcon sx={{ fontSize: 19 }} />
+              </button>
+              {questView === 'card' && (
+                <div className="hidden items-stretch border-l border-slate-200 md:flex">
+                  {[
+                    ['large', '大'],
+                    ['medium', '中'],
+                    ['small', '小'],
+                  ].map(([size, label]) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => changeQuestCardSize(size)}
+                      className={`quest-toolbar-option flex w-9 items-center justify-center text-xs font-extrabold transition-colors ${questCardSize === size ? 'is-active' : ''}`}
+                      title={`${label}卡片`}
+                      aria-label={`${label}卡片`}
+                      aria-pressed={questCardSize === size}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {hasCompleted && (
+                <button
+                  type="button"
+                  onClick={onClearCompleted}
+                  className="flex w-10 items-center justify-center bg-transparent text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500"
+                  title="清除已完成任務"
+                  aria-label="清除已完成任務"
+                >
+                  <DeleteSweepOutlinedIcon sx={{ fontSize: 20 }} />
+                </button>
+              )}
+            </div>
           </nav>
 
           <div className="relative">
@@ -379,25 +496,7 @@ export default function QuestHub({
               ENTER ↵
             </span>
           </div>
-          {hasCompleted && (
-            <div className="flex justify-end">
-              <Button
-                size="small"
-                onClick={onClearCompleted}
-                sx={{
-                  color: '#ef4444',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'none',
-                  '&:hover': { bgcolor: '#fee2e2' },
-                }}
-              >
-                清除已完成任務
-              </Button>
-            </div>
-          )}
-
-          <div className="mobile-task-list-panel flex flex-col gap-3">
+          <div className={questView === 'card' ? `quest-card-grid quest-card-grid--${questCardSize}` : 'mobile-task-list-panel flex flex-col gap-3'}>
             {visibleQuests.length === 0 ? (
               <div className="text-center py-16 text-gray-300">
                 <p className="text-lg font-semibold">這個分類還沒有任務</p>
@@ -415,22 +514,43 @@ export default function QuestHub({
                   return (
                     <div
                       key={quest.id}
-                      draggable={!quest.completed}
+                      draggable={questView === 'card' || !quest.completed}
                       onDragStart={(e) => handleQuestDragStart(e, quest.id)}
-                      onDragOver={(e) => !quest.completed && handleQuestDragOver(e, quest.id)}
+                      onDragOver={(e) => (questView === 'card' || !quest.completed) && handleQuestDragOver(e, quest.id)}
                       onDrop={(e) => handleQuestDrop(e, quest.id)}
                       onDragEnd={handleQuestDragEnd}
-                      className={`relative group/drag ${!quest.completed ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      className={`relative group/drag ${questView === 'card' || !quest.completed ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ opacity: questDragId.current === quest.id ? 0.4 : 1 }}
                     >
                       {isOver && questInsertBefore && (
                         <div className="absolute -top-1.5 left-0 right-0 h-0.5 bg-purple-400 rounded-full z-10 pointer-events-none" />
                       )}
-                      <div className="absolute left-0 top-0 bottom-0 flex items-center pl-1 opacity-0 group-hover/drag:opacity-100 transition-opacity z-10 pointer-events-none">
+                      <div className={`absolute left-0 top-0 bottom-0 items-center pl-1 opacity-0 group-hover/drag:opacity-100 transition-opacity z-10 pointer-events-none ${questView === 'card' ? 'hidden' : 'flex'}`}>
                         {!quest.completed && <DragIndicatorIcon sx={{ fontSize: 16, color: '#d1d5db' }} />}
                       </div>
-                      <QuestItem
+                      {questView === 'card' ? (
+                        <QuestCard
+                          quest={quest}
+                          size={questCardSize}
+                          coverImage={quest.cover || avatar}
+                          hasCustomCover={Boolean(quest.cover)}
+                          coverPosition={quest.coverPosition}
+                          coverFit={quest.coverFit}
+                          coverRatio={globalCardCoverRatio}
+                          expColor={rewardColorMap.get(quest.expValue === 2 ? 3 : quest.expValue)}
+                          onOpenDetails={() => setSelectedQuestId(quest.id)}
+                          onToggle={onToggle}
+                          onToggleCore={onToggleCore}
+                          onSetPriority={onSetPriority}
+                          onSetStatus={onSetStatus}
+                          onSetExp={onSetExp}
+                          onAddSubTask={onAddSubTask}
+                          onToggleSubTask={onToggleSubTask}
+                        />
+                      ) : (
+                        <QuestItem
                         quest={quest}
+                        expColor={rewardColorMap.get(quest.expValue === 2 ? 3 : quest.expValue)}
                         onSaveTemplate={handleSaveQuestTemplate}
                         onToggle={onToggle}
                         onUpdate={onUpdate}
@@ -454,7 +574,8 @@ export default function QuestHub({
                         onUnbindQuestFromHuntTask={onUnbindQuestFromHuntTask}
                         onCreateAndBindQuestToActiveHunt={onCreateAndBindQuestToActiveHunt}
                         getVocabularySuggestions={getVocabularySuggestions}
-                      />
+                        />
+                      )}
                       {isOver && !questInsertBefore && (
                         <div className="absolute -bottom-1.5 left-0 right-0 h-0.5 bg-purple-400 rounded-full z-10 pointer-events-none" />
                       )}
@@ -825,8 +946,36 @@ export default function QuestHub({
           onRemoveLevelingRule={onRemoveLevelingRule}
           rewardSettings={rewardSettings}
           onUpdateRewardGold={onUpdateRewardGold}
+          onUpdateRewardColor={onUpdateRewardColor}
+          autoExpSettings={autoExpSettings}
+          onAutoExpEnabled={onAutoExpEnabled}
+          onUpdateAutoExpThreshold={onUpdateAutoExpThreshold}
         />
       )}
+
+      <QuestDetailDrawer
+        open={Boolean(selectedQuest)}
+        quest={selectedQuest}
+        defaultCover={avatar}
+        onClose={() => setSelectedQuestId(null)}
+        onUpdate={onUpdate}
+        onCoverChange={onQuestCoverChange}
+        onCardMediaChange={onQuestCardMediaChange}
+        globalCoverRatio={globalCardCoverRatio}
+        onAllCoverRatioChange={onAllCardCoverRatioChange}
+        onToggle={onToggle}
+        onRemove={onRemove}
+        onTogglePin={onTogglePin}
+        onToggleCore={onToggleCore}
+        onSaveTemplate={handleSaveQuestTemplate}
+        onSetPriority={onSetPriority}
+        onSetStatus={onSetStatus}
+        onSetExp={onSetExp}
+        onAddSubTask={onAddSubTask}
+        onToggleSubTask={onToggleSubTask}
+        onRemoveSubTask={onRemoveSubTask}
+        onUpdateSubTask={onUpdateSubTask}
+      />
     </div>
   )
 }

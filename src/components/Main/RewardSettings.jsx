@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import Switch from '@mui/material/Switch'
+import { AUTO_EXP_TIERS } from '../../utils/questAutoExp'
 
 const TONE_CLASS = {
   stone: {
@@ -46,7 +48,14 @@ function CoinIcon() {
   )
 }
 
-export default function RewardSettings({ rewardSettings, onUpdateRewardGold }) {
+export default function RewardSettings({
+  rewardSettings,
+  onUpdateRewardGold,
+  onUpdateRewardColor,
+  autoExpSettings,
+  onAutoExpEnabled,
+  onUpdateAutoExpThreshold,
+}) {
   const [draftValues, setDraftValues] = useState(() =>
     Object.fromEntries(rewardSettings.map((item) => [item.expValue, String(item.gold)]))
   )
@@ -74,6 +83,47 @@ export default function RewardSettings({ rewardSettings, onUpdateRewardGold }) {
         <p className="text-xs text-gray-400 m-0">這裡會對應任務的預設級別，完成任務後就能依級別發放不同金幣。</p>
       </div>
 
+      <div className="rounded-xl border border-gray-100 bg-white px-5 py-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="m-0 text-sm font-semibold text-black">依子任務自動調整 EXP</p>
+            <p className="m-0 mt-1 text-xs leading-5 text-gray-400">
+              新增或刪除子任務時，自動切換任務級別。此功能預設關閉。
+            </p>
+          </div>
+          <Switch
+            checked={autoExpSettings?.enabled === true}
+            onChange={(event) => onAutoExpEnabled(event.target.checked)}
+            sx={{
+              '& .MuiSwitch-switchBase.Mui-checked': { color: '#a855f7' },
+              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#a855f7' },
+            }}
+            inputProps={{ 'aria-label': '依子任務自動調整經驗獎勵' }}
+          />
+        </div>
+
+        <div className={`mt-4 grid gap-2 sm:grid-cols-2 ${autoExpSettings?.enabled ? '' : 'opacity-45'}`}>
+          {AUTO_EXP_TIERS.map((tier) => (
+            <label key={tier.expValue} className="flex items-center justify-between gap-3 rounded-lg bg-stone-50 px-3 py-2.5">
+              <span className="text-xs font-semibold text-gray-600">{tier.label} +{tier.expValue}</span>
+              <span className="flex items-center gap-2 text-xs text-gray-400">
+                至少
+                <input
+                  type="number"
+                  min="1"
+                  disabled={!autoExpSettings?.enabled}
+                  value={autoExpSettings?.thresholds?.[String(tier.expValue)] ?? tier.defaultSubTaskCount}
+                  onChange={(event) => onUpdateAutoExpThreshold(tier.expValue, event.target.value)}
+                  className="w-16 rounded-md border border-gray-200 bg-white px-2 py-1 text-center font-bold text-black outline-none focus:border-purple-400 disabled:cursor-not-allowed"
+                />
+                個
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="m-0 mt-3 text-[11px] text-gray-400">未達第一個門檻時維持「一般 +1」；手動選擇仍可使用，下次增減子任務時會重新套用。</p>
+      </div>
+
       <div className="grid gap-3">
         {rewardSettings.map((item) => {
           const tone = TONE_CLASS[item.tone] ?? TONE_CLASS.stone
@@ -98,6 +148,16 @@ export default function RewardSettings({ rewardSettings, onUpdateRewardGold }) {
               </div>
 
               <div className="flex items-center gap-3 sm:justify-end">
+                <label className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold text-gray-500">
+                  級別顏色
+                  <input
+                    type="color"
+                    value={item.color}
+                    onChange={(e) => onUpdateRewardColor(item.expValue, e.target.value)}
+                    className="h-9 w-11 cursor-pointer rounded-lg border border-gray-200 bg-white p-1"
+                    aria-label={`${item.label}級別顏色`}
+                  />
+                </label>
                 <span className="text-sm text-gray-500 whitespace-nowrap">完成可得</span>
                 <input
                   type="text"

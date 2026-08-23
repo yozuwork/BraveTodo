@@ -36,10 +36,12 @@ import useRewardSettings from "./hooks/useRewardSettings";
 import useAuth from "./hooks/useAuth";
 import useVocabulary from "./hooks/useVocabulary";
 import useWorkFeatureVisibility from "./hooks/useWorkFeatureVisibility";
+import useTaskDisplaySettings from "./hooks/useTaskDisplaySettings";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
+import { resolveAutoExpValue } from "./utils/questAutoExp";
 
 function GoldDisplay({ gold, className = "" }) {
   return (
@@ -182,6 +184,11 @@ function parseRewardCost(cost) {
 function MainApp() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isVisible: isWorkFeatureVisible } = useWorkFeatureVisibility();
+  const {
+    showCompletedInAll,
+    cardCoverRatio,
+    setCardCoverRatio,
+  } = useTaskDisplaySettings();
 
   const {
     quests,
@@ -192,6 +199,9 @@ function MainApp() {
     removeQuestTemplate,
     toggleQuest,
     updateQuest,
+    updateQuestCover,
+    updateQuestCardMedia,
+    resetAllQuestCoverRatioOverrides,
     removeQuest,
     togglePin,
     toggleCoreTask,
@@ -227,6 +237,9 @@ function MainApp() {
     adjustGold,
     resetGold,
     level,
+    expProgress,
+    currentExp,
+    expToNextLevel,
     coreTaskProgress,
     stats,
   } = useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules);
@@ -308,7 +321,14 @@ function MainApp() {
     updateRewardTemplate,
     removeRewardTemplate,
   } = useRewardShop();
-  const { rewardSettings, updateRewardGold } = useRewardSettings();
+  const {
+    rewardSettings,
+    updateRewardGold,
+    updateRewardColor,
+    autoExpSettings,
+    setAutoExpEnabled,
+    updateAutoExpThreshold,
+  } = useRewardSettings();
   const {
     skills,
     addSkill,
@@ -526,9 +546,35 @@ function MainApp() {
   const handleAddSubTask = useCallback(
     (questId, text) => {
       rememberPhrase(text, "subtask");
+      const target = quests.find((quest) => quest.id === questId);
       addSubTask(questId, text);
+      const autoExpValue = resolveAutoExpValue((target?.subTasks?.length ?? 0) + 1, autoExpSettings);
+      if (target && autoExpValue !== null && autoExpValue !== target.expValue) {
+        handleQuestExpChange(questId, autoExpValue);
+      }
     },
-    [addSubTask, rememberPhrase],
+    [addSubTask, autoExpSettings, handleQuestExpChange, quests, rememberPhrase],
+  );
+
+  const handleAllCardCoverRatioChange = useCallback(
+    (coverRatio) => {
+      setCardCoverRatio(coverRatio);
+      resetAllQuestCoverRatioOverrides();
+    },
+    [resetAllQuestCoverRatioOverrides, setCardCoverRatio],
+  );
+
+  const handleRemoveSubTask = useCallback(
+    (questId, subTaskId) => {
+      const target = quests.find((quest) => quest.id === questId);
+      removeSubTask(questId, subTaskId);
+      const nextCount = Math.max(0, (target?.subTasks?.length ?? 0) - 1);
+      const autoExpValue = resolveAutoExpValue(nextCount, autoExpSettings);
+      if (target && autoExpValue !== null && autoExpValue !== target.expValue) {
+        handleQuestExpChange(questId, autoExpValue);
+      }
+    },
+    [autoExpSettings, handleQuestExpChange, quests, removeSubTask],
   );
 
   const handleUpdateSubTask = useCallback(
@@ -865,6 +911,9 @@ function MainApp() {
             <div className="w-full">
               <QuestHub
                 quests={quests}
+                showCompletedInAll={showCompletedInAll}
+                globalCardCoverRatio={cardCoverRatio}
+                onAllCardCoverRatioChange={handleAllCardCoverRatioChange}
                 questTemplates={questTemplates}
                 onAdd={handleAddQuest}
                 onAddFromTemplate={addQuestFromTemplate}
@@ -872,6 +921,8 @@ function MainApp() {
                 onRemoveQuestTemplate={removeQuestTemplate}
                 onToggle={toggleQuestSynced}
                 onUpdate={handleUpdateQuest}
+                onQuestCoverChange={updateQuestCover}
+                onQuestCardMediaChange={updateQuestCardMedia}
                 onRemove={removeQuest}
                 onTogglePin={togglePin}
                 onToggleCore={toggleCoreTask}
@@ -900,12 +951,19 @@ function MainApp() {
                 onRemoveLevelingRule={removeLevelingRule}
                 rewardSettings={rewardSettings}
                 onUpdateRewardGold={updateRewardGold}
+                onUpdateRewardColor={updateRewardColor}
+                autoExpSettings={autoExpSettings}
+                onAutoExpEnabled={setAutoExpEnabled}
+                onUpdateAutoExpThreshold={updateAutoExpThreshold}
                 atk={stats.atk.value}
                 onAddSubTask={handleAddSubTask}
                 onToggleSubTask={toggleSubTask}
-                onRemoveSubTask={removeSubTask}
+                onRemoveSubTask={handleRemoveSubTask}
                 onUpdateSubTask={handleUpdateSubTask}
                 currentLevel={level}
+                expProgress={expProgress}
+                currentExp={currentExp}
+                expToNextLevel={expToNextLevel}
                 avatar={currentStage.avatarSrc}
                 imagePosition={imagePosition}
                 onResetLevel={handleResetLevel}

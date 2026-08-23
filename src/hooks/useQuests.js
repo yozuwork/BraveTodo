@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
+import { compressImage } from '../utils/compressImage'
 
 const QUESTS_DOC = doc(db, 'meta', 'quests')
 
@@ -44,6 +45,20 @@ function normalizeSubTask(subTask = {}) {
   }
 }
 
+function normalizeCoverPosition(position) {
+  const x = Number(position?.x)
+  const y = Number(position?.y)
+  return {
+    x: Number.isFinite(x) ? Math.min(100, Math.max(0, x)) : 50,
+    y: Number.isFinite(y) ? Math.min(100, Math.max(0, y)) : 50,
+  }
+}
+
+function normalizeCoverRatio(value) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? Math.min(180, Math.max(60, Math.round(parsed))) : 100
+}
+
 function normalizeQuest(quest = {}) {
   const status = quest.completed
     ? 'completed'
@@ -62,6 +77,11 @@ function normalizeQuest(quest = {}) {
     rewardMode: normalizeQuestRewardMode(quest.rewardMode),
     customExp: normalizeNonNegativeInt(quest.customExp, normalizeQuestExpValue(quest.expValue)),
     customGold: normalizeNonNegativeInt(quest.customGold, 0),
+    cover: typeof quest.cover === 'string' && quest.cover ? quest.cover : null,
+    coverPosition: normalizeCoverPosition(quest.coverPosition),
+    coverFit: quest.coverFit === 'contain' ? 'contain' : 'cover',
+    coverRatio: normalizeCoverRatio(quest.coverRatio),
+    coverRatioMode: quest.coverRatioMode === 'individual' ? 'individual' : 'global',
     huntBinding: quest.huntBinding ?? null,
     subTasks: Array.isArray(quest.subTasks) ? quest.subTasks.map(normalizeSubTask) : [],
   }
@@ -77,6 +97,11 @@ function normalizeQuestTemplate(template = {}) {
     rewardMode: normalizeQuestRewardMode(template.rewardMode),
     customExp: normalizeNonNegativeInt(template.customExp, normalizeQuestExpValue(template.expValue)),
     customGold: normalizeNonNegativeInt(template.customGold, 0),
+    cover: typeof template.cover === 'string' && template.cover ? template.cover : null,
+    coverPosition: normalizeCoverPosition(template.coverPosition),
+    coverFit: template.coverFit === 'contain' ? 'contain' : 'cover',
+    coverRatio: normalizeCoverRatio(template.coverRatio),
+    coverRatioMode: template.coverRatioMode === 'individual' ? 'individual' : 'global',
     subTasks: Array.isArray(template.subTasks) ? template.subTasks.map((subTask) => ({
       id: subTask.id ?? Date.now(),
       text: subTask.text ?? '',
@@ -225,6 +250,11 @@ export default function useQuests() {
       rewardMode: source.rewardMode ?? 'tier',
       customExp: source.customExp ?? source.expValue,
       customGold: source.customGold ?? 0,
+      cover: source.cover ?? null,
+      coverPosition: source.coverPosition,
+      coverFit: source.coverFit,
+      coverRatio: source.coverRatio,
+      coverRatioMode: source.coverRatioMode,
       huntBinding: null,
       subTasks: (source.subTasks ?? []).map((subTask, index) => ({
         id: now + index + 1,
@@ -247,6 +277,11 @@ export default function useQuests() {
       rewardMode: normalizeQuestRewardMode(questLike.rewardMode),
       customExp: normalizeNonNegativeInt(questLike.customExp, normalizeQuestExpValue(questLike.expValue)),
       customGold: normalizeNonNegativeInt(questLike.customGold, 0),
+      cover: questLike.cover ?? null,
+      coverPosition: questLike.coverPosition,
+      coverFit: questLike.coverFit,
+      coverRatio: questLike.coverRatio,
+      coverRatioMode: questLike.coverRatioMode,
       subTasks: Array.isArray(questLike.subTasks)
         ? questLike.subTasks.map((subTask) => ({ text: subTask.text ?? '', completed: false }))
         : [],
@@ -374,6 +409,49 @@ export default function useQuests() {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, text: trimmed } : q)))
   }, [])
 
+  const updateQuestCover = useCallback((id, file) => {
+    if (!file) {
+      setQuests((prev) => prev.map((quest) => (quest.id === id ? { ...quest, cover: null } : quest)))
+      return
+    }
+    if (typeof file === 'string') {
+      setQuests((prev) => prev.map((quest) => (quest.id === id ? { ...quest, cover: file } : quest)))
+      return
+    }
+    compressImage(file, 900, 0.78, true)
+      .then((cover) => {
+        setQuests((prev) => prev.map((quest) => (quest.id === id ? { ...quest, cover } : quest)))
+      })
+      .catch(console.error)
+  }, [])
+
+  const updateQuestCardMedia = useCallback((id, changes) => {
+    setQuests((prev) => prev.map((quest) => {
+      if (quest.id !== id) return quest
+      return {
+        ...quest,
+        coverPosition: Object.prototype.hasOwnProperty.call(changes, 'coverPosition')
+          ? normalizeCoverPosition(changes.coverPosition)
+          : quest.coverPosition,
+        coverFit: Object.prototype.hasOwnProperty.call(changes, 'coverFit')
+          ? (changes.coverFit === 'contain' ? 'contain' : 'cover')
+          : quest.coverFit,
+        coverRatio: Object.prototype.hasOwnProperty.call(changes, 'coverRatio')
+          ? normalizeCoverRatio(changes.coverRatio)
+          : quest.coverRatio,
+        coverRatioMode: Object.prototype.hasOwnProperty.call(changes, 'coverRatioMode')
+          ? (changes.coverRatioMode === 'individual' ? 'individual' : 'global')
+          : Object.prototype.hasOwnProperty.call(changes, 'coverRatio')
+            ? 'individual'
+            : quest.coverRatioMode,
+      }
+    }))
+  }, [])
+
+  const resetAllQuestCoverRatioOverrides = useCallback(() => {
+    setQuests((prev) => prev.map((quest) => ({ ...quest, coverRatioMode: 'global' })))
+  }, [])
+
   const toggleCoreTask = useCallback((id) => {
     setQuests((prev) =>
       prev.map((q) => ({
@@ -467,6 +545,9 @@ export default function useQuests() {
     toggleQuest,
     setQuestCompleted,
     updateQuest,
+    updateQuestCover,
+    updateQuestCardMedia,
+    resetAllQuestCoverRatioOverrides,
     removeQuest,
     togglePin,
     toggleCoreTask,

@@ -149,7 +149,7 @@ function normalizeNonNegativeInt(value, fallback = 0) {
 }
 
 export default function QuestItem({
-  quest, onSaveTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
+  quest, expColor, onSaveTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetStatus, onSetExp,
   onUpdateRewardConfig,
   onDemoteToInbox,
@@ -433,9 +433,10 @@ export default function QuestItem({
             <button
               onClick={() => onSetExp(quest.id, EXP_CYCLE[effectiveExp])}
               title={isSpecialQuest && rewardMode === 'custom' ? `目前使用自訂獎勵：EXP ${customExp} / ${customGold} 金` : `經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）`}
-              className={`order-3 sm:order-none shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${mobileEditOnlyInline} ${
+              className={`quest-exp-badge order-3 sm:order-none shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${mobileEditOnlyInline} ${
                 isSpecialQuest && rewardMode === 'custom' ? 'bg-purple-50 text-purple-600 hover:bg-purple-100' : EXP_STYLE[effectiveExp]
               }`}
+              style={{ '--quest-exp-color': isSpecialQuest && rewardMode === 'custom' ? '#a855f7' : expColor }}
             >
               {isSpecialQuest && rewardMode === 'custom' ? `自訂獎勵` : `${EXP_LABEL[effectiveExp]} ${EXP_POINTS[effectiveExp]}`}
             </button>
@@ -470,7 +471,7 @@ export default function QuestItem({
               }}
             >
               {quest.text}
-              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-400 md:hidden">
+              <span className="quest-exp-badge ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-400 md:hidden" style={{ '--quest-exp-color': isSpecialQuest && rewardMode === 'custom' ? '#a855f7' : expColor }}>
                 {rewardBadgeText}
               </span>
               {subTasks.length > 0 && (
