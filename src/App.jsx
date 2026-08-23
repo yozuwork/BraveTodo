@@ -5,12 +5,12 @@ import PublicIcon from "@mui/icons-material/Public";
 import SettingsIcon from "@mui/icons-material/Settings";
 import TuneIcon from "@mui/icons-material/Tune";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import SportsMartialArtsIcon from "@mui/icons-material/SportsMartialArts";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import RedeemOutlinedIcon from "@mui/icons-material/RedeemOutlined";
-import LogoutIcon from "@mui/icons-material/Logout";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
@@ -640,10 +640,24 @@ function MainApp() {
   const activeTab = searchParams.get("tab") || "Tasks";
 
   useEffect(() => {
-    if (activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && !isWorkFeatureVisible(activeTab)) {
+    if (activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && activeTab !== 'Character' && !isWorkFeatureVisible(activeTab)) {
       setSearchParams({})
     }
   }, [activeTab, isWorkFeatureVisible, setSearchParams])
+
+  useEffect(() => {
+    if (activeTab !== 'Character') return undefined
+    const desktopViewport = window.matchMedia('(min-width: 768px)')
+    const leaveMobileCharacterTab = (event) => {
+      if (event.matches) setSearchParams({})
+    }
+    if (desktopViewport.matches) {
+      setSearchParams({})
+      return undefined
+    }
+    desktopViewport.addEventListener('change', leaveMobileCharacterTab)
+    return () => desktopViewport.removeEventListener('change', leaveMobileCharacterTab)
+  }, [activeTab, setSearchParams])
 
   const handleTabChange = useCallback(
     (tab) => {
@@ -966,6 +980,14 @@ function MainApp() {
                 expToNextLevel={expToNextLevel}
                 avatar={currentStage.avatarSrc}
                 imagePosition={imagePosition}
+                onAvatarChange={(file) => {
+                  if ((currentStage.avatarIds?.length ?? 0) > 0) {
+                    replaceStageAvatar(currentStage.id, 0, file)
+                  } else {
+                    updateStageAvatar(currentStage.id, file)
+                  }
+                }}
+                onImagePositionChange={updateImagePosition}
                 onResetLevel={handleResetLevel}
                 monsters={monsters}
                 onAddMonster={addMonster}
@@ -1211,6 +1233,7 @@ function UserMenu({ user, signIn, logOut, onClose, mobile = false }) {
 function Layout({ user, signIn, logOut }) {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [showWorkMoreMenu, setShowWorkMoreMenu] = useState(false)
   const { isVisible: isWorkFeatureVisible } = useWorkFeatureVisibility()
   const location = useLocation()
   const activeWorkTab = new URLSearchParams(location.search).get("tab") || "Tasks"
@@ -1224,6 +1247,7 @@ function Layout({ user, signIn, logOut }) {
   const closeMenus = () => {
     setShowUserMenu(false)
     setShowMoreMenu(false)
+    setShowWorkMoreMenu(false)
   }
 
   return (
@@ -1278,22 +1302,34 @@ function Layout({ user, signIn, logOut }) {
         )}
       </header>
       <header className="mobile-app-header sticky top-0 z-50 flex h-[72px] items-center justify-between border-b border-slate-100 bg-white px-5 md:hidden">
-        <button
-          type="button"
-          onClick={() => { setShowUserMenu(false); setShowMoreMenu((value) => !value) }}
-          className="flex h-10 w-10 items-center justify-start bg-transparent text-slate-500"
-          aria-label="開啟選單"
-        >
-          <MenuIcon sx={{ fontSize: 25 }} />
-        </button>
-        <div className="app-brand-mark flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-2xl font-black text-purple-600">米</div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => { setShowUserMenu(false); setShowWorkMoreMenu(false); setShowMoreMenu((value) => !value) }}
+            className="flex h-10 w-10 items-center justify-start bg-transparent text-slate-500"
+            aria-label="開啟選單"
+          >
+            <MenuIcon sx={{ fontSize: 25 }} />
+          </button>
+          {isWorkPage && (
+            <Link
+              to="/work?tab=Character"
+              onClick={closeMenus}
+              className={`mobile-character-tab rounded-lg px-3 py-2 text-sm font-extrabold transition-colors ${activeWorkTab === 'Character' ? 'is-active bg-black text-white' : 'text-slate-600 hover:bg-gray-100'}`}
+              aria-current={activeWorkTab === 'Character' ? 'page' : undefined}
+            >
+              角色
+            </Link>
+          )}
+        </div>
+        <div className="app-brand-mark absolute left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-xl bg-purple-50 text-2xl font-black text-purple-600">米</div>
         <div className="flex items-center gap-3">
           <button type="button" className="text-slate-500" aria-label="通知">
             <NotificationsNoneOutlinedIcon sx={{ fontSize: 24 }} />
           </button>
           <button
             type="button"
-            onClick={() => { setShowMoreMenu(false); setShowUserMenu((value) => !value) }}
+            onClick={() => { setShowMoreMenu(false); setShowWorkMoreMenu(false); setShowUserMenu((value) => !value) }}
             className="h-9 w-9 overflow-hidden rounded-full border-2 border-slate-200"
           >
             <UserAvatar user={user} />
@@ -1312,31 +1348,75 @@ function Layout({ user, signIn, logOut }) {
         </nav>
       )}
       {isWorkPage ? (
-        <nav className="mobile-bottom-nav fixed inset-x-0 bottom-0 z-50 flex h-[76px] border-t border-slate-100 bg-white px-2 pb-2 pt-1 md:hidden">
-          {WORK_MOBILE_TABS.filter((item) => isWorkFeatureVisible(item.tab)).map((item) => {
-            const active = activeWorkTab === item.tab || (item.tab === 'Hunt' && activeWorkTab === 'HuntMission')
-            return (
-              <Link
-                key={item.tab}
-                to={`/work?tab=${item.tab}`}
-                onClick={closeMenus}
-                className={mobileNavItemClass(active)}
-              >
-                {item.icon}
-                <span className="text-[0.65rem] font-semibold">{item.label}</span>
-              </Link>
-            )
-          })}
-          <Link
-            to="/gallery"
-            onClick={closeMenus}
-            className={mobileNavItemClass(false)}
-          >
-            <PublicIcon sx={{ fontSize: 20 }} />
-            <span className="text-[0.65rem] font-semibold">圖庫</span>
-          </Link>
-        </nav>
-      ) : (
+        <>
+          {showWorkMoreMenu && (
+            <>
+              <button
+                type="button"
+                aria-label="關閉更多 LIFE 功能"
+                className="fixed inset-0 z-[48] hidden border-0 bg-black/20 md:hidden max-md:block"
+                onClick={() => setShowWorkMoreMenu(false)}
+              />
+              <div className="mobile-more-menu mobile-work-overflow-menu fixed inset-x-3 bottom-[84px] z-[49] grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-[0_12px_32px_rgba(15,23,42,0.18)] md:hidden">
+                {WORK_TABS.filter((item) => item.tab !== 'Tasks' && isWorkFeatureVisible(item.tab)).map((item) => {
+                  const active = activeWorkTab === item.tab || (item.tab === 'Hunt' && activeWorkTab === 'HuntMission')
+                  return (
+                    <Link
+                      key={item.tab}
+                      to={`/work?tab=${item.tab}`}
+                      onClick={closeMenus}
+                      className={`flex min-w-0 items-center gap-2 rounded-xl px-3 py-3 text-sm font-bold ${active ? 'bg-purple-50 text-purple-btn' : 'text-gray-600 hover:bg-gray-50'}`}
+                    >
+                      {item.icon}
+                      <span className="truncate">{item.label}</span>
+                    </Link>
+                  )
+                })}
+                <Link
+                  to="/work?tab=CharacterSettings"
+                  onClick={closeMenus}
+                  className={`flex min-w-0 items-center gap-2 rounded-xl px-3 py-3 text-sm font-bold ${activeWorkTab === 'CharacterSettings' ? 'bg-purple-50 text-purple-btn' : 'text-gray-600 hover:bg-gray-50'}`}
+                >
+                  <TuneIcon sx={{ fontSize: 18 }} />
+                  <span className="truncate">角色設定</span>
+                </Link>
+              </div>
+            </>
+          )}
+          <nav className="mobile-bottom-nav mobile-work-bottom-nav fixed inset-x-0 bottom-0 z-50 flex h-[76px] overflow-hidden border-t border-slate-100 bg-white pb-2 pt-1 md:hidden">
+            <div className="flex min-w-0 flex-1 overflow-hidden">
+              {WORK_MOBILE_TABS.filter((item) => isWorkFeatureVisible(item.tab)).map((item) => {
+                const active = activeWorkTab === item.tab || (item.tab === 'Hunt' && activeWorkTab === 'HuntMission')
+                return (
+                  <Link
+                    key={item.tab}
+                    to={`/work?tab=${item.tab}`}
+                    onClick={closeMenus}
+                    className={`${mobileNavItemClass(active)} mobile-work-nav-primary`}
+                  >
+                    {item.icon}
+                    <span className="max-w-full truncate text-[0.65rem] font-semibold">{item.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+            <button
+              type="button"
+              aria-expanded={showWorkMoreMenu}
+              aria-label="更多 LIFE 功能"
+              onClick={() => {
+                setShowUserMenu(false)
+                setShowMoreMenu(false)
+                setShowWorkMoreMenu((value) => !value)
+              }}
+              className={`mobile-work-more-button flex w-[64px] shrink-0 flex-col items-center justify-center gap-0.5 border-0 border-l border-gray-200 bg-white ${showWorkMoreMenu || WORK_MORE_TABS.some((item) => item.tab === activeWorkTab) || activeWorkTab === 'CharacterSettings' ? 'is-active text-purple-btn' : 'text-gray-600'}`}
+            >
+              <ChevronRightIcon sx={{ fontSize: 25 }} className={showWorkMoreMenu ? 'rotate-90' : ''} />
+              <span className="text-[0.65rem] font-semibold">更多</span>
+            </button>
+          </nav>
+        </>
+      ) : isLifeSection ? (
       <nav className="mobile-bottom-nav fixed bottom-4 left-5 right-5 z-50 md:hidden bg-white/95 border border-gray-200 shadow-[0_12px_32px_rgba(15,23,42,0.14)] flex h-16 rounded-full p-1.5 backdrop-blur">
         <TopLevelNavLink
           to="/work"
@@ -1369,57 +1449,30 @@ function Layout({ user, signIn, logOut }) {
           <span className="text-[0.65rem] font-semibold">更多</span>
         </button>
       </nav>
-      )}
+      ) : null}
       {showMoreMenu && (
         <div className="mobile-more-menu mobile-fullscreen-menu fixed inset-x-0 bottom-0 top-[72px] z-50 flex flex-col overflow-y-auto bg-white p-5 md:hidden">
           <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-4">
             <div>
               <p className="m-0 text-lg font-extrabold text-gray-900">功能選單</p>
-              <p className="m-0 mt-1 text-xs text-gray-400">LIFE 任務與系統功能</p>
+              <p className="m-0 mt-1 text-xs text-gray-400">選擇主要分頁</p>
             </div>
             <button type="button" onClick={closeMenus} className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-xl text-gray-600" aria-label="關閉選單">×</button>
           </div>
-          <NavLink
+          <TopLevelNavLink
             to="/work"
+            active={isLifeSection}
             onClick={closeMenus}
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${location.pathname === '/work' && activeWorkTab === 'Tasks' ? 'text-purple-btn bg-purple-50' : 'text-gray-600 hover:bg-gray-50'}`}
+            className={`flex items-center gap-3 rounded-xl px-4 py-4 text-base font-bold transition-colors ${isLifeSection ? 'text-purple-btn bg-purple-50' : 'text-gray-700 hover:bg-gray-50'}`}
           >
             <TaskAltIcon sx={{ fontSize: 20 }} />
-            任務
-          </NavLink>
-          {WORK_MORE_TABS.filter((item) => isWorkFeatureVisible(item.tab)).map((item) => (
-            <NavLink
-              key={item.tab}
-              to={`/work?tab=${item.tab}`}
-              onClick={closeMenus}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
-                location.pathname === "/work" && activeWorkTab === item.tab
-                  ? "text-purple-btn bg-purple-50"
-                  : "text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
-          <div className="my-2 border-t border-gray-100" />
-          <NavLink
-            to="/work?tab=CharacterSettings"
-            onClick={closeMenus}
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
-              location.pathname === '/work' && activeWorkTab === 'CharacterSettings'
-                ? 'text-purple-btn bg-purple-50'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            <TuneIcon sx={{ fontSize: 20 }} />
-            角色設定
-          </NavLink>
+            LIFE 任務
+          </TopLevelNavLink>
           <NavLink
             to="/gallery"
             onClick={closeMenus}
-            className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-colors ${
-              location.pathname === '/gallery' ? 'text-purple-btn bg-purple-50' : 'text-gray-600 hover:bg-gray-50'
+            className={`flex items-center gap-3 rounded-xl px-4 py-4 text-base font-bold transition-colors ${
+              location.pathname === '/gallery' ? 'text-purple-btn bg-purple-50' : 'text-gray-700 hover:bg-gray-50'
             }`}
           >
             <PublicIcon sx={{ fontSize: 20 }} />
@@ -1428,31 +1481,15 @@ function Layout({ user, signIn, logOut }) {
           <NavLink
             to="/system-settings"
             onClick={closeMenus}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${
+            className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-bold transition-colors ${
               location.pathname === "/system-settings"
                 ? "text-purple-btn bg-purple-50"
-                : "text-gray-600 hover:bg-gray-50"
+                : "text-gray-700 hover:bg-gray-50"
             }`}
           >
-            <SettingsIcon sx={{ fontSize: 18 }} />
-            系統
+            <SettingsIcon sx={{ fontSize: 20 }} />
+            系統設定
           </NavLink>
-          <div className="my-2 border-t border-gray-100" />
-          <div className="px-3 py-2">
-            <p className="text-xs font-semibold text-gray-800 truncate">{user.displayName}</p>
-            <p className="text-[0.7rem] text-gray-400 truncate">{user.email}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              closeMenus()
-              logOut()
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors bg-transparent border-none"
-          >
-            <LogoutIcon sx={{ fontSize: 18 }} />
-            登出
-          </button>
         </div>
       )}
       {showUserMenu && (

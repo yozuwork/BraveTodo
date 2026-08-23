@@ -6,6 +6,10 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined'
 import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined'
 import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined'
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
+import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
+import CloseIcon from '@mui/icons-material/Close'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
@@ -24,7 +28,9 @@ import CharacterSettings from './CharacterSettings'
 import VocabularyInput from '../common/VocabularyInput'
 import { resolveCurrentStage } from '../../hooks/useStages'
 
-const AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size'
+const LEGACY_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size'
+const DESKTOP_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size:desktop'
+const MOBILE_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size:mobile'
 const QUEST_VIEW_KEY = 'brave-todo:quest-view'
 const QUEST_CARD_SIZE_KEY = 'brave-todo:quest-card-size'
 
@@ -55,17 +61,65 @@ function ComicExperienceBar({ level, progress, currentExp, expToNextLevel }) {
   )
 }
 
-function ResizableWorkAvatar({ avatar, imagePosition }) {
-  const [size, setSize] = useState(() => {
+function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePositionChange }) {
+  const readSavedSize = (key, fallback, legacyKey = null) => {
     try {
-      const stored = JSON.parse(localStorage.getItem(AVATAR_SIZE_KEY) || 'null')
+      const stored = JSON.parse(localStorage.getItem(key) || (legacyKey ? localStorage.getItem(legacyKey) : 'null') || 'null')
       if (stored?.width && stored?.height) return stored
     } catch {
       // Use the default size if the saved value is malformed.
     }
-    return { width: 168, height: 168 }
-  })
+    return fallback
+  }
+  const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  const [desktopSize, setDesktopSize] = useState(() => readSavedSize(DESKTOP_AVATAR_SIZE_KEY, { width: 168, height: 168 }, LEGACY_AVATAR_SIZE_KEY))
+  const [mobileSize, setMobileSize] = useState(() => readSavedSize(MOBILE_AVATAR_SIZE_KEY, { width: 168, height: 168 }))
+  const size = isMobileViewport ? mobileSize : desktopSize
   const resizeRef = useRef(null)
+  const editorPreviewRef = useRef(null)
+  const editorDragRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const [editorOpen, setEditorOpen] = useState(false)
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)')
+    const syncViewport = (event) => setIsMobileViewport(event.matches)
+    setIsMobileViewport(media.matches)
+    media.addEventListener('change', syncViewport)
+    return () => media.removeEventListener('change', syncViewport)
+  }, [])
+
+  const startImageDrag = (event) => {
+    event.preventDefault()
+    event.currentTarget.setPointerCapture(event.pointerId)
+    editorDragRef.current = {
+      startX: event.clientX,
+      startY: event.clientY,
+      positionX: imagePosition?.x ?? 50,
+      positionY: imagePosition?.y ?? 50,
+    }
+  }
+
+  const dragImage = (event) => {
+    if (!editorDragRef.current || !editorPreviewRef.current) return
+    const rect = editorPreviewRef.current.getBoundingClientRect()
+    const nextX = Math.min(100, Math.max(0, editorDragRef.current.positionX - ((event.clientX - editorDragRef.current.startX) / rect.width) * 100))
+    const nextY = Math.min(100, Math.max(0, editorDragRef.current.positionY - ((event.clientY - editorDragRef.current.startY) / rect.height) * 100))
+    onImagePositionChange?.({ x: nextX, y: nextY })
+  }
+
+  const stopImageDrag = () => {
+    editorDragRef.current = null
+  }
+
+  const downloadAvatar = () => {
+    if (!avatar) return
+    const link = document.createElement('a')
+    link.href = avatar
+    link.download = 'character-avatar.jpg'
+    link.rel = 'noopener'
+    link.click()
+  }
 
   const startResize = (event) => {
     event.preventDefault()
@@ -76,24 +130,31 @@ function ResizableWorkAvatar({ avatar, imagePosition }) {
       startY: event.clientY,
       width: size.width,
       height: size.height,
+      mode: isMobileViewport ? 'mobile' : 'desktop',
     }
   }
 
   const resize = (event) => {
     if (!resizeRef.current) return
+    const viewportMaxWidth = Math.max(150, Math.min(520, window.innerWidth - 48))
     const next = {
-      width: Math.min(520, Math.max(130, resizeRef.current.width + event.clientX - resizeRef.current.startX)),
-      height: Math.min(420, Math.max(110, resizeRef.current.height + event.clientY - resizeRef.current.startY)),
+      width: Math.min(viewportMaxWidth, Math.max(130, resizeRef.current.width + event.clientX - resizeRef.current.startX)),
+      height: Math.min(520, Math.max(110, resizeRef.current.height + event.clientY - resizeRef.current.startY)),
     }
     resizeRef.current.next = next
-    setSize(next)
+    if (resizeRef.current.mode === 'mobile') {
+      setMobileSize(next)
+    } else {
+      setDesktopSize(next)
+    }
   }
 
   const finishResize = () => {
     if (!resizeRef.current) return
     const finalSize = resizeRef.current.next ?? size
+    const storageKey = resizeRef.current.mode === 'mobile' ? MOBILE_AVATAR_SIZE_KEY : DESKTOP_AVATAR_SIZE_KEY
     resizeRef.current = null
-    localStorage.setItem(AVATAR_SIZE_KEY, JSON.stringify(finalSize))
+    localStorage.setItem(storageKey, JSON.stringify(finalSize))
   }
 
   return (
@@ -105,17 +166,82 @@ function ResizableWorkAvatar({ avatar, imagePosition }) {
       onPointerCancel={finishResize}
     >
       {avatar && (
-        <img src={avatar} alt="米莉亞" className="h-full w-full object-cover" style={{ objectPosition: `${imagePosition?.x ?? 50}% ${imagePosition?.y ?? 50}%` }} draggable={false} />
+        <img
+          src={avatar}
+          alt="米莉亞"
+          className="h-full w-full cursor-pointer object-cover"
+          style={{ objectPosition: `${imagePosition?.x ?? 50}% ${imagePosition?.y ?? 50}%` }}
+          onClick={() => setEditorOpen(true)}
+          title="點擊編輯大頭貼"
+          draggable={false}
+        />
       )}
       <button
         type="button"
         onPointerDown={startResize}
-        className="work-avatar-resize-handle absolute bottom-0 right-0 hidden h-7 w-7 cursor-nwse-resize items-end justify-end bg-black/55 p-1 text-white md:flex"
+        className="work-avatar-resize-handle absolute bottom-0 right-0 z-20 flex h-9 w-9 touch-none cursor-nwse-resize items-end justify-end bg-black/70 p-1.5 text-white"
+        onClick={(event) => event.stopPropagation()}
         title="拖曳調整頭像寬高"
         aria-label="調整頭像寬高"
       >
         <span className="block h-2.5 w-2.5 border-b-2 border-r-2 border-white" />
       </button>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          if (file) onAvatarChange?.(file)
+          event.target.value = ''
+        }}
+      />
+
+      <Dialog open={editorOpen} onClose={() => setEditorOpen(false)} fullWidth maxWidth="xs">
+        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+          <div>
+            <p className="m-0 text-base font-extrabold text-slate-900">編輯大頭貼</p>
+            <p className="m-0 mt-1 text-xs text-slate-400">拖曳圖片調整顯示位置</p>
+          </div>
+          <button type="button" onClick={() => setEditorOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-slate-600" aria-label="關閉大頭貼編輯">
+            <CloseIcon sx={{ fontSize: 19 }} />
+          </button>
+        </div>
+        <div className="p-5">
+          <div
+            ref={editorPreviewRef}
+            className="relative aspect-square w-full touch-none overflow-hidden rounded-xl border-2 border-slate-900 bg-slate-100 cursor-grab active:cursor-grabbing"
+            onPointerDown={startImageDrag}
+            onPointerMove={dragImage}
+            onPointerUp={stopImageDrag}
+            onPointerCancel={stopImageDrag}
+          >
+            {avatar && (
+              <img
+                src={avatar}
+                alt="大頭貼預覽"
+                className="pointer-events-none h-full w-full select-none object-cover"
+                style={{ objectPosition: `${imagePosition?.x ?? 50}% ${imagePosition?.y ?? 50}%` }}
+                draggable={false}
+              />
+            )}
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-2">
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-1 rounded-xl border border-gray-300 px-2 py-2.5 text-xs font-bold text-slate-700 hover:bg-gray-50">
+              <UploadFileOutlinedIcon sx={{ fontSize: 17 }} />更換
+            </button>
+            <button type="button" onClick={() => avatar && window.open(avatar, '_blank', 'noopener,noreferrer')} disabled={!avatar} className="flex items-center justify-center gap-1 rounded-xl border border-gray-300 px-2 py-2.5 text-xs font-bold text-slate-700 hover:bg-gray-50 disabled:opacity-40">
+              <VisibilityOutlinedIcon sx={{ fontSize: 17 }} />查看
+            </button>
+            <button type="button" onClick={downloadAvatar} disabled={!avatar} className="flex items-center justify-center gap-1 rounded-xl border border-gray-300 px-2 py-2.5 text-xs font-bold text-slate-700 hover:bg-gray-50 disabled:opacity-40">
+              <DownloadOutlinedIcon sx={{ fontSize: 17 }} />下載
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   )
 }
@@ -144,7 +270,7 @@ export default function QuestHub({
   autoExpSettings, onAutoExpEnabled, onUpdateAutoExpThreshold,
   atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
-  currentLevel, expProgress, currentExp, expToNextLevel, avatar, imagePosition, onResetLevel,
+  currentLevel, expProgress, currentExp, expToNextLevel, avatar, imagePosition, onAvatarChange, onImagePositionChange, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
   onStartHunt, onStopHunt,
   onStartStageBossHunt, onStopStageBossHunt, onCompleteStageBossHunt,
@@ -168,6 +294,7 @@ export default function QuestHub({
   const [inputValue, setInputValue] = useState('')
   const [inboxInput, setInboxInput] = useState('')
   const [mobileComposerOpen, setMobileComposerOpen] = useState(false)
+  const [mobileActionMenuOpen, setMobileActionMenuOpen] = useState(false)
   const [questTemplateDialogOpen, setQuestTemplateDialogOpen] = useState(false)
   const [questTemplateSavedNotice, setQuestTemplateSavedNotice] = useState(false)
   const [taskFilter, setTaskFilter] = useState('all')
@@ -342,9 +469,9 @@ export default function QuestHub({
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5">
       {activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && (
-      <section className="work-character-summary flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:flex-row md:items-stretch">
+      <section className={`work-character-summary flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:flex-row md:items-stretch ${activeTab === 'Character' ? 'flex' : 'hidden md:flex'}`}>
         <div className="flex min-w-0 flex-1 flex-col gap-4 p-3 md:flex-row md:gap-0 md:p-0">
-          <ResizableWorkAvatar avatar={avatar} imagePosition={imagePosition} />
+          <ResizableWorkAvatar avatar={avatar} imagePosition={imagePosition} onAvatarChange={onAvatarChange} onImagePositionChange={onImagePositionChange} />
           <div className="flex min-w-0 flex-1 flex-col md:px-7 md:py-4">
             <div className="flex min-w-0 flex-1 flex-col gap-4 md:flex-row md:items-center md:gap-7">
               <div className="min-w-0 py-1">
@@ -377,7 +504,7 @@ export default function QuestHub({
           </div>
         </div>
         {activeTab === 'Tasks' && (
-          <div className="flex flex-col gap-2 border-t border-slate-100 p-3 md:w-[220px] md:justify-start md:border-l md:border-t-0 md:p-6">
+          <div className="hidden flex-col gap-2 border-t border-slate-100 p-3 md:flex md:w-[220px] md:justify-start md:border-l md:border-t-0 md:p-6">
             <button
               type="button"
               onClick={handleOpenQuestComposer}
@@ -397,6 +524,50 @@ export default function QuestHub({
           </div>
         )}
       </section>
+      )}
+
+      {activeTab === 'Tasks' && (
+        <div className="fixed bottom-[94px] right-4 z-40 flex flex-col items-end gap-2 md:hidden">
+          {mobileActionMenuOpen && (
+            <div className="flex flex-col items-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionMenuOpen(false)
+                  handleOpenQuestComposer()
+                }}
+                className="mobile-quest-fab-action flex h-12 items-center overflow-hidden rounded-full border border-slate-300 bg-white pl-5 text-sm font-extrabold text-slate-900 shadow-lg"
+              >
+                <span>新增任務</span>
+                <span className="ml-4 flex h-12 w-12 items-center justify-center rounded-full border-l border-slate-300 bg-white">
+                  <AddIcon sx={{ fontSize: 24 }} />
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileActionMenuOpen(false)
+                  setQuestTemplateDialogOpen(true)
+                }}
+                className="mobile-quest-fab-action flex h-12 items-center overflow-hidden rounded-full border border-slate-300 bg-white pl-5 text-sm font-extrabold text-slate-900 shadow-lg"
+              >
+                <span>模板任務</span>
+                <span className="ml-4 flex h-12 w-12 items-center justify-center rounded-full border-l border-slate-300 bg-white">
+                  <LibraryBooksOutlinedIcon sx={{ fontSize: 21 }} />
+                </span>
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setMobileActionMenuOpen((value) => !value)}
+            className={`mobile-fab flex h-16 w-16 items-center justify-center rounded-full border-2 border-white bg-black text-white shadow-[0_10px_24px_rgba(0,0,0,0.28)] transition-transform ${mobileActionMenuOpen ? 'rotate-45' : ''}`}
+            aria-expanded={mobileActionMenuOpen}
+            aria-label={mobileActionMenuOpen ? '關閉任務選單' : '開啟任務選單'}
+          >
+            <AddIcon sx={{ fontSize: 36 }} />
+          </button>
+        </div>
       )}
 
       {activeTab === 'Tasks' && (
@@ -680,7 +851,7 @@ export default function QuestHub({
               questTemplates.map((template) => (
                 <div
                   key={template.id}
-                  className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 transition-colors hover:border-purple-200 hover:bg-purple-50/40"
+                  className="quest-template-card w-full rounded-2xl border border-gray-200 bg-white px-4 py-4 transition-colors hover:border-purple-200 hover:bg-purple-50/40"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <button
@@ -689,7 +860,7 @@ export default function QuestHub({
                         onAddFromTemplate(template.id)
                         setQuestTemplateDialogOpen(false)
                       }}
-                      className="min-w-0 flex-1 text-left"
+                      className="quest-template-apply min-w-0 flex-1 text-left"
                     >
                       <p className="m-0 text-sm font-bold text-black">{template.name}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
@@ -708,7 +879,7 @@ export default function QuestHub({
                       <p className="m-0 mt-2 text-xs text-gray-400 line-clamp-2">{template.text}</p>
                     </button>
                     <div className="flex items-center gap-2">
-                      <span className="shrink-0 rounded-full border border-purple-100 bg-purple-50 px-2.5 py-1 text-[10px] font-bold text-purple-700">
+                      <span className="quest-template-use-label shrink-0 rounded-full border border-purple-100 bg-purple-50 px-2.5 py-1 text-[10px] font-bold text-purple-700">
                         套用
                       </span>
                       <button
