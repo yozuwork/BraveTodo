@@ -5,7 +5,8 @@ import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import DeleteSweepOutlinedIcon from '@mui/icons-material/DeleteSweepOutlined'
 import ViewListOutlinedIcon from '@mui/icons-material/ViewListOutlined'
-import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined'
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
+import FitScreenOutlinedIcon from '@mui/icons-material/FitScreenOutlined'
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
@@ -14,7 +15,6 @@ import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
 import QuestItem from './QuestItem'
-import QuestCard from './QuestCard'
 import QuestDetailDrawer from './QuestDetailDrawer'
 import InboxItem from './InboxItem'
 import HuntTab from './HuntTab'
@@ -26,13 +26,14 @@ import NpcTab from './NpcTab'
 import RewardShopTab from './RewardShopTab'
 import CharacterSettings from './CharacterSettings'
 import VocabularyInput from '../common/VocabularyInput'
+import QuestCanvasView from './QuestCanvasView'
 import { resolveCurrentStage } from '../../hooks/useStages'
 
 const LEGACY_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size'
 const DESKTOP_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size:desktop'
 const MOBILE_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size:mobile'
 const QUEST_VIEW_KEY = 'brave-todo:quest-view'
-const QUEST_CARD_SIZE_KEY = 'brave-todo:quest-card-size'
+const AVATAR_FIT_KEY = 'brave-todo:work-avatar-fit'
 
 function ComicExperienceBar({ level, progress, currentExp, expToNextLevel }) {
   const safeProgress = Math.min(100, Math.max(0, Number(progress) || 0))
@@ -80,6 +81,13 @@ function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePos
   const editorDragRef = useRef(null)
   const fileInputRef = useRef(null)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [imageFit, setImageFit] = useState(() => localStorage.getItem(AVATAR_FIT_KEY) === 'contain' ? 'contain' : 'cover')
+  const toggleImageFit = () => {
+    const next = imageFit === 'contain' ? 'cover' : 'contain'
+    setImageFit(next)
+    localStorage.setItem(AVATAR_FIT_KEY, next)
+  }
+  const fitClass = imageFit === 'contain' ? 'object-contain' : 'object-cover'
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)')
@@ -159,8 +167,8 @@ function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePos
 
   return (
     <div
-      className="work-character-avatar relative shrink-0 overflow-hidden rounded-xl bg-purple-50 md:rounded-none"
-      style={{ width: size.width, height: size.height }}
+      className={`work-character-avatar relative shrink-0 overflow-hidden rounded-xl md:rounded-none ${imageFit === 'contain' ? 'bg-black' : 'bg-purple-50'}`}
+      style={{ width: isMobileViewport ? size.width : '100%', height: size.height }}
       onPointerMove={resize}
       onPointerUp={finishResize}
       onPointerCancel={finishResize}
@@ -169,7 +177,7 @@ function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePos
         <img
           src={avatar}
           alt="米莉亞"
-          className="h-full w-full cursor-pointer object-cover"
+          className={`h-full w-full cursor-pointer ${fitClass}`}
           style={{ objectPosition: `${imagePosition?.x ?? 50}% ${imagePosition?.y ?? 50}%` }}
           onClick={() => setEditorOpen(true)}
           title="點擊編輯大頭貼"
@@ -187,23 +195,22 @@ function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePos
         <span className="block h-2.5 w-2.5 border-b-2 border-r-2 border-white" />
       </button>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          if (file) onAvatarChange?.(file)
-          event.target.value = ''
-        }}
-      />
-
       <Dialog open={editorOpen} onClose={() => setEditorOpen(false)} fullWidth maxWidth="xs">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            if (file) onAvatarChange?.(file)
+            event.target.value = ''
+          }}
+        />
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <div>
             <p className="m-0 text-base font-extrabold text-slate-900">編輯大頭貼</p>
-            <p className="m-0 mt-1 text-xs text-slate-400">拖曳圖片調整顯示位置</p>
+            <p className="m-0 mt-1 text-xs text-slate-400">拖曳圖片調整顯示位置，或直接 Ctrl+V 貼上圖片更換</p>
           </div>
           <button type="button" onClick={() => setEditorOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-slate-600" aria-label="關閉大頭貼編輯">
             <CloseIcon sx={{ fontSize: 19 }} />
@@ -212,7 +219,7 @@ function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePos
         <div className="p-5">
           <div
             ref={editorPreviewRef}
-            className="relative aspect-square w-full touch-none overflow-hidden rounded-xl border-2 border-slate-900 bg-slate-100 cursor-grab active:cursor-grabbing"
+            className={`relative aspect-square w-full touch-none overflow-hidden rounded-xl border-2 border-slate-900 cursor-grab active:cursor-grabbing ${imageFit === 'contain' ? 'bg-black' : 'bg-slate-100'}`}
             onPointerDown={startImageDrag}
             onPointerMove={dragImage}
             onPointerUp={stopImageDrag}
@@ -222,14 +229,26 @@ function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePos
               <img
                 src={avatar}
                 alt="大頭貼預覽"
-                className="pointer-events-none h-full w-full select-none object-cover"
+                className={`pointer-events-none h-full w-full select-none ${fitClass}`}
                 style={{ objectPosition: `${imagePosition?.x ?? 50}% ${imagePosition?.y ?? 50}%` }}
                 draggable={false}
               />
             )}
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={toggleImageFit}
+            className={`mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border px-2 py-2.5 text-xs font-bold transition-colors ${
+              imageFit === 'contain' ? 'border-slate-900 bg-slate-900 text-white' : 'border-gray-300 text-slate-700 hover:bg-gray-50'
+            }`}
+            aria-pressed={imageFit === 'contain'}
+          >
+            <FitScreenOutlinedIcon sx={{ fontSize: 17 }} />
+            {imageFit === 'contain' ? '完整顯示中（點擊改回填滿）' : '完整顯示全部圖片'}
+          </button>
+
+          <div className="mt-2 grid grid-cols-3 gap-2">
             <button type="button" onClick={() => fileInputRef.current?.click()} className="flex items-center justify-center gap-1 rounded-xl border border-gray-300 px-2 py-2.5 text-xs font-bold text-slate-700 hover:bg-gray-50">
               <UploadFileOutlinedIcon sx={{ fontSize: 17 }} />更換
             </button>
@@ -269,7 +288,7 @@ export default function QuestHub({
   rewardSettings, onUpdateRewardGold, onUpdateRewardColor,
   autoExpSettings, onAutoExpEnabled, onUpdateAutoExpThreshold,
   atk,
-  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask,
+  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onAddSubTaskImage, onQuestCanvasPositionChange, onAddCanvasQuest,
   currentLevel, expProgress, currentExp, expToNextLevel, avatar, imagePosition, onAvatarChange, onImagePositionChange, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
   onStartHunt, onStopHunt,
@@ -289,7 +308,7 @@ export default function QuestHub({
   npcs, onNpcAdd, onNpcUpdate, onNpcRemove, onNpcCoverChange, onReorderNpcs,
   getVocabularySuggestions,
   // lifted tab state
-  activeTab, onTabChange,
+  activeTab, onTabChange, collectionTabs = [], onCollectionTabSeen,
 }) {
   const [inputValue, setInputValue] = useState('')
   const [inboxInput, setInboxInput] = useState('')
@@ -298,8 +317,7 @@ export default function QuestHub({
   const [questTemplateDialogOpen, setQuestTemplateDialogOpen] = useState(false)
   const [questTemplateSavedNotice, setQuestTemplateSavedNotice] = useState(false)
   const [taskFilter, setTaskFilter] = useState('all')
-  const [questView, setQuestView] = useState(() => localStorage.getItem(QUEST_VIEW_KEY) || 'list')
-  const [questCardSize, setQuestCardSize] = useState(() => localStorage.getItem(QUEST_CARD_SIZE_KEY) || 'medium')
+  const [questView, setQuestView] = useState(() => localStorage.getItem(QUEST_VIEW_KEY) === 'canvas' ? 'canvas' : 'list')
   const [selectedQuestId, setSelectedQuestId] = useState(null)
   const mobileInputRef = useRef(null)
   const desktopInputRef = useRef(null)
@@ -396,6 +414,11 @@ export default function QuestHub({
     }
   }, [hasActiveHunt, activeTab, onTabChange])
 
+  const isCollectionTab = collectionTabs.some((item) => item.tab === activeTab)
+  useEffect(() => {
+    if (isCollectionTab) onCollectionTabSeen?.(activeTab)
+  }, [isCollectionTab, activeTab, onCollectionTabSeen])
+
   const submitQuestInput = () => {
     if (inputValue.trim()) {
       onAdd(inputValue.trim())
@@ -461,19 +484,15 @@ export default function QuestHub({
     localStorage.setItem(QUEST_VIEW_KEY, view)
   }
 
-  const changeQuestCardSize = (size) => {
-    setQuestCardSize(size)
-    localStorage.setItem(QUEST_CARD_SIZE_KEY, size)
-  }
 
   return (
-    <div className="mobile-work-hub flex-1 flex flex-col gap-5">
+    <div className="mobile-work-hub flex-1 flex flex-col gap-5 md:flex-row md:items-start md:gap-6">
       {activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && (
-      <section className={`work-character-summary flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:flex-row md:items-stretch ${activeTab === 'Character' ? 'flex' : 'hidden md:flex'}`}>
-        <div className="flex min-w-0 flex-1 flex-col gap-4 p-3 md:flex-row md:gap-0 md:p-0">
+      <section className={`work-character-summary flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_18px_rgba(15,23,42,0.05)] md:sticky md:top-[96px] md:w-[300px] md:shrink-0 ${activeTab === 'Character' ? 'flex' : 'hidden md:flex'}`}>
+        <div className="flex min-w-0 flex-col gap-4 p-3 md:gap-0 md:p-0">
           <ResizableWorkAvatar avatar={avatar} imagePosition={imagePosition} onAvatarChange={onAvatarChange} onImagePositionChange={onImagePositionChange} />
-          <div className="flex min-w-0 flex-1 flex-col md:px-7 md:py-4">
-            <div className="flex min-w-0 flex-1 flex-col gap-4 md:flex-row md:items-center md:gap-7">
+          <div className="flex min-w-0 flex-col md:gap-4 md:p-5">
+            <div className="flex min-w-0 flex-col gap-4">
               <div className="min-w-0 py-1">
                 <h1 className="m-0 text-2xl font-extrabold tracking-wide text-slate-900 md:text-3xl">米莉亞</h1>
                 <p className="m-0 mt-2 text-sm font-medium text-slate-500 md:text-base">
@@ -488,7 +507,7 @@ export default function QuestHub({
                   </span>
                 </div>
               </div>
-              <div className="w-full rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3 md:ml-auto md:max-w-[420px] md:flex-1">
+              <div className="w-full rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
                 <p className="m-0 text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">角色資訊</p>
                 <p className={`m-0 mt-1 whitespace-pre-wrap break-words text-sm leading-6 ${currentStage?.characterInfo?.trim() ? 'text-slate-600' : 'text-slate-400'}`}>
                   {currentStage?.characterInfo?.trim() || '尚未填寫目前階段的角色資訊。'}
@@ -503,8 +522,19 @@ export default function QuestHub({
             />
           </div>
         </div>
+        {hasActiveHunt && (
+          <div className="hidden border-t border-slate-100 p-5 md:block">
+            <button
+              type="button"
+              onClick={() => onTabChange('HuntMission')}
+              className="flex w-full items-center justify-center gap-2 rounded-full bg-red-500 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-600"
+            >
+              討伐進行中・前往任務
+            </button>
+          </div>
+        )}
         {activeTab === 'Tasks' && (
-          <div className="hidden flex-col gap-2 border-t border-slate-100 p-3 md:flex md:w-[220px] md:justify-start md:border-l md:border-t-0 md:p-6">
+          <div className="hidden flex-col gap-2 border-t border-slate-100 p-5 md:flex">
             <button
               type="button"
               onClick={handleOpenQuestComposer}
@@ -524,6 +554,28 @@ export default function QuestHub({
           </div>
         )}
       </section>
+      )}
+
+      <div className="flex min-w-0 flex-1 flex-col gap-5">
+      {isCollectionTab && (
+        <nav className="flex flex-wrap gap-2" aria-label="冒險手冊分類">
+          {collectionTabs.map((item) => {
+            const active = item.tab === activeTab
+            return (
+              <button
+                key={item.tab}
+                type="button"
+                onClick={() => onTabChange(item.tab)}
+                className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${
+                  active ? 'bg-slate-900 text-white' : 'bg-white text-slate-500 ring-1 ring-slate-200 hover:text-slate-900'
+                }`}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            )
+          })}
+        </nav>
       )}
 
       {activeTab === 'Tasks' && (
@@ -604,35 +656,14 @@ export default function QuestHub({
               </button>
               <button
                 type="button"
-                onClick={() => changeQuestView('card')}
-                className={`quest-toolbar-option flex w-10 items-center justify-center transition-colors ${questView === 'card' ? 'is-active' : ''}`}
-                title="卡片檢視"
-                aria-label="卡片檢視"
-                aria-pressed={questView === 'card'}
+                onClick={() => changeQuestView('canvas')}
+                className={`quest-toolbar-option flex w-10 items-center justify-center transition-colors ${questView === 'canvas' ? 'is-active' : ''}`}
+                title="白板檢視（卡片可自由拖動）"
+                aria-label="白板檢視"
+                aria-pressed={questView === 'canvas'}
               >
-                <GridViewOutlinedIcon sx={{ fontSize: 19 }} />
+                <DashboardOutlinedIcon sx={{ fontSize: 19 }} />
               </button>
-              {questView === 'card' && (
-                <div className="hidden items-stretch border-l border-slate-200 md:flex">
-                  {[
-                    ['large', '大'],
-                    ['medium', '中'],
-                    ['small', '小'],
-                  ].map(([size, label]) => (
-                    <button
-                      key={size}
-                      type="button"
-                      onClick={() => changeQuestCardSize(size)}
-                      className={`quest-toolbar-option flex w-9 items-center justify-center text-xs font-extrabold transition-colors ${questCardSize === size ? 'is-active' : ''}`}
-                      title={`${label}卡片`}
-                      aria-label={`${label}卡片`}
-                      aria-pressed={questCardSize === size}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
               {hasCompleted && (
                 <button
                   type="button"
@@ -667,7 +698,21 @@ export default function QuestHub({
               ENTER ↵
             </span>
           </div>
-          <div className={questView === 'card' ? `quest-card-grid quest-card-grid--${questCardSize}` : 'mobile-task-list-panel flex flex-col gap-3'}>
+          {questView === 'canvas' ? (
+            <QuestCanvasView
+              quests={visibleQuests}
+              onPositionChange={onQuestCanvasPositionChange}
+              onOpenDetails={setSelectedQuestId}
+              onToggleSubTask={onToggleSubTask}
+              onRemoveSubTask={onRemoveSubTask}
+              onAddSubTask={onAddSubTask}
+              onAddSubTaskImage={onAddSubTaskImage}
+              onUpdateQuest={onUpdate}
+              onAddCanvasQuest={onAddCanvasQuest}
+              onRemoveQuest={onRemove}
+            />
+          ) : (
+          <div className="mobile-task-list-panel flex flex-col gap-3">
             {visibleQuests.length === 0 ? (
               <div className="text-center py-16 text-gray-300">
                 <p className="text-lg font-semibold">這個分類還沒有任務</p>
@@ -685,40 +730,20 @@ export default function QuestHub({
                   return (
                     <div
                       key={quest.id}
-                      draggable={questView === 'card' || !quest.completed}
+                      draggable={!quest.completed}
                       onDragStart={(e) => handleQuestDragStart(e, quest.id)}
-                      onDragOver={(e) => (questView === 'card' || !quest.completed) && handleQuestDragOver(e, quest.id)}
+                      onDragOver={(e) => (!quest.completed) && handleQuestDragOver(e, quest.id)}
                       onDrop={(e) => handleQuestDrop(e, quest.id)}
                       onDragEnd={handleQuestDragEnd}
-                      className={`relative group/drag ${questView === 'card' || !quest.completed ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                      className={`relative group/drag ${!quest.completed ? 'cursor-grab active:cursor-grabbing' : ''}`}
                       style={{ opacity: questDragId.current === quest.id ? 0.4 : 1 }}
                     >
                       {isOver && questInsertBefore && (
                         <div className="absolute -top-1.5 left-0 right-0 h-0.5 bg-purple-400 rounded-full z-10 pointer-events-none" />
                       )}
-                      <div className={`absolute left-0 top-0 bottom-0 items-center pl-1 opacity-0 group-hover/drag:opacity-100 transition-opacity z-10 pointer-events-none ${questView === 'card' ? 'hidden' : 'flex'}`}>
+                      <div className={`absolute left-0 top-0 bottom-0 items-center pl-1 opacity-0 group-hover/drag:opacity-100 transition-opacity z-10 pointer-events-none flex`}>
                         {!quest.completed && <DragIndicatorIcon sx={{ fontSize: 16, color: '#d1d5db' }} />}
                       </div>
-                      {questView === 'card' ? (
-                        <QuestCard
-                          quest={quest}
-                          size={questCardSize}
-                          coverImage={quest.cover || avatar}
-                          hasCustomCover={Boolean(quest.cover)}
-                          coverPosition={quest.coverPosition}
-                          coverFit={quest.coverFit}
-                          coverRatio={globalCardCoverRatio}
-                          expColor={rewardColorMap.get(quest.expValue === 2 ? 3 : quest.expValue)}
-                          onOpenDetails={() => setSelectedQuestId(quest.id)}
-                          onToggle={onToggle}
-                          onToggleCore={onToggleCore}
-                          onSetPriority={onSetPriority}
-                          onSetStatus={onSetStatus}
-                          onSetExp={onSetExp}
-                          onAddSubTask={onAddSubTask}
-                          onToggleSubTask={onToggleSubTask}
-                        />
-                      ) : (
                         <QuestItem
                         quest={quest}
                         expColor={rewardColorMap.get(quest.expValue === 2 ? 3 : quest.expValue)}
@@ -746,7 +771,6 @@ export default function QuestHub({
                         onCreateAndBindQuestToActiveHunt={onCreateAndBindQuestToActiveHunt}
                         getVocabularySuggestions={getVocabularySuggestions}
                         />
-                      )}
                       {isOver && !questInsertBefore && (
                         <div className="absolute -bottom-1.5 left-0 right-0 h-0.5 bg-purple-400 rounded-full z-10 pointer-events-none" />
                       )}
@@ -755,6 +779,7 @@ export default function QuestHub({
                 })
             )}
           </div>
+          )}
           <div
             className={`mobile-composer-backdrop fixed inset-0 z-[60] md:hidden transition-colors ${
               mobileComposerOpen ? 'bg-black/65 pointer-events-auto' : 'bg-black/0 pointer-events-none'
@@ -1147,6 +1172,7 @@ export default function QuestHub({
         onRemoveSubTask={onRemoveSubTask}
         onUpdateSubTask={onUpdateSubTask}
       />
+      </div>
     </div>
   )
 }

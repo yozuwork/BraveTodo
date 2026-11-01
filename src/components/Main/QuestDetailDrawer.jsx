@@ -12,6 +12,7 @@ import StarBorderIcon from '@mui/icons-material/StarBorder'
 import PushPinIcon from '@mui/icons-material/PushPin'
 import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
 import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
+import StoredImage from '../common/StoredImage'
 
 const PRIORITIES = [
   ['high', '優先'],
@@ -293,6 +294,9 @@ export default function QuestDetailDrawer({
               {subTasks.map((subTask) => (
                 <div key={subTask.id} className="flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5">
                   <Checkbox checked={subTask.completed} onChange={() => onToggleSubTask(quest.id, subTask.id)} size="small" sx={{ p: 0.4, '&.Mui-checked': { color: '#a855f7' } }} />
+                  {subTask.imageId ? (
+                    <StoredImage imageId={subTask.imageId} className={`min-w-0 flex-1 rounded-md bg-slate-900 object-contain max-h-48 w-full ${subTask.completed ? 'opacity-50' : ''}`} />
+                  ) : (
                   <input
                     defaultValue={subTask.text}
                     onBlur={(event) => {
@@ -302,6 +306,7 @@ export default function QuestDetailDrawer({
                     }}
                     className={`min-w-0 flex-1 bg-transparent text-sm outline-none ${subTask.completed ? 'text-slate-400 line-through' : 'text-slate-700'}`}
                   />
+                  )}
                   <button type="button" onClick={() => onRemoveSubTask(quest.id, subTask.id)} className="flex h-8 w-8 items-center justify-center bg-transparent text-slate-300 hover:text-red-500" aria-label="刪除子任務">
                     <DeleteOutlineIcon sx={{ fontSize: 17 }} />
                   </button>

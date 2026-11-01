@@ -115,16 +115,24 @@ export default function useGallery() {
     })
   }, [])
 
-  const updateImage = useCallback((tab, id, changes) => {
+  const replaceImage = useCallback(async (tab, id, src) => {
+    const imageId = await storeImage(src)
+    setImageSrcs((prev) => {
+      const next = { ...prev, [imageId]: src }
+      cachedImageSrcs = next
+      return next
+    })
     setImageRefs((prev) => {
+      const item = (prev[tab] ?? []).find((r) => r.id === id)
+      if (item?.imageId) removeStoredImage(item.imageId)
       const next = {
         ...prev,
-        [tab]: prev[tab].map((r) => r.id === id ? { ...r, ...changes } : r),
+        [tab]: prev[tab].map((r) => r.id === id ? { id, imageId } : r),
       }
       cachedImageRefs = next
       return next
     })
   }, [])
 
-  return { images, addImages, deleteImage, updateImage, loaded }
+  return { images, addImages, deleteImage, replaceImage, loaded }
 }

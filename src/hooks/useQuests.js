@@ -4,6 +4,7 @@ import { db } from '../firebase'
 import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
 import { compressImage } from '../utils/compressImage'
+import { storeImage, removeStoredImage } from '../utils/imageStorage'
 
 const QUESTS_DOC = doc(db, 'meta', 'quests')
 
@@ -42,7 +43,21 @@ function normalizeSubTask(subTask = {}) {
     id: subTask.id ?? Date.now(),
     text: subTask.text ?? '',
     completed: Boolean(subTask.completed),
+    ...(typeof subTask.imageId === 'string' && subTask.imageId ? { imageId: subTask.imageId } : {}),
   }
+}
+
+function removeQuestImages(quest) {
+  ;(quest.subTasks ?? []).forEach((sub) => {
+    if (sub.imageId) removeStoredImage(sub.imageId)
+  })
+}
+
+function normalizeCanvasPosition(position) {
+  const x = Number(position?.x)
+  const y = Number(position?.y)
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
+  return { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)) }
 }
 
 function normalizeCoverPosition(position) {
@@ -83,6 +98,7 @@ function normalizeQuest(quest = {}) {
     coverRatio: normalizeCoverRatio(quest.coverRatio),
     coverRatioMode: quest.coverRatioMode === 'individual' ? 'individual' : 'global',
     huntBinding: quest.huntBinding ?? null,
+    canvasPosition: normalizeCanvasPosition(quest.canvasPosition),
     subTasks: Array.isArray(quest.subTasks) ? quest.subTasks.map(normalizeSubTask) : [],
   }
 }
@@ -213,10 +229,11 @@ export default function useQuests() {
     })
   }, [loaded, lifetimeCompletions, questTemplates, quests])
 
-  const addQuest = useCallback((text) => {
+  const addQuest = useCallback((text, extra = {}) => {
     setQuests((prev) => [
       normalizeQuest({
-        id: Date.now(),
+        ...extra,
+        id: extra.id ?? Date.now(),
         text,
         completed: false,
         status: 'pending',
@@ -228,11 +245,22 @@ export default function useQuests() {
         customExp: 1,
         customGold: 0,
         huntBinding: null,
-        subTasks: [],
+        subTasks: extra.subTasks ?? [],
       }),
       ...prev,
     ])
   }, [])
+
+  // 白板新增卡片：指定位置，可選擇直接帶一張圖片待辦
+  const addCanvasQuest = useCallback(async (text, position, imageFile = null) => {
+    let subTasks = []
+    if (imageFile) {
+      const src = await compressImage(imageFile, 1000, 0.82, true)
+      const imageId = await storeImage(src)
+      subTasks = [{ id: Date.now(), text: '', completed: false, imageId }]
+    }
+    addQuest(text, { canvasPosition: position, subTasks })
+  }, [addQuest])
 
   const addQuestFromTemplate = useCallback((templateId) => {
     const source = (cachedQuestTemplates ?? questTemplates).find((template) => template.id === templateId)
@@ -283,7 +311,7 @@ export default function useQuests() {
       coverRatio: questLike.coverRatio,
       coverRatioMode: questLike.coverRatioMode,
       subTasks: Array.isArray(questLike.subTasks)
-        ? questLike.subTasks.map((subTask) => ({ text: subTask.text ?? '', completed: false }))
+        ? questLike.subTasks.filter((subTask) => !subTask.imageId).map((subTask) => ({ text: subTask.text ?? '', completed: false }))
         : [],
       createdAt: now,
       updatedAt: now,
@@ -400,7 +428,11 @@ export default function useQuests() {
   }, [])
 
   const removeQuest = useCallback((id) => {
-    setQuests((prev) => prev.filter((q) => q.id !== id))
+    setQuests((prev) => {
+      const target = prev.find((q) => q.id === id)
+      if (target) removeQuestImages(target)
+      return prev.filter((q) => q.id !== id)
+    })
   }, [])
 
   const updateQuest = useCallback((id, text) => {
@@ -487,14 +519,34 @@ export default function useQuests() {
     if (shouldPlay) playQuestCompleteSound()
   }, [])
 
-  const removeSubTask = useCallback((questId, subTaskId) => {
+  const addSubTaskImage = useCallback(async (questId, file) => {
+    if (!file) return
+    const src = await compressImage(file, 1000, 0.82, true)
+    const imageId = await storeImage(src)
     setQuests((prev) =>
       prev.map((q) =>
         q.id === questId
-          ? { ...q, subTasks: (q.subTasks ?? []).filter((s) => s.id !== subTaskId) }
+          ? { ...q, subTasks: [...(q.subTasks ?? []), { id: Date.now(), text: '', completed: false, imageId }] }
           : q
       )
     )
+  }, [])
+
+  const removeSubTask = useCallback((questId, subTaskId) => {
+    setQuests((prev) =>
+      prev.map((q) => {
+        if (q.id !== questId) return q
+        const target = (q.subTasks ?? []).find((s) => s.id === subTaskId)
+        if (target?.imageId) removeStoredImage(target.imageId)
+        return { ...q, subTasks: (q.subTasks ?? []).filter((s) => s.id !== subTaskId) }
+      })
+    )
+  }, [])
+
+  const updateQuestCanvasPosition = useCallback((id, position) => {
+    const next = normalizeCanvasPosition(position)
+    if (!next) return
+    setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, canvasPosition: next } : q)))
   }, [])
 
   const updateSubTask = useCallback((questId, subTaskId, text) => {
@@ -523,7 +575,10 @@ export default function useQuests() {
   }, [])
 
   const clearCompleted = useCallback(() => {
-    setQuests((prev) => prev.filter((q) => !q.completed))
+    setQuests((prev) => {
+      prev.filter((q) => q.completed).forEach(removeQuestImages)
+      return prev.filter((q) => !q.completed)
+    })
   }, [])
 
   const resetLifetimeCompletions = useCallback((value) => {
@@ -563,6 +618,9 @@ export default function useQuests() {
     toggleSubTask,
     removeSubTask,
     updateSubTask,
+    addSubTaskImage,
+    updateQuestCanvasPosition,
+    addCanvasQuest,
     lifetimeCompletions,
     resetLifetimeCompletions,
     coreTaskCompleted,

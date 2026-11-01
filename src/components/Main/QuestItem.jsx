@@ -17,6 +17,7 @@ import LibraryBooksOutlinedIcon from '@mui/icons-material/LibraryBooksOutlined'
 import SlashEffect from './SlashEffect'
 import DamageNumber from './DamageNumber'
 import VocabularyInput from '../common/VocabularyInput'
+import StoredImage from '../common/StoredImage'
 
 // ── Sub-task row ──────────────────────────────────────────────
 function SubTaskItem({ sub, onToggle, onRemove, onUpdate, getVocabularySuggestions }) {
@@ -61,7 +62,14 @@ function SubTaskItem({ sub, onToggle, onRemove, onUpdate, getVocabularySuggestio
           '&.Mui-checked': { color: '#a855f7' },
         }}
       />
-      {editing ? (
+      {sub.imageId ? (
+        <>
+          <StoredImage imageId={sub.imageId} className={`max-h-32 min-w-0 flex-1 rounded-md bg-slate-900 object-contain ${sub.completed ? 'opacity-50' : ''}`} />
+          <button type="button" onClick={onRemove} className="flex h-6 w-6 items-center justify-center bg-transparent text-slate-300 opacity-0 transition-opacity hover:text-red-500 group-hover/sub:opacity-100" aria-label="刪除圖片待辦">
+            <DeleteOutlineIcon sx={{ fontSize: 15 }} />
+          </button>
+        </>
+      ) : editing ? (
         <VocabularyInput
           ref={inputRef}
           wrapperClassName="relative flex-1"

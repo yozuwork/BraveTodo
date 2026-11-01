@@ -10,6 +10,8 @@ import TaskAltIcon from "@mui/icons-material/TaskAlt";
 import SportsMartialArtsIcon from "@mui/icons-material/SportsMartialArts";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
+import CollectionsBookmarkOutlinedIcon from "@mui/icons-material/CollectionsBookmarkOutlined";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import RedeemOutlinedIcon from "@mui/icons-material/RedeemOutlined";
 import AutoStoriesOutlinedIcon from "@mui/icons-material/AutoStoriesOutlined";
 import MapOutlinedIcon from "@mui/icons-material/MapOutlined";
@@ -42,6 +44,7 @@ import WorldGallery from "./pages/WorldGallery";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
 import { resolveAutoExpValue } from "./utils/questAutoExp";
+import useImagePaste from "./hooks/useImagePaste";
 
 function GoldDisplay({ gold, className = "" }) {
   return (
@@ -106,63 +109,6 @@ function GoldDisplay({ gold, className = "" }) {
   );
 }
 
-function WorkSidebar({ activeTab, onTabChange, isFeatureVisible, hasActiveHunt }) {
-  const sidebarTabs = WORK_TABS
-    .filter((item) => isFeatureVisible(item.tab))
-    .flatMap((item) => (
-      item.tab === 'Hunt' && hasActiveHunt
-        ? [
-            item,
-            {
-              tab: 'HuntMission',
-              label: '討伐任務',
-              icon: <TaskAltIcon sx={{ fontSize: 18 }} />,
-            },
-          ]
-        : [item]
-    ))
-
-  return (
-    <aside className="work-side-nav hidden w-[210px] shrink-0 flex-col gap-2 border-r border-slate-100 px-5 py-8 md:flex">
-      <div className="flex flex-col gap-2">
-        {sidebarTabs.map((item) => {
-          const active = activeTab === item.tab
-          return (
-            <button
-              key={item.tab}
-              type="button"
-              onClick={() => onTabChange(item.tab)}
-              className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
-                active
-                  ? 'bg-purple-50 text-purple-600'
-                  : 'bg-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-              }`}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="mt-3 border-t border-slate-200 pt-4">
-        <button
-          type="button"
-          onClick={() => onTabChange('CharacterSettings')}
-          className={`flex w-full items-center gap-4 rounded-xl px-4 py-3 text-left text-sm font-semibold transition-colors ${
-            activeTab === 'CharacterSettings'
-              ? 'bg-purple-50 text-purple-600'
-              : 'bg-transparent text-slate-500 hover:bg-purple-50 hover:text-purple-600'
-          }`}
-        >
-          <TuneIcon sx={{ fontSize: 18 }} />
-          <span>角色設定</span>
-        </button>
-      </div>
-    </aside>
-  )
-}
-
 function normalizeQuestRewardTier(expValue) {
   if (expValue === 2) return 3;
   if (expValue === 1 || expValue === 3 || expValue === 5 || expValue === 10 || expValue === 20)
@@ -215,6 +161,9 @@ function MainApp() {
     toggleSubTask,
     removeSubTask,
     updateSubTask,
+    addSubTaskImage,
+    updateQuestCanvasPosition,
+    addCanvasQuest,
     lifetimeCompletions,
     resetLifetimeCompletions,
     coreTaskCompleted,
@@ -918,7 +867,6 @@ function MainApp() {
     <>
       <div className="mobile-page-surface flex min-h-screen items-stretch justify-center bg-[#fbfcfe] pb-20 md:min-h-[calc(100vh-72px)] md:bg-white md:pb-0">
         <div className="flex w-full max-w-[1440px]">
-          <WorkSidebar activeTab={activeTab} onTabChange={handleTabChange} isFeatureVisible={isWorkFeatureVisible} hasActiveHunt={hasActiveHunt} />
           <div className="w-full min-w-0 px-4 py-4 md:px-8 md:py-8 lg:px-10">
             <div className="w-full">
             {/* Quest Hub */}
@@ -974,6 +922,9 @@ function MainApp() {
                 onToggleSubTask={toggleSubTask}
                 onRemoveSubTask={handleRemoveSubTask}
                 onUpdateSubTask={handleUpdateSubTask}
+                onAddSubTaskImage={addSubTaskImage}
+                onQuestCanvasPositionChange={updateQuestCanvasPosition}
+                onAddCanvasQuest={addCanvasQuest}
                 currentLevel={level}
                 expProgress={expProgress}
                 currentExp={currentExp}
@@ -1063,6 +1014,8 @@ function MainApp() {
                 getVocabularySuggestions={getVocabularySuggestions}
                 activeTab={activeTab}
                 onTabChange={handleTabChange}
+                collectionTabs={WORK_TABS.filter((item) => COLLECTION_TAB_IDS.includes(item.tab) && isWorkFeatureVisible(item.tab))}
+                onCollectionTabSeen={(tab) => localStorage.setItem(COLLECTION_TAB_KEY, tab)}
               />
             </div>
           </div>
@@ -1159,6 +1112,13 @@ const WORK_TABS = [
   { tab: "Map", label: "地圖", icon: <MapOutlinedIcon sx={{ fontSize: 18 }} /> },
   { tab: "Skills", label: "SKILL", icon: <StarBorderIcon sx={{ fontSize: 18 }} /> },
   { tab: "Inbox", label: "收集箱", icon: <Inventory2OutlinedIcon sx={{ fontSize: 18 }} /> },
+]
+const COLLECTION_TAB_IDS = ["RewardShop", "Story", "Npc", "Map", "Skills", "Inbox"]
+const COLLECTION_TAB_KEY = "work-collection-tab"
+const WORK_MENU_ITEMS = [
+  WORK_TABS[0],
+  WORK_TABS[1],
+  { tab: "Collection", label: "冒險手冊", icon: <CollectionsBookmarkOutlinedIcon sx={{ fontSize: 18 }} /> },
 ]
 const WORK_MORE_TABS = WORK_TABS.filter((item) => item.tab !== "Tasks")
 const WORK_MOBILE_TABS = WORK_TABS.filter((item) => ["Tasks", "Hunt", "Map", "Skills", "Inbox"].includes(item.tab))
@@ -1261,13 +1221,55 @@ function Layout({ user, signIn, logOut }) {
             <span className="app-brand-title text-xl font-extrabold tracking-wide text-slate-700">米莉亞</span>
           </div>
           <nav className="flex flex-1 items-center gap-3">
-            <TopLevelNavLink
-              to="/work"
-              active={isLifeSection}
-              className={navLinkClass({ isActive: isLifeSection })}
-            >
-              LIFE 任務
-            </TopLevelNavLink>
+            <div className="group/life relative">
+              <TopLevelNavLink
+                to="/work"
+                active={isLifeSection}
+                className={`${navLinkClass({ isActive: isLifeSection })} inline-flex items-center`}
+              >
+                LIFE 任務
+                <KeyboardArrowDownIcon sx={{ fontSize: 16, ml: 0.25 }} />
+              </TopLevelNavLink>
+              <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition-opacity group-hover/life:visible group-hover/life:opacity-100 group-focus-within/life:visible group-focus-within/life:opacity-100">
+                <div className="flex w-48 flex-col gap-0.5 rounded-xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                  {WORK_MENU_ITEMS.filter((item) => item.tab === "Collection"
+                    ? COLLECTION_TAB_IDS.some((tab) => isWorkFeatureVisible(tab))
+                    : isWorkFeatureVisible(item.tab)
+                  ).map((item) => {
+                    const active = isWorkPage && (
+                      item.tab === "Collection"
+                        ? COLLECTION_TAB_IDS.includes(activeWorkTab)
+                        : activeWorkTab === item.tab || (item.tab === "Hunt" && activeWorkTab === "HuntMission")
+                    )
+                    const targetTab = item.tab === "Collection"
+                      ? [localStorage.getItem(COLLECTION_TAB_KEY), ...COLLECTION_TAB_IDS].find((tab) => tab && COLLECTION_TAB_IDS.includes(tab) && isWorkFeatureVisible(tab))
+                      : item.tab
+                    return (
+                      <Link
+                        key={item.tab}
+                        to={targetTab === "Tasks" ? "/work" : `/work?tab=${targetTab}`}
+                        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold no-underline transition-colors ${
+                          active ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        }`}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </Link>
+                    )
+                  })}
+                  <div className="my-1 border-t border-slate-100" />
+                  <Link
+                    to="/work?tab=CharacterSettings"
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold no-underline transition-colors ${
+                      isWorkPage && activeWorkTab === "CharacterSettings" ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <TuneIcon sx={{ fontSize: 18 }} />
+                    角色設定
+                  </Link>
+                </div>
+              </div>
+            </div>
             <NavLink to="/gallery" className={navLinkClass}>圖庫</NavLink>
             <NavLink to="/system-settings" className={navLinkClass}>系統設置</NavLink>
           </nav>
@@ -1511,6 +1513,7 @@ function Layout({ user, signIn, logOut }) {
 export default function App() {
   const { user, loading, signIn, logOut, authError } = useAuth();
   useDatabaseFavicon(user);
+  useImagePaste();
 
   if (loading) {
     return (
