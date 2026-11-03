@@ -3,6 +3,7 @@ import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import { ACTIVE_WORKSPACE_ID, DEFAULT_WORKSPACE_ID, WORKSPACE_DOC_NAMES, switchWorkspace, workspaceKey } from '../utils/workspace'
 import { WORK_FEATURE_OPTIONS, allFeatures } from '../utils/workFeatures'
+import { fetchImageSrcs, storeImage } from '../utils/imageStorage'
 
 // The workspace list is shared across workspaces; each record carries its own name, character name and features
 const WORKSPACES_DOC = doc(db, 'meta', 'workspaces')
@@ -79,6 +80,29 @@ function load() {
   })
 }
 
+const newWorkspaceId = () => `w${Date.now().toString(36)}`
+
+// Every stored-image id ("img_…") referenced anywhere in the data
+function collectImageIds(value, ids = new Set()) {
+  if (typeof value === 'string') {
+    if (value.startsWith('img_')) ids.add(value)
+  } else if (Array.isArray(value)) {
+    value.forEach((item) => collectImageIds(item, ids))
+  } else if (value && typeof value === 'object') {
+    Object.values(value).forEach((item) => collectImageIds(item, ids))
+  }
+  return ids
+}
+
+function replaceImageIds(value, idMap) {
+  if (typeof value === 'string') return idMap[value] ?? value
+  if (Array.isArray(value)) return value.map((item) => replaceImageIds(item, idMap))
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replaceImageIds(item, idMap)]))
+  }
+  return value
+}
+
 const updateWorkspace = (id, changes) =>
   commit(state.workspaces.map((item) => (item.id === id ? normalizeWorkspace({ ...item, ...changes }) : item)))
 
@@ -91,8 +115,32 @@ export default function useWorkspaces() {
   const addWorkspace = useCallback(async (name) => {
     const trimmed = name.trim()
     if (!trimmed) return
-    const id = `w${Date.now().toString(36)}`
+    const id = newWorkspaceId()
     await commit([...state.workspaces, normalizeWorkspace({ id, name: trimmed, features: allFeatures(false) })])
+    switchWorkspace(id)
+  }, [])
+
+  // Copies all data, settings and images; images get new ids so the two workspaces never share one
+  const duplicateWorkspace = useCallback(async (sourceId, name) => {
+    const source = state.workspaces.find((item) => item.id === sourceId)
+    const trimmed = name.trim()
+    if (!source || !trimmed) return
+    const id = newWorkspaceId()
+
+    const snaps = await Promise.all(
+      WORKSPACE_DOC_NAMES.map(async (docName) => [docName, await getDoc(doc(db, 'meta', workspaceKey(sourceId, docName)))]),
+    )
+    const docs = snaps.filter(([, snap]) => snap.exists()).map(([docName, snap]) => [docName, snap.data()])
+
+    const imageIds = [...collectImageIds(docs.map(([, data]) => data))]
+    const srcs = await fetchImageSrcs(imageIds)
+    const idMap = {}
+    await Promise.all(imageIds.map(async (imageId) => {
+      if (srcs[imageId]) idMap[imageId] = await storeImage(srcs[imageId])
+    }))
+
+    await Promise.all(docs.map(([docName, data]) => setDoc(doc(db, 'meta', workspaceKey(id, docName)), replaceImageIds(data, idMap))))
+    await commit([...state.workspaces, normalizeWorkspace({ ...source, id, name: trimmed })])
     switchWorkspace(id)
   }, [])
 
@@ -125,6 +173,7 @@ export default function useWorkspaces() {
     loaded,
     activeWorkspace,
     addWorkspace,
+    duplicateWorkspace,
     renameWorkspace,
     setCharacterName,
     setWorkspaceFeature,
