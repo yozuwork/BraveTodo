@@ -17,8 +17,9 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../../firebase'
 import { resolveImg } from '../../utils/imageSrc'
 import { compressImage } from '../../utils/compressImage'
-import { DEFAULT_RULES } from '../../hooks/useLevelingRules'
-import { calcLevelInfo, normalizeLevelingRules } from '../../utils/levelingRules'
+import { ACTIVE_WORKSPACE_ID, DEFAULT_WORKSPACE_ID, switchWorkspace, workspaceKey, wsDoc } from '../../utils/workspace'
+import useWorkspaces from '../../hooks/useWorkspaces'
+import { calcLevelInfo, normalizeLegacyRules, stagesToLevelingRules } from '../../utils/levelingRules'
 import GalleryImagePicker from '../common/GalleryImagePicker'
 
 const DB_NAME = 'brave-todo-save-slots'
@@ -33,6 +34,7 @@ const FIRESTORE_DOCS = [
   'stages',
   'character',
   'levelingRules',
+  'canvasNotes',
 ]
 
 const LOCAL_SAVE_KEYS = [
@@ -77,11 +79,13 @@ const getAllSaves = () => withStore('readonly', (store) => store.getAll())
 const putSave = (save) => withStore('readwrite', (store) => store.put(save))
 const deleteSave = (id) => withStore('readwrite', (store) => store.delete(id))
 
+const saveWorkspaceId = (save) => save?.workspaceId ?? DEFAULT_WORKSPACE_ID
+
 async function captureSavePayload() {
   const firestore = {}
   await Promise.all(
     FIRESTORE_DOCS.map(async (name) => {
-      const snap = await getDoc(doc(db, 'meta', name))
+      const snap = await getDoc(wsDoc(name))
       if (snap.exists()) firestore[name] = snap.data()
     }),
   )
@@ -107,10 +111,10 @@ function downloadJsonSave(save) {
   URL.revokeObjectURL(url)
 }
 
-async function loadSavePayload(save) {
+async function loadSavePayload(save, targetWorkspaceId) {
   await Promise.all(
     Object.entries(save.firestore ?? {}).map(([name, data]) =>
-      setDoc(doc(db, 'meta', name), data),
+      setDoc(doc(db, 'meta', workspaceKey(targetWorkspaceId, name)), data),
     ),
   )
 
@@ -179,14 +183,11 @@ function resolveImportedStage(stagesDoc, level) {
 }
 
 function metadataFromPayload(payload) {
-  const rulesDoc = payload.firestore?.levelingRules
-  const savedRules = Array.isArray(rulesDoc?.items)
-    ? rulesDoc.items.map((item) => {
-        const defaultRule = DEFAULT_RULES.find((rule) => rule.id === item?.id)
-        return defaultRule ? { ...defaultRule, ...item } : item
-      })
-    : DEFAULT_RULES
-  const rules = normalizeLevelingRules(savedRules)
+  const legacyRules = normalizeLegacyRules(payload.firestore?.levelingRules?.items)
+  const stageItems = payload.firestore?.stages?.items
+  const rules = Array.isArray(stageItems) && stageItems.length > 0
+    ? stagesToLevelingRules(stageItems, legacyRules)
+    : legacyRules
   const completions = Number(payload.firestore?.quests?.lifetimeCompletions) || 0
   const { level } = calcLevelInfo(completions, rules)
   const stage = resolveImportedStage(payload.firestore?.stages, level)
@@ -217,6 +218,7 @@ function normalizeImportedPayload(raw) {
 
 function SaveSlotCard({
   save,
+  workspaceName,
   onOpen,
   onThumbnailPositionChange,
 }) {
@@ -279,6 +281,9 @@ function SaveSlotCard({
         <span className="absolute top-2.5 left-2.5 text-[10px] font-bold text-white px-2 py-0.5 rounded-full bg-purple-500">
           LV {save.level ?? 1}
         </span>
+        <span className="absolute top-2.5 right-2.5 max-w-[90px] truncate text-[10px] font-bold text-white px-2 py-0.5 rounded-full bg-black/60" title={`來自工作區：${workspaceName}`}>
+          {workspaceName}
+        </span>
         <span className="absolute bottom-2.5 left-2.5 right-2.5 text-[10px] font-semibold text-white/80 truncate">
           {formatDate(save.updatedAt ?? save.createdAt)}
         </span>
@@ -307,8 +312,9 @@ function SaveSlotCard({
   )
 }
 
-function SaveDetailDialog({ save, open, busy, onClose, onPatch, onLoad, onDelete }) {
+function SaveDetailDialog({ save, open, busy, workspaces, onClose, onPatch, onLoad, onDelete }) {
   const [loadConfirm, setLoadConfirm] = useState(false)
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState(ACTIVE_WORKSPACE_ID)
   const [deleteConfirm, setDeleteConfirm] = useState(false)
   const [localThumbnailPosition, setLocalThumbnailPosition] = useState({ x: 50, y: 50 })
   const [localStagePositions, setLocalStagePositions] = useState({})
@@ -321,6 +327,8 @@ function SaveDetailDialog({ save, open, busy, onClose, onPatch, onLoad, onDelete
   useEffect(() => {
     setLoadConfirm(false)
     setDeleteConfirm(false)
+    const origin = saveWorkspaceId(save)
+    setTargetWorkspaceId(workspaces.some((item) => item.id === origin) ? origin : ACTIVE_WORKSPACE_ID)
     setLocalThumbnailPosition(save?.thumbnailPosition ?? { x: 50, y: 50 })
     setLocalStagePositions({})
   }, [save?.id, open])
@@ -686,7 +694,29 @@ function SaveDetailDialog({ save, open, busy, onClose, onPatch, onLoad, onDelete
         >
           {deleteConfirm ? '確認刪除' : '刪除存檔'}
         </Button>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-gray-500">
+            載入到
+            <select
+              value={targetWorkspaceId}
+              onChange={(e) => {
+                setTargetWorkspaceId(e.target.value)
+                setLoadConfirm(false)
+              }}
+              className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-800 outline-none focus:border-purple-400"
+            >
+              {workspaces.map((workspace) => (
+                <option key={workspace.id} value={workspace.id}>
+                  {workspace.name}{workspace.id === ACTIVE_WORKSPACE_ID ? '（目前）' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {loadConfirm && (
+            <span className="text-xs font-semibold text-red-500">
+              會覆蓋「{workspaces.find((item) => item.id === targetWorkspaceId)?.name}」目前的進度
+            </span>
+          )}
           <Button onClick={onClose} sx={{ color: '#6b7280', borderRadius: 99, textTransform: 'none', fontWeight: 700 }}>
             關閉
           </Button>
@@ -699,7 +729,7 @@ function SaveDetailDialog({ save, open, busy, onClose, onPatch, onLoad, onDelete
                 setDeleteConfirm(false)
                 return
               }
-              onLoad(save)
+              onLoad(save, targetWorkspaceId)
             }}
             disabled={busy}
             sx={{
@@ -720,6 +750,9 @@ function SaveDetailDialog({ save, open, busy, onClose, onPatch, onLoad, onDelete
 
 export default function SaveManagement({ currentLevel, currentStage }) {
   const importInputRef = useRef(null)
+  const { workspaces, activeWorkspace } = useWorkspaces()
+  // 'all' or a workspace id; defaults to the workspace you're in
+  const [workspaceFilter, setWorkspaceFilter] = useState(ACTIVE_WORKSPACE_ID)
   const [saves, setSaves] = useState([])
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
@@ -728,9 +761,14 @@ export default function SaveManagement({ currentLevel, currentStage }) {
   const [status, setStatus] = useState('')
 
   const sortedSaves = useMemo(
-    () => [...saves].sort((a, b) => new Date(b.updatedAt ?? b.createdAt) - new Date(a.updatedAt ?? a.createdAt)),
-    [saves],
+    () => saves
+      .filter((save) => workspaceFilter === 'all' || saveWorkspaceId(save) === workspaceFilter)
+      .sort((a, b) => new Date(b.updatedAt ?? b.createdAt) - new Date(a.updatedAt ?? a.createdAt)),
+    [saves, workspaceFilter],
   )
+  const workspaceNameOf = (save) =>
+    workspaces.find((item) => item.id === saveWorkspaceId(save))?.name ?? save.workspaceName ?? '已刪除的工作區'
+  const workspaceTag = { workspaceId: activeWorkspace.id, workspaceName: activeWorkspace.name }
   const totalPages = Math.max(1, Math.ceil(sortedSaves.length / PAGE_SIZE))
   const visibleSaves = sortedSaves.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
   const selectedSave = saves.find((save) => save.id === selectedSaveId) ?? null
@@ -769,6 +807,7 @@ export default function SaveManagement({ currentLevel, currentStage }) {
         note: '',
         createdAt: now,
         updatedAt: now,
+        ...workspaceTag,
         ...metadata,
         ...payload,
       }
@@ -794,6 +833,7 @@ export default function SaveManagement({ currentLevel, currentStage }) {
         _version: 2,
         _exportedAt: new Date().toISOString(),
         _snapshot: { level: metadata.level },
+        ...workspaceTag,
         ...metadata,
         ...payload,
       })
@@ -806,11 +846,12 @@ export default function SaveManagement({ currentLevel, currentStage }) {
     }
   }
 
-  const handleLoad = async (save) => {
+  const handleLoad = async (save, targetWorkspaceId = ACTIVE_WORKSPACE_ID) => {
     setBusy(true)
     try {
-      await loadSavePayload(save)
-      window.location.reload()
+      await loadSavePayload(save, targetWorkspaceId)
+      if (targetWorkspaceId !== ACTIVE_WORKSPACE_ID) switchWorkspace(targetWorkspaceId)
+      else window.location.reload()
     } catch (err) {
       console.error(err)
       setStatus('載入存檔失敗')
@@ -863,6 +904,8 @@ export default function SaveManagement({ currentLevel, currentStage }) {
           note: raw.note || '匯入的本地存檔',
           createdAt: now,
           updatedAt: now,
+          workspaceId: typeof raw.workspaceId === 'string' ? raw.workspaceId : activeWorkspace.id,
+          workspaceName: typeof raw.workspaceName === 'string' ? raw.workspaceName : activeWorkspace.name,
           ...metadata,
           ...payload,
         }
@@ -887,7 +930,7 @@ export default function SaveManagement({ currentLevel, currentStage }) {
         <div>
           <h2 className="text-base font-bold text-black m-0">存檔管理</h2>
           <p className="text-xs text-gray-400 mt-0.5 m-0">
-            建立多個本機存檔，每個存檔會保存目前進度、圖片與系統設定
+            建立多個本機存檔，保存「{activeWorkspace.name}」的進度、圖片與系統設定；每個存檔會記住來自哪個工作區
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -970,11 +1013,33 @@ export default function SaveManagement({ currentLevel, currentStage }) {
         </div>
       )}
 
+      {workspaces.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {[{ id: 'all', name: '全部工作區' }, ...workspaces].map((workspace) => (
+            <button
+              key={workspace.id}
+              type="button"
+              onClick={() => {
+                setWorkspaceFilter(workspace.id)
+                setPage(1)
+              }}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                workspaceFilter === workspace.id
+                  ? 'border-purple-400 bg-purple-50 text-purple-600'
+                  : 'border-gray-200 bg-white text-gray-500 hover:border-purple-200'
+              }`}
+            >
+              {workspace.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="text-center py-16 text-gray-300 text-sm font-semibold">讀取存檔中...</div>
-      ) : saves.length === 0 ? (
+      ) : sortedSaves.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 py-16 text-center">
-          <p className="text-sm font-bold text-gray-400 m-0">尚未建立存檔</p>
+          <p className="text-sm font-bold text-gray-400 m-0">{saves.length === 0 ? '尚未建立存檔' : '這個工作區還沒有存檔'}</p>
           <p className="text-xs text-gray-300 mt-1 m-0">按下「新增存檔」保存目前進度</p>
         </div>
       ) : (
@@ -984,6 +1049,7 @@ export default function SaveManagement({ currentLevel, currentStage }) {
               <SaveSlotCard
                 key={save.id}
                 save={save}
+                workspaceName={workspaceNameOf(save)}
                 onOpen={setSelectedSaveId}
                 onThumbnailPositionChange={handleThumbnailPositionChange}
               />
@@ -1017,6 +1083,7 @@ export default function SaveManagement({ currentLevel, currentStage }) {
         busy={busy}
         onClose={() => setSelectedSaveId(null)}
         onPatch={handlePatchSave}
+        workspaces={workspaces}
         onLoad={handleLoad}
         onDelete={handleDelete}
       />

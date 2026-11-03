@@ -1,5 +1,48 @@
 export const FALLBACK_EXP_PER_LEVEL = 1
 
+// Pre-merge defaults from the old standalone 升級設定 page; only used to migrate stages without expPerLevel
+export const DEFAULT_RULES = [
+  { id: 1, minLevel: 1,   maxLevel: 10,  expPerLevel: 3 },
+  { id: 2, minLevel: 10,  maxLevel: 30,  expPerLevel: 3 },
+  { id: 3, minLevel: 30,  maxLevel: 70,  expPerLevel: 3 },
+  { id: 4, minLevel: 70,  maxLevel: 120, expPerLevel: 3 },
+  { id: 5, minLevel: 120, maxLevel: 180, expPerLevel: 3 },
+  { id: 6, minLevel: 180, maxLevel: 250, expPerLevel: 3 },
+]
+
+export function normalizeLegacyRules(items) {
+  if (!Array.isArray(items)) return DEFAULT_RULES
+  return normalizeLevelingRules(
+    items.map((item) => {
+      const defaultRule = DEFAULT_RULES.find((rule) => rule.id === item?.id)
+      return defaultRule ? { ...defaultRule, ...item } : item
+    })
+  )
+}
+
+// Exp per level for a stage that predates per-stage exp: take it from the legacy rule covering the stage's start level
+export function resolveStageExpPerLevel(stage, legacyRules = DEFAULT_RULES) {
+  const own = Number(stage?.expPerLevel)
+  if (Number.isFinite(own) && own >= 1) return own
+  const minLevel = Number(stage?.minLevel) || 1
+  const rule = normalizeLevelingRules(legacyRules).find(
+    (r) => r.minLevel <= minLevel && minLevel < r.maxLevel
+  )
+  return rule?.expPerLevel ?? FALLBACK_EXP_PER_LEVEL
+}
+
+export function stagesToLevelingRules(stages, legacyRules) {
+  if (!Array.isArray(stages)) return []
+  return normalizeLevelingRules(
+    stages.map((stage) => ({
+      id: stage.id,
+      minLevel: stage.minLevel,
+      maxLevel: stage.maxLevel,
+      expPerLevel: resolveStageExpPerLevel(stage, legacyRules),
+    }))
+  )
+}
+
 export function normalizeLevelingRules(rules) {
   if (!Array.isArray(rules)) return []
 

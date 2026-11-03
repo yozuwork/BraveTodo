@@ -1,8 +1,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getDoc, setDoc } from 'firebase/firestore'
+import { wsDoc } from '../utils/workspace'
 
-const INBOX_DOC = doc(db, 'meta', 'inbox')
+const INBOX_DOC = wsDoc('inbox')
 let cachedInboxItems = null
 
 export default function useInbox() {

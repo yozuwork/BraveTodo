@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
+import { wsDoc } from './workspace'
 
 const imageSrcCache = {}
 
@@ -41,7 +42,7 @@ export async function getStorageStats() {
     getDocs(collection(db, 'images')),
     Promise.all(
       ['stages', 'gallery', 'character', 'quests', 'inbox', 'monsters', 'stories', 'skills', 'npcs', 'maps', 'levelingRules'].map(
-        (name) => getDoc(doc(db, 'meta', name))
+        (name) => getDoc(name === 'gallery' ? doc(db, 'meta', name) : wsDoc(name))
       )
     ),
   ])

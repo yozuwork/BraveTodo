@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import StageSettings from './StageSettings'
-import LevelingSettings from './LevelingSettings'
 import RewardSettings from './RewardSettings'
+import LevelResetCard from './LevelResetCard'
 
 const SETTING_TABS = [
   { key: 'stages', label: '階段設置' },
-  { key: 'leveling', label: '升級設定' },
   { key: 'rewards', label: '獎勵設置' },
 ]
 
@@ -17,21 +16,20 @@ export default function CharacterSettings({
   onStageAvatarReplace,
   onStageAvatarRemove,
   onStageLevel,
+  onStageExpPerLevel,
   onAddStage,
   onRemoveStage,
   onReorderStages,
   onStageAvatarPosition,
   levelingRules,
-  onUpdateExpPerLevel,
-  onUpdateLevelRange,
-  onAddLevelingRule,
-  onRemoveLevelingRule,
   rewardSettings,
   onUpdateRewardGold,
   onUpdateRewardColor,
   autoExpSettings,
   onAutoExpEnabled,
   onUpdateAutoExpThreshold,
+  currentLevel,
+  onResetLevel,
 }) {
   const [activeSetting, setActiveSetting] = useState('stages')
 
@@ -40,7 +38,7 @@ export default function CharacterSettings({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-base font-bold text-black m-0">角色設定</h2>
-          <p className="text-xs text-gray-400 m-0 mt-1">管理角色階段與升級規則</p>
+          <p className="text-xs text-gray-400 m-0 mt-1">管理角色階段、升級經驗與獎勵</p>
         </div>
 
         <div className="inline-flex w-fit rounded-lg border border-gray-200 bg-white p-1">
@@ -61,6 +59,14 @@ export default function CharacterSettings({
         </div>
       </div>
 
+      {activeSetting === 'stages' && onResetLevel && (
+        <LevelResetCard
+          currentLevel={currentLevel}
+          levelingRules={levelingRules}
+          onResetLevel={onResetLevel}
+        />
+      )}
+
       {activeSetting === 'stages' && (
         <StageSettings
           stages={stages}
@@ -70,20 +76,11 @@ export default function CharacterSettings({
           onReplaceAvatar={onStageAvatarReplace}
           onRemoveAvatar={onStageAvatarRemove}
           onLevelChange={onStageLevel}
+          onExpPerLevelChange={onStageExpPerLevel}
           onAddStage={onAddStage}
           onRemoveStage={onRemoveStage}
           onReorderStages={onReorderStages}
           onPositionChange={onStageAvatarPosition}
-        />
-      )}
-
-      {activeSetting === 'leveling' && (
-        <LevelingSettings
-          rules={levelingRules}
-          onUpdateExpPerLevel={onUpdateExpPerLevel}
-          onUpdateLevelRange={onUpdateLevelRange}
-          onAddLevelingRule={onAddLevelingRule}
-          onRemoveLevelingRule={onRemoveLevelingRule}
         />
       )}
 

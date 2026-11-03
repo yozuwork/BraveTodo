@@ -28,6 +28,7 @@ import CharacterSettings from './CharacterSettings'
 import VocabularyInput from '../common/VocabularyInput'
 import QuestCanvasView from './QuestCanvasView'
 import { resolveCurrentStage } from '../../hooks/useStages'
+import useWorkspaces from '../../hooks/useWorkspaces'
 
 const LEGACY_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size'
 const DESKTOP_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size:desktop'
@@ -37,14 +38,11 @@ const AVATAR_FIT_KEY = 'brave-todo:work-avatar-fit'
 
 function ComicExperienceBar({ level, progress, currentExp, expToNextLevel }) {
   const safeProgress = Math.min(100, Math.max(0, Number(progress) || 0))
-  const remainingExp = Math.max(0, expToNextLevel - currentExp)
 
   return (
     <div className="comic-exp" aria-label={`等級 ${level} 經驗值 ${currentExp} / ${expToNextLevel}`}>
       <div className="comic-exp__meta">
         <span className="comic-exp__title">經驗值 <b>EXP</b></span>
-        <span className="comic-exp__level">Lv.{level}</span>
-        <span className="comic-exp__remaining">距離 Lv.{level + 1} 還差 {remainingExp}</span>
       </div>
       <div
         className="comic-exp__track"
@@ -167,7 +165,7 @@ function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePos
 
   return (
     <div
-      className={`work-character-avatar relative shrink-0 overflow-hidden rounded-xl md:rounded-none ${imageFit === 'contain' ? 'bg-black' : 'bg-purple-50'}`}
+      className={`work-character-avatar group/avatar relative shrink-0 overflow-hidden rounded-xl md:rounded-none ${imageFit === 'contain' ? 'bg-black' : 'bg-purple-50'}`}
       style={{ width: isMobileViewport ? size.width : '100%', height: size.height }}
       onPointerMove={resize}
       onPointerUp={finishResize}
@@ -183,6 +181,21 @@ function ResizableWorkAvatar({ avatar, imagePosition, onAvatarChange, onImagePos
           title="點擊編輯大頭貼"
           draggable={false}
         />
+      )}
+      {avatar && (
+        <button
+          type="button"
+          onClick={toggleImageFit}
+          className={`absolute right-2 top-2 z-20 flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold text-white transition-opacity ${
+            imageFit === 'contain' ? 'bg-black/70 opacity-100' : 'bg-black/55 opacity-0 group-hover/avatar:opacity-100 max-md:opacity-100'
+          }`}
+          title={imageFit === 'contain' ? '改回填滿' : '完整顯示圖片（比例不夠會有黑邊）'}
+          aria-label={imageFit === 'contain' ? '改回填滿' : '完整顯示圖片'}
+          aria-pressed={imageFit === 'contain'}
+        >
+          <FitScreenOutlinedIcon sx={{ fontSize: 14 }} />
+          {imageFit === 'contain' ? '填滿' : '完整'}
+        </button>
       )}
       <button
         type="button"
@@ -282,13 +295,13 @@ export default function QuestHub({
   quests, showCompletedInAll, globalCardCoverRatio, onAllCardCoverRatioChange, questTemplates, onAdd, onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate, onToggle, onUpdate, onQuestCoverChange, onQuestCardMediaChange, onRemove, onTogglePin, onToggleCore, onSetPriority, onSetStatus, onSetExp, onUpdateRewardConfig, onReorderQuests, onClearCompleted,
   onDemoteToInbox,
   onInboxAddSubTask, onInboxToggleSubTask, onInboxRemoveSubTask, onInboxUpdateSubTask,
-  stages, onStageName, onStageInfo, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
+  stages, onStageName, onStageInfo, onStageAvatar, onStageAvatarReplace, onStageAvatarRemove, onStageLevel, onStageExpPerLevel, onAddStage, onRemoveStage, onReorderStages, onStageAvatarPosition,
   inboxItems, onInboxAdd, onInboxRemove, onInboxUpdate, onPromoteToQuest,
-  levelingRules, onUpdateExpPerLevel, onUpdateLevelRange, onAddLevelingRule, onRemoveLevelingRule,
+  levelingRules,
   rewardSettings, onUpdateRewardGold, onUpdateRewardColor,
   autoExpSettings, onAutoExpEnabled, onUpdateAutoExpThreshold,
   atk,
-  onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onAddSubTaskImage, onQuestCanvasPositionChange, onAddCanvasQuest,
+  onAddSubTask, onToggleSubTask, onSetSubTaskExp, onRemoveSubTask, onUpdateSubTask, onAddSubTaskImage, onQuestCanvasPositionChange, onAddCanvasQuest,
   currentLevel, expProgress, currentExp, expToNextLevel, avatar, imagePosition, onAvatarChange, onImagePositionChange, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
   onStartHunt, onStopHunt,
@@ -450,6 +463,8 @@ export default function QuestHub({
   }
 
   const currentStage = resolveCurrentStage(stages, currentLevel)
+  const { activeWorkspace } = useWorkspaces()
+  const characterName = activeWorkspace.characterName
   const hasCompleted = quests.some((q) => q.completed)
   const activeQuestCount = quests.filter((quest) => !quest.completed).length
   const visibleQuests = quests.filter((quest) => {
@@ -484,6 +499,31 @@ export default function QuestHub({
     localStorage.setItem(QUEST_VIEW_KEY, view)
   }
 
+  const characterSettingsPanel = (
+    <CharacterSettings
+      stages={stages}
+      onStageName={onStageName}
+      onStageInfo={onStageInfo}
+      onStageAvatar={onStageAvatar}
+      onStageAvatarReplace={onStageAvatarReplace}
+      onStageAvatarRemove={onStageAvatarRemove}
+      onStageLevel={onStageLevel}
+      onStageExpPerLevel={onStageExpPerLevel}
+      onAddStage={onAddStage}
+      onRemoveStage={onRemoveStage}
+      onReorderStages={onReorderStages}
+      onStageAvatarPosition={onStageAvatarPosition}
+      levelingRules={levelingRules}
+      rewardSettings={rewardSettings}
+      onUpdateRewardGold={onUpdateRewardGold}
+      onUpdateRewardColor={onUpdateRewardColor}
+      autoExpSettings={autoExpSettings}
+      onAutoExpEnabled={onAutoExpEnabled}
+      onUpdateAutoExpThreshold={onUpdateAutoExpThreshold}
+      currentLevel={currentLevel}
+      onResetLevel={onResetLevel}
+    />
+  )
 
   return (
     <div className="mobile-work-hub flex-1 flex flex-col gap-5 md:flex-row md:items-start md:gap-6">
@@ -494,18 +534,15 @@ export default function QuestHub({
           <div className="flex min-w-0 flex-col md:gap-4 md:p-5">
             <div className="flex min-w-0 flex-col gap-4">
               <div className="min-w-0 py-1">
-                <h1 className="m-0 text-2xl font-extrabold tracking-wide text-slate-900 md:text-3xl">米莉亞</h1>
+                <div className="flex items-baseline justify-between gap-3">
+                  <h1 className="m-0 min-w-0 truncate text-2xl font-extrabold tracking-wide text-slate-900 md:text-3xl">{characterName}</h1>
+                  <span className="shrink-0 text-xl font-extrabold tracking-wide text-purple-600 md:text-2xl">
+                    LV{currentLevel}
+                  </span>
+                </div>
                 <p className="m-0 mt-2 text-sm font-medium text-slate-500 md:text-base">
                   {currentStage?.className || '初心者'}
                 </p>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <span className="rounded-full border border-purple-300 px-2.5 py-1 text-[11px] font-bold text-purple-600">
-                    LEVEL {currentLevel}
-                  </span>
-                  <span className="text-sm font-medium text-slate-500">
-                    <b className="mr-1 text-purple-600">{activeQuestCount}</b> 個進行中任務
-                  </span>
-                </div>
               </div>
               <div className="w-full rounded-xl border border-slate-100 bg-slate-50/80 px-4 py-3">
                 <p className="m-0 text-[0.68rem] font-bold uppercase tracking-wider text-slate-400">角色資訊</p>
@@ -630,6 +667,7 @@ export default function QuestHub({
               ['pending', '待處理'],
               ['progress', '進行中'],
               ['completed', '已完成'],
+              ['stages', '角色階段'],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -643,6 +681,7 @@ export default function QuestHub({
                 {taskFilter === key && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-purple-500" />}
               </button>
             ))}
+            {taskFilter !== 'stages' && (
             <div className="ml-auto flex shrink-0 items-stretch">
               <button
                 type="button"
@@ -676,8 +715,11 @@ export default function QuestHub({
                 </button>
               )}
             </div>
+            )}
           </nav>
 
+          {taskFilter === 'stages' ? characterSettingsPanel : (
+          <>
           <div className="relative">
             <VocabularyInput
               ref={desktopInputRef}
@@ -701,6 +743,9 @@ export default function QuestHub({
           {questView === 'canvas' ? (
             <QuestCanvasView
               quests={visibleQuests}
+              huntTarget={activeHuntTarget}
+              huntTaskHandlers={huntTaskHandlers}
+              onOpenHunt={() => onTabChange('HuntMission')}
               onPositionChange={onQuestCanvasPositionChange}
               onOpenDetails={setSelectedQuestId}
               onToggleSubTask={onToggleSubTask}
@@ -708,6 +753,8 @@ export default function QuestHub({
               onAddSubTask={onAddSubTask}
               onAddSubTaskImage={onAddSubTaskImage}
               onUpdateQuest={onUpdate}
+              onSetExp={onSetExp}
+              onSetSubTaskExp={onSetSubTaskExp}
               onAddCanvasQuest={onAddCanvasQuest}
               onRemoveQuest={onRemove}
             />
@@ -835,6 +882,8 @@ export default function QuestHub({
               </div>
             </div>
           </div>
+          </>
+          )}
         </div>
       )}
 
@@ -939,6 +988,7 @@ export default function QuestHub({
           target={activeHuntTarget}
           heroAvatar={avatar}
           heroImagePosition={imagePosition}
+          heroName={characterName}
           heroClassName={currentStage?.className}
           heroLevel={currentLevel}
           activeQuestCount={activeQuestCount}
@@ -1122,32 +1172,7 @@ export default function QuestHub({
         </div>
       )}
 
-      {activeTab === 'CharacterSettings' && (
-        <CharacterSettings
-          stages={stages}
-          onStageName={onStageName}
-          onStageInfo={onStageInfo}
-          onStageAvatar={onStageAvatar}
-          onStageAvatarReplace={onStageAvatarReplace}
-          onStageAvatarRemove={onStageAvatarRemove}
-          onStageLevel={onStageLevel}
-          onAddStage={onAddStage}
-          onRemoveStage={onRemoveStage}
-          onReorderStages={onReorderStages}
-          onStageAvatarPosition={onStageAvatarPosition}
-          levelingRules={levelingRules}
-          onUpdateExpPerLevel={onUpdateExpPerLevel}
-          onUpdateLevelRange={onUpdateLevelRange}
-          onAddLevelingRule={onAddLevelingRule}
-          onRemoveLevelingRule={onRemoveLevelingRule}
-          rewardSettings={rewardSettings}
-          onUpdateRewardGold={onUpdateRewardGold}
-          onUpdateRewardColor={onUpdateRewardColor}
-          autoExpSettings={autoExpSettings}
-          onAutoExpEnabled={onAutoExpEnabled}
-          onUpdateAutoExpThreshold={onUpdateAutoExpThreshold}
-        />
-      )}
+      {activeTab === 'CharacterSettings' && characterSettingsPanel}
 
       <QuestDetailDrawer
         open={Boolean(selectedQuest)}

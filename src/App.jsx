@@ -27,7 +27,11 @@ import useQuests from "./hooks/useQuests";
 import useCharacter from "./hooks/useCharacter";
 import useStages, { resolveCurrentStage } from "./hooks/useStages";
 import useInbox from "./hooks/useInbox";
-import useLevelingRules from "./hooks/useLevelingRules";
+import { stagesToLevelingRules } from "./utils/levelingRules";
+import { isLevelUpEffectEnabled } from "./utils/levelUpEffectSettings";
+import { wsKey } from "./utils/workspace";
+import useWorkspaces from "./hooks/useWorkspaces";
+import WorkspaceSwitcher from "./components/common/WorkspaceSwitcher";
 import useMonsters from "./hooks/useMonsters";
 import useStories from "./hooks/useStories";
 import useMaps from "./hooks/useMaps";
@@ -42,6 +46,7 @@ import useTaskDisplaySettings from "./hooks/useTaskDisplaySettings";
 import { resolveImg } from "./utils/imageSrc";
 import WorldGallery from "./pages/WorldGallery";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
+import WorkspaceSettingsPage from "./pages/WorkspaceSettingsPage";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
 import { resolveAutoExpValue } from "./utils/questAutoExp";
 import useImagePaste from "./hooks/useImagePaste";
@@ -129,7 +134,7 @@ function parseRewardCost(cost) {
 
 function MainApp() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isVisible: isWorkFeatureVisible } = useWorkFeatureVisibility();
+  const { isVisible: isWorkFeatureVisible, loaded: workFeaturesLoaded } = useWorkFeatureVisibility();
   const {
     showCompletedInAll,
     cardCoverRatio,
@@ -159,6 +164,7 @@ function MainApp() {
     clearCompleted,
     addSubTask,
     toggleSubTask,
+    updateQuestSubTaskExp,
     removeSubTask,
     updateSubTask,
     addSubTaskImage,
@@ -173,26 +179,6 @@ function MainApp() {
     loaded: questsLoaded,
   } = useQuests();
   const {
-    rules: levelingRules,
-    updateExpPerLevel,
-    updateLevelRange,
-    addLevelingRule,
-    removeLevelingRule,
-  } = useLevelingRules();
-  const {
-    imagePosition,
-    updateImagePosition,
-    gold,
-    adjustGold,
-    resetGold,
-    level,
-    expProgress,
-    currentExp,
-    expToNextLevel,
-    coreTaskProgress,
-    stats,
-  } = useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules);
-  const {
     stages,
     updateStageName,
     updateStageCharacterInfo,
@@ -200,6 +186,7 @@ function MainApp() {
     replaceStageAvatar,
     removeStageAvatar,
     updateStageLevel,
+    updateStageExpPerLevel,
     addStage,
     removeStage,
     reorderStages,
@@ -214,7 +201,22 @@ function MainApp() {
     removeStageBossHuntTask,
     updateStageBossHuntTask,
     updateStageAvatarPosition,
+    loaded: stagesLoaded,
   } = useStages();
+  const levelingRules = useMemo(() => stagesToLevelingRules(stages), [stages]);
+  const {
+    imagePosition,
+    updateImagePosition,
+    gold,
+    adjustGold,
+    resetGold,
+    level,
+    expProgress,
+    currentExp,
+    expToNextLevel,
+    coreTaskProgress,
+    stats,
+  } = useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules);
   const {
     inboxItems,
     addInboxItem,
@@ -589,10 +591,11 @@ function MainApp() {
   const activeTab = searchParams.get("tab") || "Tasks";
 
   useEffect(() => {
+    if (!workFeaturesLoaded) return
     if (activeTab !== 'HuntMission' && activeTab !== 'CharacterSettings' && activeTab !== 'Character' && !isWorkFeatureVisible(activeTab)) {
       setSearchParams({})
     }
-  }, [activeTab, isWorkFeatureVisible, setSearchParams])
+  }, [activeTab, isWorkFeatureVisible, setSearchParams, workFeaturesLoaded])
 
   useEffect(() => {
     if (activeTab !== 'Character') return undefined
@@ -727,6 +730,27 @@ function MainApp() {
     [quests, setQuestCompletedWithReward, setHuntTaskCompleted],
   );
 
+  // Each ticked item gives its own EXP; ticking the last one also completes the quest for its tier reward
+  const handleToggleSubTask = useCallback(
+    (questId, subTaskId) => {
+      const q = quests.find((x) => x.id === questId);
+      if (!q) return;
+      const subTasks = q.subTasks ?? [];
+      const nextSubTasks = subTasks.map((s) => (s.id === subTaskId ? { ...s, completed: !s.completed } : s));
+      const wasAllDone = subTasks.length > 0 && subTasks.every((s) => s.completed);
+      const isAllDone = nextSubTasks.length > 0 && nextSubTasks.every((s) => s.completed);
+      toggleSubTask(questId, subTaskId);
+      if (isAllDone && !q.completed) {
+        setQuestCompletedWithReward(questId, true);
+        if (q.huntBinding) setHuntTaskCompleted(q.huntBinding, true);
+      } else if (wasAllDone && !isAllDone && q.completed) {
+        setQuestCompletedWithReward(questId, false);
+        if (q.huntBinding) setHuntTaskCompleted(q.huntBinding, false);
+      }
+    },
+    [quests, toggleSubTask, setQuestCompletedWithReward, setHuntTaskCompleted],
+  );
+
   const handleBindQuestToActiveHuntTask = useCallback(
     (questId, huntTaskId) => {
       if (!activeHuntTarget) return;
@@ -848,18 +872,16 @@ function MainApp() {
 
   const [showLevelUp, setShowLevelUp] = useState(false);
 
+  // Wait for quests and stages to load so the placeholder level doesn't count as a level change
   useEffect(() => {
-    const stored = localStorage.getItem('_lastSeenLevel');
-    if (stored === null) {
-      localStorage.setItem('_lastSeenLevel', String(level));
-      return;
-    }
-    const lastSeen = parseInt(stored, 10);
-    if (level > lastSeen) {
+    if (!questsLoaded || !stagesLoaded) return;
+    const lastSeen = parseInt(localStorage.getItem(LAST_SEEN_LEVEL_KEY) ?? '', 10);
+    localStorage.setItem(LAST_SEEN_LEVEL_KEY, String(level));
+    // Level resets lower the baseline, so the next level-up shows again
+    if (Number.isFinite(lastSeen) && level > lastSeen && isLevelUpEffectEnabled()) {
       setShowLevelUp(true);
-      localStorage.setItem('_lastSeenLevel', String(level));
     }
-  }, [level]);
+  }, [level, questsLoaded, stagesLoaded]);
 
   const handleLevelUpComplete = useCallback(() => setShowLevelUp(false), []);
 
@@ -902,15 +924,12 @@ function MainApp() {
                 onStageAvatarReplace={replaceStageAvatar}
                 onStageAvatarRemove={removeStageAvatar}
                 onStageLevel={updateStageLevel}
+                onStageExpPerLevel={updateStageExpPerLevel}
                 onAddStage={addStage}
                 onRemoveStage={removeStage}
                 onReorderStages={reorderStages}
                 inboxItems={inboxItems}
                 levelingRules={levelingRules}
-                onUpdateExpPerLevel={updateExpPerLevel}
-                onUpdateLevelRange={updateLevelRange}
-                onAddLevelingRule={addLevelingRule}
-                onRemoveLevelingRule={removeLevelingRule}
                 rewardSettings={rewardSettings}
                 onUpdateRewardGold={updateRewardGold}
                 onUpdateRewardColor={updateRewardColor}
@@ -919,7 +938,8 @@ function MainApp() {
                 onUpdateAutoExpThreshold={updateAutoExpThreshold}
                 atk={stats.atk.value}
                 onAddSubTask={handleAddSubTask}
-                onToggleSubTask={toggleSubTask}
+                onToggleSubTask={handleToggleSubTask}
+                onSetSubTaskExp={updateQuestSubTaskExp}
                 onRemoveSubTask={handleRemoveSubTask}
                 onUpdateSubTask={handleUpdateSubTask}
                 onAddSubTaskImage={addSubTaskImage}
@@ -1023,7 +1043,12 @@ function MainApp() {
       </div>
       </div>
 
-      <LevelUpEffect visible={showLevelUp} onComplete={handleLevelUpComplete} />
+      <LevelUpEffect
+        visible={showLevelUp}
+        level={level}
+        stageName={currentStage?.className}
+        onComplete={handleLevelUpComplete}
+      />
     </>
   );
 }
@@ -1044,7 +1069,8 @@ function CharacterPage() {
     lifetimeCompletions,
     coreTaskCompleted,
   } = useQuests();
-  const { rules: levelingRules } = useLevelingRules();
+  const { stages, updateStageAvatar } = useStages();
+  const levelingRules = useMemo(() => stagesToLevelingRules(stages), [stages]);
   const {
     imagePosition,
     updateImagePosition,
@@ -1054,7 +1080,6 @@ function CharacterPage() {
     coreTaskProgress,
     stats,
   } = useCharacter(lifetimeCompletions, coreTaskCompleted, levelingRules);
-  const { stages, updateStageAvatar } = useStages();
   const currentStage = resolveCurrentStage(stages, level);
 
   return (
@@ -1114,7 +1139,8 @@ const WORK_TABS = [
   { tab: "Inbox", label: "收集箱", icon: <Inventory2OutlinedIcon sx={{ fontSize: 18 }} /> },
 ]
 const COLLECTION_TAB_IDS = ["RewardShop", "Story", "Npc", "Map", "Skills", "Inbox"]
-const COLLECTION_TAB_KEY = "work-collection-tab"
+const COLLECTION_TAB_KEY = wsKey("work-collection-tab")
+const LAST_SEEN_LEVEL_KEY = wsKey("_lastSeenLevel")
 const WORK_MENU_ITEMS = [
   WORK_TABS[0],
   WORK_TABS[1],
@@ -1123,7 +1149,7 @@ const WORK_MENU_ITEMS = [
 const WORK_MORE_TABS = WORK_TABS.filter((item) => item.tab !== "Tasks")
 const WORK_MOBILE_TABS = WORK_TABS.filter((item) => ["Tasks", "Hunt", "Map", "Skills", "Inbox"].includes(item.tab))
 
-const LIFE_SECTION_PATHS = ["/character", "/work", "/character-settings"]
+const LIFE_SECTION_PATHS = ["/character", "/work", "/character-settings", "/workspace-settings"]
 const LIFE_SUB_NAV_ITEMS = [
   { to: "/character", label: "角色", mobileLabel: "角色", icon: <PersonIcon sx={{ fontSize: 20 }} /> },
   { to: "/work", label: "工作", mobileLabel: "任務", icon: <TaskAltIcon sx={{ fontSize: 20 }} /> },
@@ -1203,6 +1229,8 @@ function Layout({ user, signIn, logOut }) {
     (location.pathname === "/work" && WORK_MORE_TABS.some((item) => item.tab === activeWorkTab))
   const isLifeSection = LIFE_SECTION_PATHS.includes(location.pathname)
   const isWorkPage = location.pathname === "/work"
+  const { workspaces, activeWorkspace, addWorkspace, switchWorkspace } = useWorkspaces()
+  const workspaceLabel = `${activeWorkspace.name} 任務`
 
   const closeMenus = () => {
     setShowUserMenu(false)
@@ -1227,11 +1255,18 @@ function Layout({ user, signIn, logOut }) {
                 active={isLifeSection}
                 className={`${navLinkClass({ isActive: isLifeSection })} inline-flex items-center`}
               >
-                LIFE 任務
+                {workspaceLabel}
                 <KeyboardArrowDownIcon sx={{ fontSize: 16, ml: 0.25 }} />
               </TopLevelNavLink>
               <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition-opacity group-hover/life:visible group-hover/life:opacity-100 group-focus-within/life:visible group-focus-within/life:opacity-100">
-                <div className="flex w-48 flex-col gap-0.5 rounded-xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                <div className="flex w-52 flex-col gap-0.5 rounded-xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                  <WorkspaceSwitcher
+                    workspaces={workspaces}
+                    activeWorkspace={activeWorkspace}
+                    onSwitch={switchWorkspace}
+                    onAdd={addWorkspace}
+                  />
+                  <div className="my-1 border-t border-slate-100" />
                   {WORK_MENU_ITEMS.filter((item) => item.tab === "Collection"
                     ? COLLECTION_TAB_IDS.some((tab) => isWorkFeatureVisible(tab))
                     : isWorkFeatureVisible(item.tab)
@@ -1266,6 +1301,15 @@ function Layout({ user, signIn, logOut }) {
                   >
                     <TuneIcon sx={{ fontSize: 18 }} />
                     角色設定
+                  </Link>
+                  <Link
+                    to="/workspace-settings"
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold no-underline transition-colors ${
+                      location.pathname === "/workspace-settings" ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    <SettingsIcon sx={{ fontSize: 18 }} />
+                    工作區設定
                   </Link>
                 </div>
               </div>
@@ -1427,7 +1471,7 @@ function Layout({ user, signIn, logOut }) {
           onClick={closeMenus}
         >
           <TaskAltIcon sx={{ fontSize: 20 }} />
-          <span className="text-[0.65rem] font-semibold">LIFE 任務</span>
+          <span className="max-w-full truncate text-[0.65rem] font-semibold">{workspaceLabel}</span>
         </TopLevelNavLink>
         <NavLink
           to="/gallery"
@@ -1468,8 +1512,27 @@ function Layout({ user, signIn, logOut }) {
             className={`flex items-center gap-3 rounded-xl px-4 py-4 text-base font-bold transition-colors ${isLifeSection ? 'text-purple-btn bg-purple-50' : 'text-gray-700 hover:bg-gray-50'}`}
           >
             <TaskAltIcon sx={{ fontSize: 20 }} />
-            LIFE 任務
+            {workspaceLabel}
           </TopLevelNavLink>
+          <div className="mb-2 mt-1 flex flex-col gap-0.5 rounded-xl border border-slate-100 p-1.5">
+            <WorkspaceSwitcher
+              workspaces={workspaces}
+              activeWorkspace={activeWorkspace}
+              onSwitch={switchWorkspace}
+              onAdd={addWorkspace}
+              size="lg"
+            />
+            <Link
+              to="/workspace-settings"
+              onClick={closeMenus}
+              className={`flex items-center gap-3 rounded-xl px-4 py-3 text-base font-semibold no-underline transition-colors ${
+                location.pathname === '/workspace-settings' ? 'bg-purple-50 text-purple-600' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <SettingsIcon sx={{ fontSize: 18 }} />
+              工作區設定
+            </Link>
+          </div>
           <NavLink
             to="/gallery"
             onClick={closeMenus}
@@ -1556,6 +1619,7 @@ export default function App() {
         <Route path="/gallery" element={<WorldGallery />} />
         <Route path="/character-settings" element={<Navigate to="/work?tab=CharacterSettings" replace />} />
         <Route path="/system-settings" element={<SystemSettingsPage />} />
+        <Route path="/workspace-settings" element={<WorkspaceSettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/work" replace />} />
     </Routes>

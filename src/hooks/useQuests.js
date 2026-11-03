@@ -1,12 +1,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { wsDoc } from '../utils/workspace'
 import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
 import { compressImage } from '../utils/compressImage'
 import { storeImage, removeStoredImage } from '../utils/imageStorage'
 
-const QUESTS_DOC = doc(db, 'meta', 'quests')
+const QUESTS_DOC = wsDoc('quests')
 
 let cachedQuests = null
 let cachedQuestTemplates = null
@@ -43,6 +43,8 @@ function normalizeSubTask(subTask = {}) {
     id: subTask.id ?? Date.now(),
     text: subTask.text ?? '',
     completed: Boolean(subTask.completed),
+    // EXP granted when this item was ticked, so unticking takes back exactly that amount
+    ...(subTask.completed && Number(subTask.awardedExp) > 0 ? { awardedExp: Math.floor(Number(subTask.awardedExp)) } : {}),
     ...(typeof subTask.imageId === 'string' && subTask.imageId ? { imageId: subTask.imageId } : {}),
   }
 }
@@ -99,6 +101,7 @@ function normalizeQuest(quest = {}) {
     coverRatioMode: quest.coverRatioMode === 'individual' ? 'individual' : 'global',
     huntBinding: quest.huntBinding ?? null,
     canvasPosition: normalizeCanvasPosition(quest.canvasPosition),
+    subTaskExp: normalizeNonNegativeInt(quest.subTaskExp, 1),
     subTasks: Array.isArray(quest.subTasks) ? quest.subTasks.map(normalizeSubTask) : [],
   }
 }
@@ -505,18 +508,39 @@ export default function useQuests() {
 
   const toggleSubTask = useCallback((questId, subTaskId) => {
     let shouldPlay = false
+    let expDelta = 0
     setQuests((prev) =>
       prev.map((q) => {
         if (q.id !== questId) return q
         const updated = (q.subTasks ?? []).map((s) => {
           if (s.id !== subTaskId) return s
-          if (!s.completed) shouldPlay = true
-          return { ...s, completed: !s.completed }
+          if (s.completed) {
+            expDelta = -(s.awardedExp ?? 0)
+            const rest = { ...s, completed: false }
+            delete rest.awardedExp
+            return rest
+          }
+          shouldPlay = true
+          const awardedExp = normalizeNonNegativeInt(q.subTaskExp, 1)
+          expDelta = awardedExp
+          return { ...s, completed: true, ...(awardedExp > 0 ? { awardedExp } : {}) }
         })
         return { ...q, subTasks: updated }
       })
     )
+    if (expDelta !== 0) {
+      setLifetimeCompletions((c) => {
+        const next = Math.max(0, c + expDelta)
+        cachedLifetimeCompletions = next
+        return next
+      })
+    }
     if (shouldPlay) playQuestCompleteSound()
+  }, [])
+
+  const updateQuestSubTaskExp = useCallback((id, value) => {
+    const subTaskExp = normalizeNonNegativeInt(value, 1)
+    setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, subTaskExp } : q)))
   }, [])
 
   const addSubTaskImage = useCallback(async (questId, file) => {
@@ -616,6 +640,7 @@ export default function useQuests() {
     unbindQuestFromHuntTask,
     addSubTask,
     toggleSubTask,
+    updateQuestSubTaskExp,
     removeSubTask,
     updateSubTask,
     addSubTaskImage,

@@ -53,7 +53,7 @@ const PARTICLES = [
 ]
 
 // ── Component ──────────────────────────────────────────────────────────────
-export default function LevelUpEffect({ visible, onComplete }) {
+export default function LevelUpEffect({ visible, level, stageName, onComplete }) {
   useEffect(() => {
     if (!visible) return
     const t = setTimeout(onComplete, 3400)
@@ -63,7 +63,7 @@ export default function LevelUpEffect({ visible, onComplete }) {
   if (!visible) return null
 
   return (
-    <div className="lue-overlay">
+    <div className="lue-overlay" onClick={onComplete} title="點擊關閉">
       {/* Backdrop: dark ground glow, no blend mode */}
       <div className="lue-backdrop" />
 
@@ -146,6 +146,12 @@ export default function LevelUpEffect({ visible, onComplete }) {
 
         {/* LEVEL UP text */}
         <div className="lue-text">LEVEL UP!</div>
+        {level != null && (
+          <div className="lue-subtext">
+            <span className="lue-level">LV {level}</span>
+            {stageName && <span className="lue-stage">{stageName}</span>}
+          </div>
+        )}
       </div>
     </div>
   )

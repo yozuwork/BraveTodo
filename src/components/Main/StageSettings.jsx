@@ -68,6 +68,35 @@ async function downloadImage(src, stageName, index = 0) {
   }
 }
 
+function ExpPerLevelInput({ stage, onChange, className }) {
+  const [draft, setDraft] = useState(String(stage.expPerLevel ?? 1))
+
+  useEffect(() => {
+    setDraft(String(stage.expPerLevel ?? 1))
+  }, [stage.expPerLevel])
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      value={draft}
+      onChange={(e) => {
+        const value = e.target.value
+        if (!/^\d*$/.test(value)) return
+        setDraft(value)
+        if (Number(value) >= 1) onChange(stage.id, value)
+      }}
+      onBlur={() => {
+        if (Number(draft) >= 1) return
+        setDraft('1')
+        onChange(stage.id, '1')
+      }}
+      className={className}
+    />
+  )
+}
+
 function StageImagePreview({ stage, open, onClose }) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const imageSrcs = getStageImageSrcs(stage)
@@ -143,17 +172,48 @@ function StageImagePreview({ stage, open, onClose }) {
 function StageEditModal({
   stage, open, onClose,
   onNameChange, onInfoChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange,
-  onPositionChange,
+  onExpPerLevelChange, onPositionChange,
 }) {
   const fileInputRef = useRef(null)
   const [selectedIdx, setSelectedIdx] = useState(0)
   const [localPositions, setLocalPositions] = useState(stage?.avatarPositions ?? [])
   const [galleryOpen, setGalleryOpen] = useState(false)
   const modalDragRef = useRef(null)
+  const replaceInputRef = useRef(null)
+  const replaceIndexRef = useRef(null)
+  // Selected paste target: 'main' (shown image), a thumbnail index, or 'add'. Click once to select, again to upload
+  const [pasteTarget, setPasteTarget] = useState(null)
+  const pasteIndexRef = useRef(null)
 
   useEffect(() => {
     setLocalPositions(stage?.avatarPositions ?? [])
   }, [stage?.id])
+
+  useEffect(() => {
+    setPasteTarget(null)
+  }, [stage?.id, open])
+
+  // Ctrl+V replaces the selected image; with no image selected it adds a new one
+  useEffect(() => {
+    if (!open || !stage || galleryOpen) return
+
+    const handlePaste = (event) => {
+      const items = Array.from(event.clipboardData?.items ?? [])
+      const file = items.find((item) => item.kind === 'file' && item.type.startsWith('image/'))?.getAsFile()
+      if (!file) return
+      const target = event.target
+      const isEditable = target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA'].includes(target.tagName))
+      if (isEditable && items.some((item) => item.type === 'text/plain')) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      if (pasteIndexRef.current !== null) onReplaceAvatar(stage.id, pasteIndexRef.current, file)
+      else onAvatarChange(stage.id, [file])
+      setPasteTarget(null)
+    }
+
+    window.addEventListener('paste', handlePaste, true)
+    return () => window.removeEventListener('paste', handlePaste, true)
+  }, [open, stage?.id, galleryOpen, onAvatarChange, onReplaceAvatar])
 
   if (!stage) return null
 
@@ -165,18 +225,58 @@ function StageEditModal({
   const clampedIdx = Math.min(selectedIdx, Math.max(0, avatarSrcs.length - 1))
   const mainSrc = avatarSrcs.length > 0 ? avatarSrcs[clampedIdx] : stage.avatarSrc
   const currentPos = localPositions[clampedIdx] ?? { x: 50, y: 50 }
+  pasteIndexRef.current = pasteTarget === 'main'
+    ? (avatarSrcs.length > 0 ? clampedIdx : null)
+    : typeof pasteTarget === 'number' ? pasteTarget : null
+
+  const openReplacePicker = (index) => {
+    replaceIndexRef.current = index
+    replaceInputRef.current?.click()
+  }
+
+  const handleMainClick = () => {
+    if (pasteTarget !== 'main') {
+      setPasteTarget('main')
+      return
+    }
+    setPasteTarget(null)
+    if (avatarSrcs.length > 0) openReplacePicker(clampedIdx)
+    else fileInputRef.current?.click()
+  }
+
+  const handleThumbClick = (index) => {
+    if (pasteTarget !== index) {
+      setSelectedIdx(index)
+      setPasteTarget(index)
+      return
+    }
+    setPasteTarget(null)
+    openReplacePicker(index)
+  }
+
+  const handleAddClick = () => {
+    if (pasteTarget !== 'add') {
+      setPasteTarget('add')
+      return
+    }
+    setPasteTarget(null)
+    fileInputRef.current?.click()
+  }
 
   const handleMainImagePointerDown = (e) => {
     e.preventDefault()
     const startX = e.clientX
     const startY = e.clientY
     const posAtStart = localPositions[clampedIdx] ?? { x: 50, y: 50 }
+    let moved = false
 
     const clamp = (v, min, max) => Math.min(Math.max(v, min), max)
 
     const onMove = (me) => {
       const dx = me.clientX - startX
       const dy = me.clientY - startY
+      if (!moved && Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      moved = true
       const newX = clamp(posAtStart.x - dx * 0.3, 0, 100)
       const newY = clamp(posAtStart.y - dy * 0.3, 0, 100)
       setLocalPositions((prev) => {
@@ -190,6 +290,10 @@ function StageEditModal({
     const onUp = () => {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
+      if (!moved) {
+        handleMainClick()
+        return
+      }
       if (modalDragRef.current) {
         onPositionChange?.(stage.id, clampedIdx, modalDragRef.current.x, modalDragRef.current.y)
         modalDragRef.current = null
@@ -217,15 +321,23 @@ function StageEditModal({
         編輯階段
       </DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
-        <div className="flex flex-col gap-5">
+        <div
+          className="flex flex-col gap-5"
+          onPointerDownCapture={(e) => {
+            if (!e.target.closest('[data-paste-target]')) setPasteTarget(null)
+          }}
+        >
 
           {/* Slideshow */}
           <div>
             {/* Main image */}
             <div
-              className="w-full rounded-xl overflow-hidden bg-stone-900 border border-gray-200 cursor-grab"
+              data-paste-target
+              className={`relative w-full rounded-xl overflow-hidden bg-stone-900 border-2 cursor-grab transition-shadow ${
+                pasteTarget === 'main' ? 'border-amber-400 ring-4 ring-amber-200' : 'border-gray-200 hover:border-amber-300'
+              }`}
               style={{ aspectRatio: '4/3' }}
-              title="拖移調整顯示位置"
+              title={pasteTarget === 'main' ? 'Ctrl+V 貼上替換，或再點一下上傳' : '點一下選取（可貼上圖片），拖移調整顯示位置'}
             >
               <img
                 src={mainSrc}
@@ -241,8 +353,14 @@ function StageEditModal({
                 className="w-full h-full object-contain select-none"
                 style={{ objectPosition: `${currentPos.x}% ${currentPos.y}%` }}
               />
+              {pasteTarget === 'main' && (
+                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-amber-300/45 text-sm font-bold text-amber-950">
+                  <span>Ctrl+V 貼上替換</span>
+                  <span className="text-xs">再點一下開啟上傳</span>
+                </div>
+              )}
             </div>
-            <p className="text-center text-xs text-gray-400 mt-1 m-0">拖移圖片調整顯示位置</p>
+            <p className="text-center text-xs text-gray-400 mt-1 m-0">點一下圖片選取後可 Ctrl+V 貼上・拖移調整顯示位置</p>
 
             {/* Thumbnail row */}
             <div className="flex items-center gap-2 mt-2 overflow-x-auto pb-1">
@@ -250,9 +368,13 @@ function StageEditModal({
                 <button
                   key={`${src}-${index}`}
                   type="button"
-                  onClick={() => setSelectedIdx(index)}
+                  data-paste-target
+                  onClick={() => handleThumbClick(index)}
+                  title={pasteTarget === index ? 'Ctrl+V 貼上替換，或再點一下上傳' : '點一下選取（可貼上圖片）'}
                   className={`relative shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-colors cursor-pointer bg-transparent p-0 ${
-                    clampedIdx === index ? 'border-purple-400' : 'border-gray-200'
+                    pasteTarget === index
+                      ? 'border-amber-400 ring-2 ring-amber-200'
+                      : clampedIdx === index ? 'border-purple-400 hover:border-amber-300' : 'border-gray-200 hover:border-amber-300'
                   }`}
                 >
                   <img
@@ -266,6 +388,11 @@ function StageEditModal({
                     }}
                     className="w-full h-full object-cover"
                   />
+                  {pasteTarget === index && (
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-amber-300/50 text-[9px] font-bold text-amber-950">
+                      Ctrl+V
+                    </span>
+                  )}
                   <span
                     role="button"
                     tabIndex={0}
@@ -281,9 +408,14 @@ function StageEditModal({
               {/* Add button as last thumbnail */}
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="shrink-0 w-14 h-14 rounded-lg border-2 border-dashed border-purple-200 flex items-center justify-center text-purple-400 hover:border-purple-400 hover:bg-purple-50 transition-colors cursor-pointer bg-transparent"
-                title="本地上傳"
+                data-paste-target
+                onClick={handleAddClick}
+                className={`shrink-0 w-14 h-14 rounded-lg border-2 border-dashed flex items-center justify-center transition-colors cursor-pointer ${
+                  pasteTarget === 'add'
+                    ? 'border-amber-400 bg-amber-100 text-amber-600'
+                    : 'border-purple-200 bg-transparent text-purple-400 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-500'
+                }`}
+                title={pasteTarget === 'add' ? 'Ctrl+V 貼上新增，或再點一下上傳' : '點一下選取（可貼上新增），再點一下本地上傳'}
               >
                 <AddIcon sx={{ fontSize: 22 }} />
               </button>
@@ -305,6 +437,17 @@ function StageEditModal({
               className="hidden"
               onChange={(e) => {
                 onAvatarChange(stage.id, e.target.files)
+                e.target.value = ''
+              }}
+            />
+            <input
+              ref={replaceInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file && replaceIndexRef.current !== null) onReplaceAvatar(stage.id, replaceIndexRef.current, file)
                 e.target.value = ''
               }}
             />
@@ -366,6 +509,20 @@ function StageEditModal({
             </div>
           </div>
 
+          {/* Exp per level */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 mb-1.5 block">升級經驗</label>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500 shrink-0">每升一級需要</span>
+              <ExpPerLevelInput
+                stage={stage}
+                onChange={onExpPerLevelChange}
+                className="w-24 text-center text-sm font-mono text-gray-600 bg-stone-50 border border-gray-200 rounded-lg px-2 py-2.5 outline-none focus:border-purple-400 transition-colors"
+              />
+              <span className="text-sm text-gray-500 shrink-0">經驗</span>
+            </div>
+          </div>
+
         </div>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2.5 }}>
@@ -395,7 +552,7 @@ function StageRow({
   isDragOver, insertBefore,
   onDragStart, onDragOver, onDrop, onDragEnd,
   onAvatarChange, onReplaceAvatar,
-  onPositionChange,
+  onPositionChange, onExpPerLevelChange,
 }) {
   const fileInputRef = useRef(null)
   const customAvatarCount = stage.avatars?.length ?? (stage.avatar ? 1 : 0)
@@ -405,6 +562,45 @@ function StageRow({
 
   const [thumbPos, setThumbPos] = useState(stage.avatarPositions?.[0] ?? { x: 50, y: 50 })
   const thumbDragRef = useRef(null)
+  const thumbRef = useRef(null)
+  // First click selects the thumbnail (paste target); a second click opens the file picker
+  const [thumbSelected, setThumbSelected] = useState(false)
+  const [galleryOpen, setGalleryOpen] = useState(false)
+
+  const applyImage = useCallback((fileOrSrc) => {
+    if (avatarSrcs.length > 0) onReplaceAvatar(stage.id, 0, fileOrSrc)
+    else onAvatarChange(stage.id, [fileOrSrc])
+  }, [avatarSrcs.length, stage.id, onReplaceAvatar, onAvatarChange])
+
+  useEffect(() => {
+    if (!thumbSelected) return
+
+    const handlePaste = (event) => {
+      const file = Array.from(event.clipboardData?.items ?? [])
+        .find((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        ?.getAsFile()
+      if (!file) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      applyImage(file)
+      setThumbSelected(false)
+    }
+    const handlePointerDown = (event) => {
+      if (!thumbRef.current?.contains(event.target)) setThumbSelected(false)
+    }
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setThumbSelected(false)
+    }
+
+    window.addEventListener('paste', handlePaste, true)
+    window.addEventListener('pointerdown', handlePointerDown, true)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('paste', handlePaste, true)
+      window.removeEventListener('pointerdown', handlePointerDown, true)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [thumbSelected, applyImage])
 
   const handleThumbPointerDown = useCallback((e) => {
     e.preventDefault()
@@ -430,7 +626,12 @@ function StageRow({
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       if (!moved) {
-        fileInputRef.current?.click()
+        if (thumbSelected) {
+          setThumbSelected(false)
+          fileInputRef.current?.click()
+        } else {
+          setThumbSelected(true)
+        }
         return
       }
       if (thumbDragRef.current) {
@@ -441,7 +642,7 @@ function StageRow({
 
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
-  }, [thumbPos, stage.id, onPositionChange])
+  }, [thumbPos, thumbSelected, stage.id, onPositionChange])
 
   return (
     <div
@@ -466,8 +667,11 @@ function StageRow({
 
       {/* Avatar */}
       <div
-        className="w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 border-purple-200 cursor-grab"
-        title={avatarSrcs.length > 0 ? '點擊替換第一張圖片，拖移調整顯示位置' : '點擊設定第一張圖片'}
+        ref={thumbRef}
+        className={`relative w-20 h-20 shrink-0 rounded-xl overflow-hidden border-2 cursor-grab transition-shadow ${
+          thumbSelected ? 'border-amber-400 ring-4 ring-amber-200' : 'border-purple-200 hover:border-amber-300'
+        }`}
+        title={thumbSelected ? 'Ctrl+V 貼上圖片，或再點一下開啟上傳' : '點一下選取（可貼上圖片），拖移調整顯示位置'}
       >
         <img
           src={stage.avatarSrc}
@@ -483,7 +687,19 @@ function StageRow({
           className="w-full h-full object-cover select-none"
           style={{ objectPosition: `${thumbPos.x}% ${thumbPos.y}%` }}
         />
+        {thumbSelected && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-0.5 bg-amber-300/55 text-center text-[10px] font-bold leading-tight text-amber-950">
+            <span>Ctrl+V 貼上</span>
+            <span>再點一下上傳</span>
+          </div>
+        )}
       </div>
+      <GalleryImagePicker
+        open={galleryOpen}
+        onClose={() => setGalleryOpen(false)}
+        initialTab="character"
+        onSelect={(src) => applyImage(src)}
+      />
       <input
         ref={fileInputRef}
         type="file"
@@ -506,10 +722,19 @@ function StageRow({
           LV {stage.minLevel} — {stage.maxLevel}
           {avatarSrcs.length > 0 && <span className="ml-2">{avatarSrcs.length} 張</span>}
         </p>
+        <label className="mt-2 inline-flex items-center gap-1.5 text-xs text-gray-500">
+          每升一級需要
+          <ExpPerLevelInput
+            stage={stage}
+            onChange={onExpPerLevelChange}
+            className="w-14 text-center text-xs font-semibold text-black bg-stone-50 border border-gray-200 rounded-md px-1.5 py-1 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200 transition-colors"
+          />
+          經驗
+        </label>
       </div>
 
       {/* Edit */}
-      <div className="grid shrink-0 grid-cols-2 gap-1 sm:flex sm:items-center">
+      <div className="grid shrink-0 grid-cols-3 gap-1 sm:flex sm:items-center">
         <IconButton
           size="small"
           onClick={() => onPreview(stage)}
@@ -529,6 +754,15 @@ function StageRow({
           sx={{ minWidth: 40, minHeight: 40, color: '#64748b', '&:hover': { bgcolor: '#f1f5f9', color: '#334155' } }}
         >
           <DownloadOutlinedIcon fontSize="small" />
+        </IconButton>
+        <IconButton
+          size="small"
+          onClick={() => setGalleryOpen(true)}
+          aria-label="從圖庫選擇"
+          title="從圖庫選擇"
+          sx={{ minWidth: 40, minHeight: 40, color: '#64748b', '&:hover': { bgcolor: '#f1f5f9', color: '#334155' } }}
+        >
+          <CollectionsIcon fontSize="small" />
         </IconButton>
         <IconButton
           size="small"
@@ -574,7 +808,7 @@ function StageRow({
   )
 }
 
-export default function StageSettings({ stages, onNameChange, onInfoChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onAddStage, onRemoveStage, onReorderStages, onPositionChange }) {
+export default function StageSettings({ stages, onNameChange, onInfoChange, onAvatarChange, onReplaceAvatar, onRemoveAvatar, onLevelChange, onExpPerLevelChange, onAddStage, onRemoveStage, onReorderStages, onPositionChange }) {
   const dragId = useRef(null)
   const [dragOverId, setDragOverId] = useState(null)
   const [insertBefore, setInsertBefore] = useState(true)
@@ -614,7 +848,7 @@ export default function StageSettings({ stages, onNameChange, onInfoChange, onAv
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between mb-1">
         <h2 className="text-base font-bold text-black m-0">階段設置</h2>
-        <span className="text-xs text-gray-400">設定每個階段的大頭貼、名稱與等級範圍</span>
+        <span className="text-xs text-gray-400">設定每個階段的大頭貼、名稱、等級範圍與升級經驗（未涵蓋的等級每級 1 經驗）</span>
       </div>
       <div className="flex flex-col gap-3">
         {stages.map((stage) => (
@@ -634,6 +868,7 @@ export default function StageSettings({ stages, onNameChange, onInfoChange, onAv
             onAvatarChange={onAvatarChange}
             onReplaceAvatar={onReplaceAvatar}
             onPositionChange={onPositionChange}
+            onExpPerLevelChange={onExpPerLevelChange}
           />
         ))}
       </div>
@@ -666,6 +901,7 @@ export default function StageSettings({ stages, onNameChange, onInfoChange, onAv
         onReplaceAvatar={onReplaceAvatar}
         onRemoveAvatar={onRemoveAvatar}
         onLevelChange={onLevelChange}
+        onExpPerLevelChange={onExpPerLevelChange}
         onPositionChange={onPositionChange}
       />
       <StageImagePreview

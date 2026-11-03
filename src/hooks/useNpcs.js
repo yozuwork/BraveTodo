@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getDoc, setDoc } from 'firebase/firestore'
+import { wsDoc } from '../utils/workspace'
 import { compressImage } from '../utils/compressImage'
 import { reorderItems } from '../utils/reorderItems'
 
-const NPCS_DOC = doc(db, 'meta', 'npcs')
+const NPCS_DOC = wsDoc('npcs')
 let cachedNpcs = null
 
 const createNpc = () => {

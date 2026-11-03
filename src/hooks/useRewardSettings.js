@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getDoc, setDoc } from 'firebase/firestore'
+import { wsDoc } from '../utils/workspace'
 import { DEFAULT_AUTO_EXP_SETTINGS, normalizeAutoExpSettings } from '../utils/questAutoExp'
 
-const REWARD_SETTINGS_DOC = doc(db, 'meta', 'rewardSettings')
+const REWARD_SETTINGS_DOC = wsDoc('rewardSettings')
 
 export const DEFAULT_REWARD_SETTINGS = [
   { key: '1', label: '一般', expValue: 1, gold: 1, color: '#9ca3af', tone: 'stone' },

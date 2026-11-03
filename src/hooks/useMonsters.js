@@ -1,9 +1,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getDoc, setDoc } from 'firebase/firestore'
+import { wsDoc } from '../utils/workspace'
 import { compressImage } from '../utils/compressImage'
 
-const MONSTERS_DOC = doc(db, 'meta', 'monsters')
+const MONSTERS_DOC = wsDoc('monsters')
 
 export const MONSTER_TYPES = ['minion', 'elite', 'boss', 'final_boss']
 

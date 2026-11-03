@@ -3,7 +3,7 @@
   position: fixed;
   inset: 0;
   z-index: 200;
-  pointer-events: none;
+  cursor: pointer;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -134,6 +134,40 @@
   32%  { transform: translateX(-50%) scale(1)    translateY(0);  }
   72%  { opacity: 1; }
   100% { opacity: 0; transform: translateX(-50%) scale(0.9)  translateY(-12px); }
+}
+
+.lue-subtext {
+  position: absolute;
+  bottom: 240px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  color: #fff7cc;
+  text-shadow: 0 0 10px #ffd700, 0 0 24px rgba(255, 165, 0, 0.7);
+  animation: lue-subtext 3.4s ease-out forwards;
+}
+
+.lue-level {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.lue-stage {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+@keyframes lue-subtext {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(14px); }
+  24%  { opacity: 0; transform: translateX(-50%) translateY(14px); }
+  38%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  72%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 }
 
 /* ── Particles ───────────────────────────────────── */

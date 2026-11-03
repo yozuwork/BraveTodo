@@ -1,16 +1,8 @@
 import CharacterSettings from '../components/Main/CharacterSettings'
 import useStages from '../hooks/useStages'
-import useLevelingRules from '../hooks/useLevelingRules'
 import useRewardSettings from '../hooks/useRewardSettings'
 
 export default function CharacterSettingsPage() {
-  const {
-    rules: levelingRules,
-    updateExpPerLevel,
-    updateLevelRange,
-    addLevelingRule,
-    removeLevelingRule,
-  } = useLevelingRules()
   const {
     stages,
     updateStageName,
@@ -19,6 +11,7 @@ export default function CharacterSettingsPage() {
     replaceStageAvatar,
     removeStageAvatar,
     updateStageLevel,
+    updateStageExpPerLevel,
     addStage,
     removeStage,
     reorderStages,
@@ -40,15 +33,11 @@ export default function CharacterSettingsPage() {
           onStageAvatarReplace={replaceStageAvatar}
           onStageAvatarRemove={removeStageAvatar}
           onStageLevel={updateStageLevel}
+          onStageExpPerLevel={updateStageExpPerLevel}
           onAddStage={addStage}
           onRemoveStage={removeStage}
           onReorderStages={reorderStages}
           onStageAvatarPosition={updateStageAvatarPosition}
-          levelingRules={levelingRules}
-          onUpdateExpPerLevel={updateExpPerLevel}
-          onUpdateLevelRange={updateLevelRange}
-          onAddLevelingRule={addLevelingRule}
-          onRemoveLevelingRule={removeLevelingRule}
           rewardSettings={rewardSettings}
           onUpdateRewardGold={updateRewardGold}
         />

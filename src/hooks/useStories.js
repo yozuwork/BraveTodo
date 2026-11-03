@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getDoc, setDoc } from 'firebase/firestore'
+import { wsDoc } from '../utils/workspace'
 import { compressImage } from '../utils/compressImage'
 import { reorderItems } from '../utils/reorderItems'
 
-const STORIES_DOC = doc(db, 'meta', 'stories')
+const STORIES_DOC = wsDoc('stories')
 let cachedStories = null
 
 const createStory = () => {

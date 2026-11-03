@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from '../firebase'
+import { getDoc, setDoc } from 'firebase/firestore'
+import { wsDoc } from '../utils/workspace'
 import { compressImage } from '../utils/compressImage'
 import { reorderItems } from '../utils/reorderItems'
 import { storeImage, fetchImageSrcs, removeStoredImage } from '../utils/imageStorage'
 
-const REWARD_SHOP_DOC = doc(db, 'meta', 'rewardShop')
+const REWARD_SHOP_DOC = wsDoc('rewardShop')
 const DEFAULT_COVER_POSITION = { x: 50, y: 50 }
 
 let cachedRewards = null

@@ -1,24 +1,15 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import defaultAvatar from '../assets/hero.jpg'
 import { compressImage } from '../utils/compressImage'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
-import { db } from '../firebase'
-import levelUpSfxUrl from '../assets/music/Key Item Get (The Legend of Zelda Breath of the Wild OST).mp3'
-import { isSoundEnabled } from '../utils/soundSettings'
+import { getDoc, setDoc } from 'firebase/firestore'
+import { wsDoc } from '../utils/workspace'
 import { calcCompletionsForLevel, calcLevelInfo } from '../utils/levelingRules'
 
-const CHARACTER_DOC = doc(db, 'meta', 'character')
+const CHARACTER_DOC = wsDoc('character')
 let cachedAvatar = null
 let cachedImagePosition = null
 let cachedGold = 0
 let cachedCharacterLoaded = false
-
-function playLevelUpSound() {
-  if (!isSoundEnabled()) return
-  const audio = new Audio(levelUpSfxUrl)
-  audio.volume = 0.75
-  void audio.play().catch(() => {})
-}
 
 const BASE_STATS = { atk: 5, def: 5, spd: 5 }
 
@@ -29,7 +20,6 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
   const [gold, setGold] = useState(() => cachedGold ?? 0)
   const [loaded, setLoaded] = useState(() => cachedCharacterLoaded)
   const skipWriteRef = useRef(true)
-  const prevLevelRef = useRef(null)
 
   useEffect(() => {
     if (cachedCharacterLoaded) return
@@ -123,13 +113,6 @@ export default function useCharacter(lifetimeCompletions, coreTaskCompleted, lev
       expToNextLevel: Math.max(1, nextLevelStart - currentLevelStart),
     }
   }, [level, levelingRules, lifetimeCompletions])
-
-  useEffect(() => {
-    if (prevLevelRef.current !== null && level > prevLevelRef.current) {
-      playLevelUpSound()
-    }
-    prevLevelRef.current = level
-  }, [level])
 
   const coreTaskProgress = coreTaskCompleted ? 100 : 0
 

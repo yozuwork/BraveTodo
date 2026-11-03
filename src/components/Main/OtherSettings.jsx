@@ -1,14 +1,19 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Button from "@mui/material/Button";
 import Switch from "@mui/material/Switch";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
 import ImageIcon from "@mui/icons-material/Image";
 import RestoreIcon from "@mui/icons-material/Restore";
 import TitleIcon from "@mui/icons-material/Title";
 import VolumeUpIcon from "@mui/icons-material/VolumeUp";
 import VolumeOffIcon from "@mui/icons-material/VolumeOff";
 import CollectionsIcon from "@mui/icons-material/Collections";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { isSoundEnabled, setSoundEnabled } from "../../utils/soundSettings";
+import {
+  isLevelUpEffectEnabled,
+  setLevelUpEffectEnabled,
+} from "../../utils/levelUpEffectSettings";
+import LevelUpEffect from "../LevelUpEffect/LevelUpEffect";
 import GalleryImagePicker from "../common/GalleryImagePicker";
 import { resolveImg } from "../../utils/imageSrc";
 import {
@@ -17,8 +22,6 @@ import {
   loadFaviconUrl,
   saveFaviconUrl,
 } from "../../utils/faviconSettings";
-import { calcCompletionsForLevel, getHighestConfiguredLevel } from "../../utils/levelingRules";
-import useWorkFeatureVisibility, { WORK_FEATURE_OPTIONS } from "../../hooks/useWorkFeatureVisibility";
 import useTaskDisplaySettings from "../../hooks/useTaskDisplaySettings";
 import {
   getAppTheme,
@@ -230,7 +233,64 @@ function SoundToggleCard() {
           }}
         />
       </div>
-      <p className="text-xs text-gray-400 m-0">控制任務完成音效與升級音效</p>
+      <p className="text-xs text-gray-400 m-0">控制任務完成音效（升級特效不播放音樂）</p>
+    </div>
+  );
+}
+
+function LevelUpEffectToggleCard({ currentLevel }) {
+  const [enabled, setEnabled] = useState(isLevelUpEffectEnabled);
+  const [previewing, setPreviewing] = useState(false);
+  const stopPreview = useCallback(() => setPreviewing(false), []);
+
+  const toggle = () => {
+    const next = !enabled;
+    setEnabled(next);
+    setLevelUpEffectEnabled(next);
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-3">
+      <p className="text-sm font-semibold text-black m-0">升級特效</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <AutoAwesomeIcon sx={{ fontSize: 20, color: enabled ? "#a855f7" : "#d1d5db" }} />
+          <span className="text-sm text-gray-600">
+            {enabled ? "升級時顯示特效" : "升級特效已關閉"}
+          </span>
+        </div>
+        <Switch
+          checked={enabled}
+          onChange={toggle}
+          sx={{
+            "& .MuiSwitch-switchBase.Mui-checked": { color: "#a855f7" },
+            "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+              bgcolor: "#a855f7",
+            },
+          }}
+        />
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-gray-400 m-0">升級時顯示魔法陣與 LEVEL UP 動畫，不播放音樂，點擊可提前關閉</p>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setPreviewing(true)}
+          sx={{
+            flexShrink: 0,
+            borderColor: "#a855f7",
+            color: "#a855f7",
+            borderRadius: 99,
+            fontWeight: 600,
+            fontSize: "0.75rem",
+            textTransform: "none",
+            "&:hover": { borderColor: "#9333ea", bgcolor: "#faf5ff" },
+          }}
+        >
+          預覽
+        </Button>
+      </div>
+      <LevelUpEffect visible={previewing} level={currentLevel} onComplete={stopPreview} />
     </div>
   );
 }
@@ -342,14 +402,8 @@ function ThemeSettingsCard() {
 
 export default function OtherSettings({
   currentLevel,
-  levelingRules,
-  onResetLevel,
 }) {
-  const { visibility: workFeatureVisibility, setFeatureVisible, resetVisibility } = useWorkFeatureVisibility();
   const { showCompletedInAll, setShowCompletedInAll } = useTaskDisplaySettings();
-  const maxLevel = getHighestConfiguredLevel(levelingRules);
-  const [targetLevel, setTargetLevel] = useState(1);
-  const [confirmed, setConfirmed] = useState(false);
   const {
     faviconUrl,
     uploadFavicon,
@@ -367,29 +421,6 @@ export default function OtherSettings({
     savedToDisk: titleSaved,
   } = usePageTitle();
   const [titleDraft, setTitleDraft] = useState(pageTitle);
-
-  const handleInput = (e) => {
-    const val = parseInt(e.target.value, 10);
-    if (isNaN(val)) {
-      setTargetLevel("");
-      return;
-    }
-    setTargetLevel(Math.min(maxLevel, Math.max(1, val)));
-    setConfirmed(false);
-  };
-
-  const handleReset = () => {
-    if (!confirmed) {
-      setConfirmed(true);
-      return;
-    }
-    const completions = calcCompletionsForLevel(
-      Number(targetLevel) || 1,
-      levelingRules,
-    );
-    onResetLevel(completions);
-    setConfirmed(false);
-  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -415,47 +446,6 @@ export default function OtherSettings({
           }}
           inputProps={{ 'aria-label': '在全部中顯示已完成任務' }}
         />
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-sm font-semibold text-black m-0">LIFE 功能顯示</p>
-            <p className="text-xs text-gray-400 mt-0.5 m-0">
-              關閉後，對應功能會從電腦與手機的 icon 選單隱藏
-            </p>
-          </div>
-          <Button
-            variant="text"
-            size="small"
-            startIcon={<RestoreIcon />}
-            onClick={resetVisibility}
-            sx={{ color: '#9ca3af', fontSize: '0.75rem', fontWeight: 600, textTransform: 'none' }}
-          >
-            全部顯示
-          </Button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          {WORK_FEATURE_OPTIONS.map((feature) => (
-            <label
-              key={feature.key}
-              className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-gray-100 bg-stone-50 px-4 py-3 transition-colors hover:border-purple-200"
-            >
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-gray-800">{feature.label}</span>
-                <span className="mt-0.5 block text-xs text-gray-400">{feature.description}</span>
-              </span>
-              <Switch
-                checked={workFeatureVisibility[feature.key] !== false}
-                onChange={(event) => setFeatureVisible(feature.key, event.target.checked)}
-                size="small"
-                sx={{ '& .MuiSwitch-switchBase.Mui-checked': { color: '#a855f7' }, '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#a855f7' } }}
-              />
-            </label>
-          ))}
-        </div>
-        <p className="m-0 text-[11px] text-gray-400">「任務」是 LIFE 的主要入口，因此會固定顯示。</p>
       </div>
 
       {/* Favicon card */}
@@ -669,59 +659,9 @@ export default function OtherSettings({
         </div>
       </div>
 
-      {/* Level reset card */}
-      <div className="bg-white rounded-xl border border-gray-100 px-5 py-5 flex flex-col gap-4">
-        <div>
-          <p className="text-sm font-semibold text-black m-0">等級重置</p>
-          <p className="text-xs text-gray-400 mt-0.5 m-0">
-            將目前等級重置到指定等級（目前 LV{currentLevel}）
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500 shrink-0">重置到</span>
-          <div className="flex items-center gap-1">
-            <span className="text-sm font-mono text-gray-500">LV</span>
-            <input
-              type="number"
-              min={1}
-              max={maxLevel}
-              value={targetLevel}
-              onChange={handleInput}
-              onFocus={() => setConfirmed(false)}
-              className="w-20 text-sm font-bold text-black bg-stone-50 border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-200 transition-colors text-center"
-            />
-          </div>
-          <span className="text-xs text-gray-400">（1 ~ {maxLevel}）</span>
-        </div>
-
-        {confirmed && (
-          <p className="text-xs text-red-500 m-0">
-            確定要重置到 LV{targetLevel} 嗎？再按一次確認。
-          </p>
-        )}
-
-        <Button
-          variant="contained"
-          startIcon={<RestartAltIcon />}
-          onClick={handleReset}
-          sx={{
-            alignSelf: "flex-start",
-            bgcolor: confirmed ? "#ef4444" : "#6b7280",
-            borderRadius: 99,
-            fontWeight: 600,
-            fontSize: "0.8rem",
-            textTransform: "none",
-            px: 2.5,
-            "&:hover": { bgcolor: confirmed ? "#dc2626" : "#4b5563" },
-          }}
-        >
-          {confirmed ? "確認重置" : "重置等級"}
-        </Button>
-      </div>
-
       {/* Sound toggle card */}
       <SoundToggleCard />
+      <LevelUpEffectToggleCard currentLevel={currentLevel} />
 
     </div>
   );
