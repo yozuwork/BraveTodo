@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 
 export default function HuntTab({
   currentLevel,
-  stages, onStartStageBossHunt, onStopStageBossHunt, onCompleteStageBossHunt,
+  stages, onStartStageBossHunt, onViewStageBoss, onStopStageBossHunt, onCompleteStageBossHunt,
   onStageBossNameChange, onStageBossAvatarChange,
   onStageLevelChange, onAddStage, onRemoveStage, onReorderStages,
 }) {
@@ -120,6 +120,7 @@ export default function HuntTab({
                 stageIndex={index}
                 currentLevel={currentLevel}
                 onStartHunt={onStartStageBossHunt}
+                onView={onViewStageBoss}
                 onStopHunt={onStopStageBossHunt}
                 onCompleteHunt={onCompleteStageBossHunt}
                 onBossNameChange={onStageBossNameChange}

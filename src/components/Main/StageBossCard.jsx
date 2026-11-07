@@ -4,6 +4,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import CollectionsIcon from '@mui/icons-material/Collections'
 import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap'
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
 import CloseIcon from '@mui/icons-material/Close'
 import { resolveImg } from '../../utils/imageSrc'
 import GalleryImagePicker from '../common/GalleryImagePicker'
@@ -15,6 +16,7 @@ export default function StageBossCard({
   stageIndex,
   currentLevel,
   onStartHunt,
+  onView,         // 不論是否討伐中都能打開討伐頁查看
   onStopHunt,
   onCompleteHunt,
   onBossNameChange,
@@ -82,7 +84,7 @@ export default function StageBossCard({
       className="group/boss flex flex-col rounded-2xl overflow-hidden shadow-md select-none border"
       style={{
         width: 160,
-        height: 290,
+        minHeight: 290,
         flexShrink: 0,
         borderColor: pasteSelected ? '#fbbf24'
           : isDefeated ? `${accent}cc`
@@ -266,6 +268,18 @@ export default function StageBossCard({
               />
             </div>
           </div>
+        )}
+
+        {/* 查看討伐頁：不論是否討伐中都能點進去看 */}
+        {onView && (
+          <button
+            onClick={() => onView(id)}
+            className="w-full mt-1 py-1 rounded-lg text-[10px] font-bold flex items-center justify-center gap-1 bg-slate-900 text-white transition-colors hover:bg-black"
+            title="查看這隻 Boss 的討伐頁面"
+          >
+            <VisibilityOutlinedIcon sx={{ fontSize: 13 }} />
+            查看討伐頁
+          </button>
         )}
 
         {/* Defeated badge */}

@@ -1,4 +1,4 @@
-import { doc } from 'firebase/firestore'
+import { doc } from './firestore'
 import { db } from '../firebase'
 
 export const DEFAULT_WORKSPACE_ID = 'life'

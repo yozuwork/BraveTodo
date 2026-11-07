@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useSyncExternalStore } from 'react'
-import { deleteDoc, doc, getDoc, setDoc } from 'firebase/firestore'
+import { deleteDoc, doc, getDoc, setDoc } from '../utils/firestore'
 import { db } from '../firebase'
 import { ACTIVE_WORKSPACE_ID, DEFAULT_WORKSPACE_ID, WORKSPACE_DOC_NAMES, switchWorkspace, workspaceKey } from '../utils/workspace'
 import { WORK_FEATURE_OPTIONS, allFeatures } from '../utils/workFeatures'

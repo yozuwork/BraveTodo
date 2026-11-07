@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import defaultAvatar from '../assets/hero.jpg'
 import { compressImage } from '../utils/compressImage'
-import { getDoc, setDoc } from 'firebase/firestore'
+import { getDoc, setDoc } from '../utils/firestore'
 import { wsDoc } from '../utils/workspace'
 import { storeImage, fetchImageSrcs, removeStoredImage } from '../utils/imageStorage'
 import { normalizeLegacyRules, resolveStageExpPerLevel } from '../utils/levelingRules'

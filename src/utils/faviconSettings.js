@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from './firestore'
 import { db } from '../firebase'
 
 const FAVICON_KEY = 'brave-todo:favicon'

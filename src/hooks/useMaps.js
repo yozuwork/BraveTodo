@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { getDoc, setDoc } from 'firebase/firestore'
+import { getDoc, setDoc } from '../utils/firestore'
 import { wsDoc } from '../utils/workspace'
 import { compressImage } from '../utils/compressImage'
 import { reorderItems } from '../utils/reorderItems'

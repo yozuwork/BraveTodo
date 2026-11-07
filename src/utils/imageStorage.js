@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from 'firebase/firestore'
+import { doc, getDoc, setDoc, deleteDoc, collection, getDocs } from './firestore'
 import { db } from '../firebase'
 import { wsDoc } from './workspace'
 

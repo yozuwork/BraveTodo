@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { getDoc, setDoc } from 'firebase/firestore'
+import { getDoc, setDoc } from '../utils/firestore'
 import { wsDoc } from '../utils/workspace'
 import { DEFAULT_AUTO_EXP_SETTINGS, normalizeAutoExpSettings, DEFAULT_TIER_UNLOCK_SETTINGS, normalizeTierUnlockSettings } from '../utils/questAutoExp'
 

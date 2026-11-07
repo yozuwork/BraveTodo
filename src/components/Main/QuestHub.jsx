@@ -14,6 +14,10 @@ import CloseIcon from '@mui/icons-material/Close'
 import Dialog from '@mui/material/Dialog'
 import DialogTitle from '@mui/material/DialogTitle'
 import DialogContent from '@mui/material/DialogContent'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import CheckIcon from '@mui/icons-material/Check'
 import QuestItem from './QuestItem'
 import QuestDetailDrawer from './QuestDetailDrawer'
 import InboxItem from './InboxItem'
@@ -28,6 +32,22 @@ import CharacterSettings from './CharacterSettings'
 import VocabularyInput from '../common/VocabularyInput'
 import QuestCanvasView from './QuestCanvasView'
 import { resolveCurrentStage } from '../../hooks/useStages'
+import { resolveImg } from '../../utils/imageSrc'
+
+// 任務分頁的狀態篩選（從「任務」分頁的下拉切換）
+const QUEST_STATUS_FILTERS = [
+  ['all', '全部'],
+  ['pending', '待處理'],
+  ['progress', '進行中'],
+  ['completed', '已完成'],
+]
+
+// 獨立畫布分頁：卡片只存在各自的畫布，不出現在任務清單
+const STANDALONE_BOARDS = [
+  ['monster', '怪物'],
+  ['units', '戰力單位'],
+  ['world', '世界觀'],
+]
 import useWorkspaces from '../../hooks/useWorkspaces'
 import useWorkFeatureVisibility from '../../hooks/useWorkFeatureVisibility'
 
@@ -303,7 +323,7 @@ export default function QuestHub({
   autoExpSettings, onAutoExpEnabled, onUpdateAutoExpThreshold,
   tierUnlockSettings, onTierUnlockEnabled, onUpdateTierUnlockLevel, lockedExpLevels = {},
   atk,
-  onAddSubTask, onToggleSubTask, onSetSubTaskExp, onSetSchedule, onDuplicateQuest, onMoveQuestToBoard, onSetQuestCollapsed, onRemoveSubTask, onUpdateSubTask, onAddSubTaskImage, onQuestCanvasPositionChange, onAddCanvasQuest,
+  onAddSubTask, onToggleSubTask, onSetSubTaskExp, onSetSchedule, onToggleCanvasSubTask, onSetCanvasQuestStatus, onDuplicateQuest, onMoveQuestToBoard, onSetQuestCollapsed, onReorderSubTasks, onSetQuestSubTaskView, onToggleSubTaskPin, onRemoveSubTask, onUpdateSubTask, onAddSubTaskImage, onQuestCanvasPositionChange, onAddCanvasQuest,
   currentLevel, expProgress, currentExp, expToNextLevel, avatar, imagePosition, onAvatarChange, onImagePositionChange, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
   onStartHunt, onStopHunt,
@@ -332,6 +352,8 @@ export default function QuestHub({
   const [questTemplateDialogOpen, setQuestTemplateDialogOpen] = useState(false)
   const [questTemplateSavedNotice, setQuestTemplateSavedNotice] = useState(false)
   const [taskFilter, setTaskFilter] = useState('all')
+  const [questStatusFilter, setQuestStatusFilter] = useState('all')
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState(null)
   const { isVisible: isWorkFeatureVisible } = useWorkFeatureVisibility()
   const [questView, setQuestView] = useState(() => localStorage.getItem(QUEST_VIEW_KEY) === 'canvas' ? 'canvas' : 'list')
   const [selectedQuestId, setSelectedQuestId] = useState(null)
@@ -408,6 +430,29 @@ export default function QuestHub({
   }, [])
 
   const hasActiveHunt = activeHuntTarget !== null
+  // 討伐頁正在查看的階段 Boss（沒在討伐也能看）；null = 顯示討伐中的目標
+  const [huntViewStageId, setHuntViewStageId] = useState(null)
+  const viewedStageIndex = huntViewStageId == null ? -1 : stages.findIndex((stage) => stage.id === huntViewStageId)
+  const viewedStage = viewedStageIndex >= 0 ? stages[viewedStageIndex] : null
+  const viewingActiveHunt = !viewedStage || (activeHuntTarget?._type === 'stageBoss' && activeHuntTarget.id === viewedStage.id)
+  const huntPageTarget = viewingActiveHunt ? activeHuntTarget : {
+    _type: 'stageBoss',
+    id: viewedStage.id,
+    name: viewedStage.bossName,
+    avatar: viewedStage.bossAvatar,
+    avatarSrc: resolveImg(viewedStage.bossAvatar),
+    recommendedLevel: viewedStage.maxLevel,
+    huntTasks: viewedStage.bossHuntTasks ?? [],
+    stageRange: { min: viewedStage.minLevel, max: viewedStage.maxLevel },
+    type: 'boss',
+  }
+  const huntPreview = viewingActiveHunt ? null : {
+    status: viewedStage.bossHuntStatus === 'defeated' ? 'defeated'
+      : viewedStage.bossHuntStatus === 'hunting' ? 'hunting'
+      : currentLevel >= viewedStage.maxLevel - 3 ? 'ready' : 'locked',
+    unlockLevel: viewedStage.maxLevel - 3,
+    otherHuntName: hasActiveHunt ? activeHuntTarget.name : null,
+  }
 
   useEffect(() => {
     if (mobileComposerOpen) {
@@ -424,7 +469,7 @@ export default function QuestHub({
   }, [questTemplateSavedNotice])
 
   useEffect(() => {
-    if (!hasActiveHunt && activeTab === 'HuntMission') {
+    if (!hasActiveHunt && !viewedStage && activeTab === 'HuntMission') {
       onTabChange('Tasks')
     }
     if (activeTab === 'Stages' || activeTab === 'Leveling' || activeTab === 'Other') {
@@ -436,7 +481,14 @@ export default function QuestHub({
       setTaskFilter('hunt')
       onTabChange('Tasks')
     }
-  }, [hasActiveHunt, activeTab, onTabChange, taskFilter, isWorkFeatureVisible])
+  }, [hasActiveHunt, viewedStage, activeTab, onTabChange, taskFilter, isWorkFeatureVisible])
+
+  // 離開討伐頁時才清掉「查看中的 Boss」（切換分頁比 setState 晚一拍，不能在還沒進頁面時就清）
+  const prevActiveTabRef = useRef(activeTab)
+  useEffect(() => {
+    if (prevActiveTabRef.current === 'HuntMission' && activeTab !== 'HuntMission') setHuntViewStageId(null)
+    prevActiveTabRef.current = activeTab
+  }, [activeTab])
 
   const isCollectionTab = collectionTabs.some((item) => item.tab === activeTab)
   useEffect(() => {
@@ -476,15 +528,18 @@ export default function QuestHub({
   const currentStage = resolveCurrentStage(stages, currentLevel)
   const { activeWorkspace } = useWorkspaces()
   const characterName = activeWorkspace.characterName
-  // 怪物分頁的卡片是獨立畫布，不出現在任務清單與狀態篩選
+  // 怪物／戰力單位／世界觀分頁的卡片是獨立畫布，不出現在任務清單
   const taskQuests = quests.filter((quest) => !quest.board)
-  const monsterBoardQuests = quests.filter((quest) => quest.board === 'monster')
+  const activeBoard = STANDALONE_BOARDS.some(([key]) => key === taskFilter) ? taskFilter : null
+  const boardQuests = activeBoard ? quests.filter((quest) => quest.board === activeBoard) : []
   const hasCompleted = taskQuests.some((q) => q.completed)
   const activeQuestCount = taskQuests.filter((quest) => !quest.completed).length
+  // 畫布直接接在分頁列下方（不另外包一層白底）
+  const attachedCanvas = Boolean(activeBoard) || (taskFilter === 'all' && questView === 'canvas')
   const visibleQuests = taskQuests.filter((quest) => {
-    if (taskFilter === 'completed') return quest.completed
-    if (taskFilter === 'progress') return !quest.completed && quest.status === 'progress'
-    if (taskFilter === 'pending') return !quest.completed && quest.status !== 'progress'
+    if (questStatusFilter === 'completed') return quest.completed
+    if (questStatusFilter === 'progress') return !quest.completed && quest.status === 'progress'
+    if (questStatusFilter === 'pending') return !quest.completed && quest.status !== 'progress'
     return showCompletedInAll || !quest.completed
   })
   const taskSuggestions = getVocabularySuggestions?.(inputValue, ['task', 'inbox']) ?? []
@@ -558,6 +613,11 @@ export default function QuestHub({
       stages={stages}
       onStartStageBossHunt={(id) => {
         onStartStageBossHunt(id)
+        setHuntViewStageId(id)
+        onTabChange('HuntMission')
+      }}
+      onViewStageBoss={(id) => {
+        setHuntViewStageId(id)
         onTabChange('HuntMission')
       }}
       onStopStageBossHunt={onStopStageBossHunt}
@@ -706,31 +766,63 @@ export default function QuestHub({
       )}
 
       {activeTab === 'Tasks' && (
-        <div className="flex flex-col gap-4">
-          <nav className="work-status-tabs flex border-b border-slate-200">
+        <div className="flex flex-col">
+          {/* 分頁列和下方內容接成同一塊：分頁在上緣，畫布／清單直接接在底下 */}
+          <nav className="work-status-tabs" aria-label="任務分類">
+            <div className="work-status-tabs__items">
             {[
-              ['all', '全部'],
-              ['pending', '待處理'],
-              ['progress', '進行中'],
-              ['completed', '已完成'],
+              ['all', '任務'],
               ['stages', '角色階段'],
               ...(isWorkFeatureVisible('Hunt') ? [['hunt', '討伐']] : []),
-              ['monster', '怪物'],
+              ...STANDALONE_BOARDS,
             ].map(([key, label]) => (
               <button
                 key={key}
                 type="button"
-                onClick={() => setTaskFilter(key)}
-                className={`relative flex-1 bg-transparent px-2 py-3 text-sm font-semibold transition-colors md:flex-none md:px-5 ${
-                  taskFilter === key ? 'text-purple-600' : 'text-slate-500 hover:text-slate-800'
-                }`}
+                onClick={(event) => {
+                  // 已經在「任務」分頁時再點一下 → 打開狀態下拉
+                  if (key === 'all' && taskFilter === 'all') setStatusMenuAnchor(event.currentTarget)
+                  else setTaskFilter(key)
+                }}
+                className={`work-status-tab${taskFilter === key ? ' is-active' : ''}`}
+                aria-pressed={taskFilter === key}
+                title={key === 'all' ? '再點一下切換：全部／待處理／進行中／已完成' : undefined}
+                aria-haspopup={key === 'all' ? 'menu' : undefined}
+                aria-expanded={key === 'all' ? Boolean(statusMenuAnchor) : undefined}
               >
-                {label}
-                {taskFilter === key && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-purple-500" />}
+                {key === 'all' && questStatusFilter !== 'all'
+                  ? `${label}・${QUEST_STATUS_FILTERS.find(([value]) => value === questStatusFilter)?.[1]}`
+                  : label}
+                {key === 'all' && (
+                  <ExpandMoreIcon sx={{ fontSize: 17 }} className={`transition-transform ${statusMenuAnchor ? 'rotate-180' : ''}`} />
+                )}
               </button>
             ))}
-            {!['stages', 'hunt', 'monster'].includes(taskFilter) && (
-            <div className="ml-auto flex shrink-0 items-stretch">
+            </div>
+            <Menu
+              anchorEl={statusMenuAnchor}
+              open={Boolean(statusMenuAnchor)}
+              onClose={() => setStatusMenuAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              slotProps={{ paper: { sx: { mt: 0.5, minWidth: 140, borderRadius: 2 } } }}
+            >
+              {QUEST_STATUS_FILTERS.map(([value, text]) => (
+                <MenuItem
+                  key={value}
+                  selected={questStatusFilter === value}
+                  onClick={() => {
+                    setQuestStatusFilter(value)
+                    setStatusMenuAnchor(null)
+                  }}
+                  sx={{ fontSize: 14, fontWeight: questStatusFilter === value ? 700 : 500, gap: 1 }}
+                >
+                  <CheckIcon sx={{ fontSize: 16, visibility: questStatusFilter === value ? 'visible' : 'hidden' }} />
+                  {text}
+                </MenuItem>
+              ))}
+            </Menu>
+            {taskFilter !== 'stages' && taskFilter !== 'hunt' && !activeBoard && (
+            <div className="work-status-tabs__tools ml-auto flex shrink-0 items-stretch">
               <button
                 type="button"
                 onClick={() => changeQuestView('list')}
@@ -765,16 +857,22 @@ export default function QuestHub({
             </div>
             )}
           </nav>
+          <div className={`work-task-body flex flex-col gap-4 ${attachedCanvas ? '' : 'rounded-b-xl border border-t-0 border-slate-200 bg-white p-3 md:p-5'}`}>
 
-          {taskFilter === 'stages' ? characterSettingsPanel : taskFilter === 'hunt' ? huntPanel : taskFilter === 'monster' ? (
+          {taskFilter === 'stages' ? characterSettingsPanel : taskFilter === 'hunt' ? huntPanel : activeBoard ? (
             <QuestCanvasView
-              key="monster"
-              board="monster"
-              quests={monsterBoardQuests}
+              key={activeBoard}
+              board={activeBoard}
+              rootLabel={STANDALONE_BOARDS.find(([key]) => key === activeBoard)?.[1]}
+              quests={boardQuests}
+              allQuests={quests}
+              attached
               onPositionChange={onQuestCanvasPositionChange}
               onOpenDetails={setSelectedQuestId}
-              onToggleSubTask={onToggleSubTask}
+              onToggleSubTask={onToggleCanvasSubTask}
+              onSetQuestStatus={onSetCanvasQuestStatus}
               onRemoveSubTask={onRemoveSubTask}
+              onUpdateSubTask={onUpdateSubTask}
               onAddSubTask={onAddSubTask}
               onAddSubTaskImage={onAddSubTaskImage}
               onUpdateQuest={onUpdate}
@@ -789,6 +887,10 @@ export default function QuestHub({
               onRemoveQuestTemplate={onRemoveQuestTemplate}
               onMoveQuestToBoard={onMoveQuestToBoard}
               onSetQuestCollapsed={onSetQuestCollapsed}
+              onReorderSubTasks={onReorderSubTasks}
+              onSetQuestSubTaskView={onSetQuestSubTaskView}
+              onToggleSubTaskPin={onToggleSubTaskPin}
+              onTogglePin={onTogglePin}
               clipboard={canvasClipboard}
               onClipboardChange={setCanvasClipboard}
               onAddCanvasQuest={onAddCanvasQuest}
@@ -796,6 +898,8 @@ export default function QuestHub({
             />
           ) : (
           <>
+          {/* 畫布模式不需要上方的輸入框，直接在畫布上新增卡片 */}
+          {questView !== 'canvas' && (
           <div className="relative">
             <VocabularyInput
               ref={desktopInputRef}
@@ -816,16 +920,22 @@ export default function QuestHub({
               ENTER ↵
             </span>
           </div>
+          )}
           {questView === 'canvas' ? (
             <QuestCanvasView
               quests={visibleQuests}
+              allQuests={quests}
+              attached
+              rootLabel="任務"
               huntTarget={activeHuntTarget}
               huntTaskHandlers={huntTaskHandlers}
               onOpenHunt={() => onTabChange('HuntMission')}
               onPositionChange={onQuestCanvasPositionChange}
               onOpenDetails={setSelectedQuestId}
-              onToggleSubTask={onToggleSubTask}
+              onToggleSubTask={onToggleCanvasSubTask}
+              onSetQuestStatus={onSetCanvasQuestStatus}
               onRemoveSubTask={onRemoveSubTask}
+              onUpdateSubTask={onUpdateSubTask}
               onAddSubTask={onAddSubTask}
               onAddSubTaskImage={onAddSubTaskImage}
               onUpdateQuest={onUpdate}
@@ -840,6 +950,10 @@ export default function QuestHub({
               onRemoveQuestTemplate={onRemoveQuestTemplate}
               onMoveQuestToBoard={onMoveQuestToBoard}
               onSetQuestCollapsed={onSetQuestCollapsed}
+              onReorderSubTasks={onReorderSubTasks}
+              onSetQuestSubTaskView={onSetQuestSubTaskView}
+              onToggleSubTaskPin={onToggleSubTaskPin}
+              onTogglePin={onTogglePin}
               clipboard={canvasClipboard}
               onClipboardChange={setCanvasClipboard}
               onAddCanvasQuest={onAddCanvasQuest}
@@ -972,6 +1086,7 @@ export default function QuestHub({
           </div>
           </>
           )}
+          </div>
         </div>
       )}
 
@@ -1073,7 +1188,13 @@ export default function QuestHub({
 
       {activeTab === 'HuntMission' && (
         <HuntMission
-          target={activeHuntTarget}
+          target={huntPageTarget}
+          preview={huntPreview}
+          onStartPreviewHunt={(id) => onStartStageBossHunt(id)}
+          onBack={() => {
+            setTaskFilter('hunt')
+            onTabChange('Tasks')
+          }}
           heroAvatar={avatar}
           heroImagePosition={imagePosition}
           heroName={characterName}

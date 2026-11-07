@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { getDoc, setDoc, updateDoc } from '../utils/firestore'
 import { wsDoc } from '../utils/workspace'
 import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
@@ -46,6 +46,8 @@ function normalizeSubTask(subTask = {}) {
     // EXP granted when this item was ticked, so unticking takes back exactly that amount
     ...(subTask.completed && Number(subTask.awardedExp) > 0 ? { awardedExp: Math.floor(Number(subTask.awardedExp)) } : {}),
     ...(typeof subTask.imageId === 'string' && subTask.imageId ? { imageId: subTask.imageId } : {}),
+    // 置頂的子待辦固定排在卡片最上面
+    ...(subTask.pinned ? { pinned: true } : {}),
   }
 }
 
@@ -59,7 +61,7 @@ function normalizeCanvasPosition(position) {
   const x = Number(position?.x)
   const y = Number(position?.y)
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-  const next = { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)) }
+  const next = { x: Math.round(x), y: Math.round(y) }
   // Optional card size set by dragging the resize handle on the canvas
   const w = Number(position?.w)
   const h = Number(position?.h)
@@ -112,6 +114,9 @@ function normalizeQuest(quest = {}) {
     // Cards on a standalone canvas tab (e.g. 'monster'); null = regular task
     board: typeof quest.board === 'string' && quest.board ? quest.board : null,
     collapsed: Boolean(quest.collapsed),
+    // 子待辦顯示方式：已完成排到最下面／隱藏已完成
+    subTaskSortDone: Boolean(quest.subTaskSortDone),
+    subTaskHideDone: Boolean(quest.subTaskHideDone),
     subTasks: Array.isArray(quest.subTasks) ? quest.subTasks.map(normalizeSubTask) : [],
   }
 }
@@ -278,7 +283,9 @@ export default function useQuests() {
       const imageId = await storeImage(src)
       subTasks = [{ id: Date.now(), text: '', completed: false, imageId }]
     }
-    addQuest(text, { canvasPosition: position, subTasks, board })
+    const id = Date.now()
+    addQuest(text, { id, canvasPosition: position, subTasks, board })
+    return id
   }, [addQuest])
 
   // 複製卡片：內容、獎勵、排程與大小都沿用，勾選狀態歸零；圖片另存一份，刪除其中一張不會影響另一張
@@ -609,15 +616,18 @@ export default function useQuests() {
 
   const addSubTaskImage = useCallback(async (questId, file) => {
     if (!file) return
-    const src = await compressImage(file, 1000, 0.82, true)
-    const imageId = await storeImage(src)
+    // Canvas image cards transfer their stored image without recompressing it.
+    const imageId = typeof file.imageId === 'string' && file.imageId.startsWith('img_')
+      ? file.imageId
+      : await storeImage(await compressImage(file, 1000, 0.82, true))
     setQuests((prev) =>
       prev.map((q) =>
         q.id === questId
-          ? { ...q, subTasks: [...(q.subTasks ?? []), { id: Date.now(), text: '', completed: false, imageId }] }
+          ? { ...q, subTasks: [...(q.subTasks ?? []), { id: crypto.randomUUID(), text: '', completed: false, imageId }] }
           : q
       )
     )
+    return imageId
   }, [])
 
   const removeSubTask = useCallback((questId, subTaskId) => {
@@ -637,6 +647,26 @@ export default function useQuests() {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, canvasPosition: next } : q)))
   }, [])
 
+  // changes: { subTaskSortDone?, subTaskHideDone? }
+  const toggleSubTaskPin = useCallback((questId, subTaskId) => {
+    setQuests((prev) => prev.map((q) => (q.id === questId ? {
+      ...q,
+      subTasks: (q.subTasks ?? []).map((s) => {
+        if (s.id !== subTaskId) return s
+        const { pinned, ...rest } = s
+        return pinned ? rest : { ...rest, pinned: true }
+      }),
+    } : q)))
+  }, [])
+
+  const setQuestSubTaskView = useCallback((id, changes) => {
+    setQuests((prev) => prev.map((q) => (q.id === id ? {
+      ...q,
+      ...('subTaskSortDone' in changes ? { subTaskSortDone: Boolean(changes.subTaskSortDone) } : {}),
+      ...('subTaskHideDone' in changes ? { subTaskHideDone: Boolean(changes.subTaskHideDone) } : {}),
+    } : q)))
+  }, [])
+
   const setQuestCollapsed = useCallback((id, collapsed) => {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, collapsed: Boolean(collapsed) } : q)))
   }, [])
@@ -646,6 +676,22 @@ export default function useQuests() {
     setQuests((prev) => prev.map((q) => (q.id === id
       ? { ...q, board: board || null, canvasPosition: normalizeCanvasPosition({ ...q.canvasPosition, ...position }) }
       : q)))
+  }, [])
+
+  // 拖曳子待辦換順序：把 fromId 放到 toId 的前面（after = true 時放後面）
+  const reorderSubTasks = useCallback((questId, fromId, toId, after = false) => {
+    if (fromId === toId) return
+    setQuests((prev) => prev.map((q) => {
+      if (q.id !== questId) return q
+      const list = q.subTasks ?? []
+      const moving = list.find((s) => s.id === fromId)
+      if (!moving) return q
+      const rest = list.filter((s) => s.id !== fromId)
+      const targetIndex = rest.findIndex((s) => s.id === toId)
+      if (targetIndex < 0) return q
+      const insertAt = after ? targetIndex + 1 : targetIndex
+      return { ...q, subTasks: [...rest.slice(0, insertAt), moving, ...rest.slice(insertAt)] }
+    }))
   }, [])
 
   const updateSubTask = useCallback((questId, subTaskId, text) => {
@@ -726,6 +772,9 @@ export default function useQuests() {
     duplicateQuest,
     moveQuestToBoard,
     setQuestCollapsed,
+    setQuestSubTaskView,
+    toggleSubTaskPin,
+    reorderSubTasks,
     lifetimeCompletions,
     resetLifetimeCompletions,
     coreTaskCompleted,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from '../utils/firestore'
 import { db } from '../firebase'
 
 const VOCABULARY_DOC = doc(db, 'meta', 'vocabulary')

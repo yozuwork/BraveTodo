@@ -31,14 +31,34 @@ export function getCompressedImageExtension(file) {
  * @param {number} quality JPEG/WebP quality 0-1 (default 0.95)
  * @param {boolean} enforceLimit reduce quality until output < 750KB (default false)
  */
-export function compressImage(file, maxPx = DEFAULT_MAX_PX, quality = DEFAULT_QUALITY, enforceLimit = false) {
-  dispatchUploadEvent(UPLOAD_START_EVENT)
+// 使用者上傳圖片時通知（例如自動加入圖庫）；圖庫自己的上傳會傳 { notifyUpload: false } 略過
+let uploadListener = null
+
+export function setImageUploadListener(listener) {
+  uploadListener = listener
+}
+
+export function compressImage(file, maxPx = DEFAULT_MAX_PX, quality = DEFAULT_QUALITY, enforceLimit = false, { notifyUpload = true } = {}) {
+  const result = renderCompressedImage(file, maxPx, quality, enforceLimit, true)
+  if (notifyUpload && uploadListener && file instanceof Blob) {
+    result.then(() => uploadListener(file)).catch(() => {})
+  }
+  return result
+}
+
+// Same compression without the upload overlay (used for background work such as the gallery copy)
+export function compressImageQuietly(file, maxPx = DEFAULT_MAX_PX, quality = DEFAULT_QUALITY, enforceLimit = false) {
+  return renderCompressedImage(file, maxPx, quality, enforceLimit, false)
+}
+
+function renderCompressedImage(file, maxPx, quality, enforceLimit, showFeedback) {
+  if (showFeedback) dispatchUploadEvent(UPLOAD_START_EVENT)
   return new Promise((resolve, reject) => {
     let finished = false
     const finish = () => {
       if (finished) return
       finished = true
-      dispatchUploadEvent(UPLOAD_FINISH_EVENT)
+      if (showFeedback) dispatchUploadEvent(UPLOAD_FINISH_EVENT)
     }
     const resolveDone = (value) => {
       finish()

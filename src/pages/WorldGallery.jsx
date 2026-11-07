@@ -17,6 +17,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import { compressImage, getCompressedImageExtension } from '../utils/compressImage'
 import useGallery from '../hooks/useGallery'
+import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { resolveImg, saveImageToDisk } from '../utils/imageSrc'
 
 const ALL_TAB = { id: 'all', name: '全部' }
@@ -345,7 +346,7 @@ export default function WorldGallery() {
   const [mobileEditing, setMobileEditing] = useState(false)
   const {
     images, categories, addImages, deleteImage, replaceImage, togglePin,
-    toggleImageTag, assignImageToCategory, addCategory, renameCategory, moveCategory, deleteCategory,
+    toggleImageTag, assignImageToCategory, addCategory, renameCategory, moveCategory, deleteCategory, loaded,
   } = useGallery()
   const fileInputRef = useRef(null)
   const replaceInputRef = useRef(null)
@@ -395,7 +396,7 @@ export default function WorldGallery() {
   }
 
   const buildGalleryImage = async (file, index, id = null) => {
-    const dataUrl = await compressImage(file, 1000, 0.85, true)
+    const dataUrl = await compressImage(file, 1000, 0.85, true, { notifyUpload: false })
     const suffix = id ?? `${Date.now()}-${index}-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`
     const ext = getCompressedImageExtension(file)
     const path = `uploads/gallery/${suffix}.${ext}`
@@ -580,7 +581,9 @@ export default function WorldGallery() {
           </div>
 
           <div className="min-h-0 flex-1 md:overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setSelectedKey(null)}>
-            {currentImages.length === 0 ? (
+            {!loaded ? (
+              <LoadingSpinner label="載入圖庫中…" className="py-28" />
+            ) : currentImages.length === 0 ? (
               <EmptyState onUpload={openPicker} isCategory={activeTab !== 'all'} />
             ) : (
               <MasonryGrid

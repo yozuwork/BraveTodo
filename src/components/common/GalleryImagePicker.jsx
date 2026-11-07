@@ -10,6 +10,7 @@ import LabelOutlinedIcon from '@mui/icons-material/LabelOutlined'
 import PushPinIcon from '@mui/icons-material/PushPin'
 import CheckIcon from '@mui/icons-material/Check'
 import useGallery from '../../hooks/useGallery'
+import { LoadingSpinner } from './LoadingSpinner'
 import { resolveImg } from '../../utils/imageSrc'
 
 const CATEGORY_ICONS = { all: CollectionsIcon, character: PersonOutlineIcon, monster: PetsIcon }
@@ -21,7 +22,7 @@ export default function GalleryImagePicker({
   initialTab = 'character',
   multiple = false,
 }) {
-  const { images, categories } = useGallery()
+  const { images, categories, loaded } = useGallery()
   const [activeTab, setActiveTab] = useState(initialTab)
   const [selectedIds, setSelectedIds] = useState([])
   const tabs = [{ id: 'all', name: '全部' }, ...categories]
@@ -102,7 +103,9 @@ export default function GalleryImagePicker({
           })}
         </div>
 
-        {currentImages.length === 0 ? (
+        {!loaded ? (
+          <LoadingSpinner label="載入圖庫中…" className="py-16" />
+        ) : currentImages.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">
             這個分類還沒有圖片
           </div>

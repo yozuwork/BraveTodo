@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
+import { doc, getDoc, setDoc } from '../utils/firestore'
 import { db } from '../firebase'
 import { storeImage, fetchImageSrcs, removeStoredImage } from '../utils/imageStorage'
 
@@ -9,8 +9,28 @@ const DEFAULT_CATEGORIES = [
   { id: 'monster', name: '怪物' },
 ]
 const DEFAULTS = { version: 2, categories: DEFAULT_CATEGORIES, items: [] }
-let cachedData = null
-let cachedImageSrcs = null
+
+// 圖庫是全站共用的單一 store：圖庫頁、選圖視窗、其他地方上傳圖片自動加入圖庫都改同一份資料
+// data: { version: 2, categories: [{ id, name }], items: [{ id, imageId, tags: [categoryId], pinnedAt?, hash? }] }
+let state = { data: DEFAULTS, imageSrcs: {}, loaded: false }
+let loadPromise = null
+const listeners = new Set()
+
+function setState(patch) {
+  state = { ...state, ...patch }
+  listeners.forEach((listener) => listener())
+}
+
+function updateData(fn) {
+  const next = fn(state.data)
+  if (next === state.data) return
+  setState({ data: next })
+  if (state.loaded) setDoc(GALLERY_DOC, next).catch(console.error)
+}
+
+function updateItem(id, fn) {
+  updateData((prev) => ({ ...prev, items: prev.items.map((item) => (item.id === id ? fn(item) : item)) }))
+}
 
 function newCategoryId() {
   return `cat_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`
@@ -24,95 +44,200 @@ function sortItems(items) {
     .map(({ item }) => item)
 }
 
-export default function useGallery() {
-  // data: { version: 2, categories: [{ id, name }], items: [{ id, imageId, tags: [categoryId], pinnedAt? }] }
-  const [data, setData] = useState(() => cachedData ?? DEFAULTS)
-  const [imageSrcs, setImageSrcs] = useState(() => cachedImageSrcs ?? {})
-  const [loaded, setLoaded] = useState(() => cachedData !== null && cachedImageSrcs !== null)
-  const skipWriteRef = useRef(true)
+async function loadGallery() {
+  try {
+    const snap = await getDoc(GALLERY_DOC)
+    let nextData = DEFAULTS
+    const newSrcs = {}
 
-  useEffect(() => {
-    if (cachedData !== null && cachedImageSrcs !== null) return
-    getDoc(GALLERY_DOC).then(async (snap) => {
-      let nextData = DEFAULTS
-      const newSrcs = {}
+    if (snap.exists()) {
+      const raw = snap.data()
 
-      if (snap.exists()) {
-        const raw = snap.data()
+      // v2 stores items with tags; v1 stored separate character / monster arrays
+      const rawItems = Array.isArray(raw.items)
+        ? raw.items
+        : [
+            ...(raw.character ?? []).map((item) => ({ ...item, tags: ['character'] })),
+            ...(raw.monster ?? []).map((item) => ({ ...item, tags: ['monster'] })),
+          ]
 
-        // v2 stores items with tags; v1 stored separate character / monster arrays
-        const rawItems = Array.isArray(raw.items)
-          ? raw.items
-          : [
-              ...(raw.character ?? []).map((item) => ({ ...item, tags: ['character'] })),
-              ...(raw.monster ?? []).map((item) => ({ ...item, tags: ['monster'] })),
-            ]
+      // New format items have imageId; old format have src (base64)
+      const imageIdRefs = rawItems.filter((r) => r.imageId).map((r) => r.imageId)
+      const legacyItems = rawItems.filter((r) => r.src && !r.imageId)
 
-        // New format items have imageId; old format have src (base64)
-        const imageIdRefs = rawItems.filter((r) => r.imageId).map((r) => r.imageId)
-        const legacyItems = rawItems.filter((r) => r.src && !r.imageId)
+      Object.assign(newSrcs, await fetchImageSrcs(imageIdRefs))
 
-        const fetched = await fetchImageSrcs(imageIdRefs)
-        Object.assign(newSrcs, fetched)
+      // Migrate legacy base64 items → upload to images collection
+      const legacyIdMap = {}
+      if (legacyItems.length > 0) {
+        const ids = await Promise.all(legacyItems.map((item) => storeImage(item.src)))
+        legacyItems.forEach((item, i) => {
+          legacyIdMap[item.id] = ids[i]
+          newSrcs[ids[i]] = item.src
+        })
+      }
 
-        // Migrate legacy base64 items → upload to images collection
-        const legacyIdMap = {}
-        if (legacyItems.length > 0) {
-          const ids = await Promise.all(legacyItems.map((item) => storeImage(item.src)))
-          legacyItems.forEach((item, i) => {
-            legacyIdMap[item.id] = ids[i]
-            newSrcs[ids[i]] = item.src
-          })
-        }
-
-        const convertItem = (item) => {
-          const imageId = item.imageId ?? legacyIdMap[item.id]
-          if (!imageId) return null
-          return {
-            id: item.id,
-            imageId,
-            tags: item.tags ?? [],
-            ...(item.pinnedAt ? { pinnedAt: item.pinnedAt } : {}),
-          }
-        }
-
-        nextData = {
-          version: 2,
-          categories: Array.isArray(raw.categories) ? raw.categories : DEFAULT_CATEGORIES,
-          items: rawItems.map(convertItem).filter(Boolean),
+      const convertItem = (item) => {
+        const imageId = item.imageId ?? legacyIdMap[item.id]
+        if (!imageId) return null
+        return {
+          id: item.id,
+          imageId,
+          tags: item.tags ?? [],
+          ...(item.pinnedAt ? { pinnedAt: item.pinnedAt } : {}),
+          ...(typeof item.hash === 'string' ? { hash: item.hash } : {}),
         }
       }
 
-      setData(nextData)
-      setImageSrcs(newSrcs)
-      cachedData = nextData
-      cachedImageSrcs = newSrcs
-      setLoaded(true)
-    }).catch(() => {
-      cachedData = cachedData ?? DEFAULTS
-      cachedImageSrcs = cachedImageSrcs ?? {}
-      setLoaded(true)
-    })
-  }, [])
+      nextData = {
+        version: 2,
+        categories: Array.isArray(raw.categories) ? raw.categories : DEFAULT_CATEGORIES,
+        items: rawItems.map(convertItem).filter(Boolean),
+      }
+    }
+    setState({ data: nextData, imageSrcs: newSrcs, loaded: true })
+  } catch (error) {
+    console.error(error)
+    setState({ loaded: true })
+  }
+}
+
+export function ensureGalleryLoaded() {
+  if (!loadPromise) loadPromise = loadGallery()
+  return loadPromise
+}
+
+// ── 圖片內容比對（SHA-256），用來偵測重複上傳 ──
+const hashCache = {}
+
+export async function hashImageSrc(src) {
+  if (!src) return null
+  if (hashCache[src]) return hashCache[src]
+  const bytes = new TextEncoder().encode(src)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  const hash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('')
+  hashCache[src] = hash
+  return hash
+}
+
+// Gallery image with the same content, or null
+export async function findGalleryDuplicate(hash) {
+  await ensureGalleryLoaded()
+  for (const item of state.data.items) {
+    const src = state.imageSrcs[item.imageId]
+    const itemHash = item.hash ?? (src ? await hashImageSrc(src) : null)
+    if (itemHash === hash) return { ...item, src }
+  }
+  return null
+}
+
+// ── actions ──
+// items: [{ id, src, hash? }]; categoryId may be null for untagged uploads
+export async function addGalleryImages(categoryId, items) {
+  await ensureGalleryLoaded()
+  const results = await Promise.all(
+    items.map(async ({ id, src, hash }) => ({ id, src, imageId: await storeImage(src), hash: hash ?? await hashImageSrc(src) }))
+  )
+  setState({ imageSrcs: { ...state.imageSrcs, ...Object.fromEntries(results.map(({ imageId, src }) => [imageId, src])) } })
+  updateData((prev) => ({
+    ...prev,
+    items: [
+      ...prev.items,
+      ...results.map(({ id, imageId, hash }) => ({ id, imageId, tags: categoryId ? [categoryId] : [], ...(hash ? { hash } : {}) })),
+    ],
+  }))
+}
+
+function deleteImage(id) {
+  const item = state.data.items.find((r) => r.id === id)
+  if (item?.imageId) removeStoredImage(item.imageId)
+  updateData((prev) => ({ ...prev, items: prev.items.filter((r) => r.id !== id) }))
+}
+
+async function replaceImage(id, src) {
+  const imageId = await storeImage(src)
+  const hash = await hashImageSrc(src)
+  setState({ imageSrcs: { ...state.imageSrcs, [imageId]: src } })
+  const item = state.data.items.find((r) => r.id === id)
+  if (item?.imageId) removeStoredImage(item.imageId)
+  updateItem(id, (r) => ({ ...r, imageId, hash }))
+}
+
+function togglePin(id) {
+  updateItem(id, (item) => {
+    if (!item.pinnedAt) return { ...item, pinnedAt: Date.now() }
+    const rest = { ...item }
+    delete rest.pinnedAt
+    return rest
+  })
+}
+
+function toggleImageTag(id, categoryId) {
+  updateItem(id, (item) => ({
+    ...item,
+    tags: item.tags.includes(categoryId)
+      ? item.tags.filter((t) => t !== categoryId)
+      : [...item.tags, categoryId],
+  }))
+}
+
+// Copy when fromId is null, otherwise move from one category to another
+function assignImageToCategory(id, toId, fromId = null) {
+  updateItem(id, (item) => {
+    const tags = item.tags.filter((t) => t !== fromId && t !== toId)
+    return { ...item, tags: [...tags, toId] }
+  })
+}
+
+function addCategory(name) {
+  const id = newCategoryId()
+  updateData((prev) => ({ ...prev, categories: [...prev.categories, { id, name }] }))
+  return id
+}
+
+function renameCategory(id, name) {
+  updateData((prev) => ({
+    ...prev,
+    categories: prev.categories.map((c) => (c.id === id ? { ...c, name } : c)),
+  }))
+}
+
+// Place category `id` right before (or after) `targetId`
+function moveCategory(id, targetId, after = false) {
+  if (id === targetId) return
+  updateData((prev) => {
+    const moving = prev.categories.find((c) => c.id === id)
+    if (!moving) return prev
+    const rest = prev.categories.filter((c) => c.id !== id)
+    const targetIndex = rest.findIndex((c) => c.id === targetId)
+    if (targetIndex < 0) return prev
+    const insertAt = after ? targetIndex + 1 : targetIndex
+    return { ...prev, categories: [...rest.slice(0, insertAt), moving, ...rest.slice(insertAt)] }
+  })
+}
+
+// Images stay in the gallery; they only lose this tag
+function deleteCategory(id) {
+  updateData((prev) => ({
+    ...prev,
+    categories: prev.categories.filter((c) => c.id !== id),
+    items: prev.items.map((item) => (
+      item.tags.includes(id) ? { ...item, tags: item.tags.filter((t) => t !== id) } : item
+    )),
+  }))
+}
+
+const subscribe = (listener) => {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+export default function useGallery() {
+  const { data, imageSrcs, loaded } = useSyncExternalStore(subscribe, () => state)
 
   useEffect(() => {
-    if (!loaded) return
-    if (skipWriteRef.current) { skipWriteRef.current = false; return }
-    cachedData = data
-    setDoc(GALLERY_DOC, data).catch(console.error)
-  }, [data, loaded])
-
-  const update = useCallback((fn) => {
-    setData((prev) => {
-      const next = fn(prev)
-      cachedData = next
-      return next
-    })
+    ensureGalleryLoaded()
   }, [])
-
-  const updateItem = useCallback((id, fn) => {
-    update((prev) => ({ ...prev, items: prev.items.map((item) => (item.id === id ? fn(item) : item)) }))
-  }, [update])
 
   // Resolved images with src populated from imageSrcs, pinned first
   const images = useMemo(() => (
@@ -121,119 +246,10 @@ export default function useGallery() {
       .filter((r) => r.src)
   ), [data.items, imageSrcs])
 
-  // items: [{ id, src }]; categoryId may be null for untagged uploads
-  const addImages = useCallback(async (categoryId, items) => {
-    const results = await Promise.all(
-      items.map(async ({ id, src }) => {
-        const imageId = await storeImage(src)
-        return { id, imageId, src }
-      })
-    )
-    setImageSrcs((prev) => {
-      const next = { ...prev }
-      results.forEach(({ imageId, src }) => { next[imageId] = src })
-      cachedImageSrcs = next
-      return next
-    })
-    update((prev) => ({
-      ...prev,
-      items: [
-        ...prev.items,
-        ...results.map(({ id, imageId }) => ({ id, imageId, tags: categoryId ? [categoryId] : [] })),
-      ],
-    }))
-  }, [update])
-
-  const deleteImage = useCallback((id) => {
-    update((prev) => {
-      const item = prev.items.find((r) => r.id === id)
-      if (item?.imageId) removeStoredImage(item.imageId)
-      return { ...prev, items: prev.items.filter((r) => r.id !== id) }
-    })
-  }, [update])
-
-  const replaceImage = useCallback(async (id, src) => {
-    const imageId = await storeImage(src)
-    setImageSrcs((prev) => {
-      const next = { ...prev, [imageId]: src }
-      cachedImageSrcs = next
-      return next
-    })
-    update((prev) => {
-      const item = prev.items.find((r) => r.id === id)
-      if (item?.imageId) removeStoredImage(item.imageId)
-      return { ...prev, items: prev.items.map((r) => (r.id === id ? { ...r, imageId } : r)) }
-    })
-  }, [update])
-
-  const togglePin = useCallback((id) => {
-    updateItem(id, (item) => {
-      if (!item.pinnedAt) return { ...item, pinnedAt: Date.now() }
-      const rest = { ...item }
-      delete rest.pinnedAt
-      return rest
-    })
-  }, [updateItem])
-
-  const toggleImageTag = useCallback((id, categoryId) => {
-    updateItem(id, (item) => ({
-      ...item,
-      tags: item.tags.includes(categoryId)
-        ? item.tags.filter((t) => t !== categoryId)
-        : [...item.tags, categoryId],
-    }))
-  }, [updateItem])
-
-  // Copy when fromId is null, otherwise move from one category to another
-  const assignImageToCategory = useCallback((id, toId, fromId = null) => {
-    updateItem(id, (item) => {
-      const tags = item.tags.filter((t) => t !== fromId && t !== toId)
-      return { ...item, tags: [...tags, toId] }
-    })
-  }, [updateItem])
-
-  const addCategory = useCallback((name) => {
-    const id = newCategoryId()
-    update((prev) => ({ ...prev, categories: [...prev.categories, { id, name }] }))
-    return id
-  }, [update])
-
-  const renameCategory = useCallback((id, name) => {
-    update((prev) => ({
-      ...prev,
-      categories: prev.categories.map((c) => (c.id === id ? { ...c, name } : c)),
-    }))
-  }, [update])
-
-  // Place category `id` right before (or after) `targetId`
-  const moveCategory = useCallback((id, targetId, after = false) => {
-    if (id === targetId) return
-    update((prev) => {
-      const moving = prev.categories.find((c) => c.id === id)
-      if (!moving) return prev
-      const rest = prev.categories.filter((c) => c.id !== id)
-      const targetIndex = rest.findIndex((c) => c.id === targetId)
-      if (targetIndex < 0) return prev
-      const insertAt = after ? targetIndex + 1 : targetIndex
-      return { ...prev, categories: [...rest.slice(0, insertAt), moving, ...rest.slice(insertAt)] }
-    })
-  }, [update])
-
-  // Images stay in the gallery; they only lose this tag
-  const deleteCategory = useCallback((id) => {
-    update((prev) => ({
-      ...prev,
-      categories: prev.categories.filter((c) => c.id !== id),
-      items: prev.items.map((item) => (
-        item.tags.includes(id) ? { ...item, tags: item.tags.filter((t) => t !== id) } : item
-      )),
-    }))
-  }, [update])
-
   return {
     images,
     categories: data.categories,
-    addImages,
+    addImages: addGalleryImages,
     deleteImage,
     replaceImage,
     togglePin,

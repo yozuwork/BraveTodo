@@ -22,6 +22,8 @@ import StatsCard from "./components/Sidebar/StatsCard";
 import QuestHub from "./components/Main/QuestHub";
 import LevelUpEffect from "./components/LevelUpEffect/LevelUpEffect";
 import ImageUploadFeedback from "./components/common/ImageUploadFeedback";
+import GlobalLoadingIndicator, { LoadingSpinner } from "./components/common/LoadingSpinner";
+import GalleryAutoAdd from "./components/common/GalleryAutoAdd";
 import useQuests from "./hooks/useQuests";
 import useCharacter from "./hooks/useCharacter";
 import useStages, { resolveCurrentStage } from "./hooks/useStages";
@@ -168,6 +170,9 @@ function MainApp() {
     duplicateQuest,
     moveQuestToBoard,
     setQuestCollapsed,
+    reorderSubTasks,
+    setQuestSubTaskView,
+    toggleSubTaskPin,
     removeSubTask,
     updateSubTask,
     addSubTaskImage,
@@ -765,6 +770,27 @@ function MainApp() {
     [quests, toggleSubTask, setQuestCompletedWithReward, setHuntTaskCompleted],
   );
 
+  // 白板卡片：勾項目只拿每項 EXP，不會自動完成整張卡片
+  const handleToggleCanvasSubTask = useCallback(
+    (questId, subTaskId) => toggleSubTask(questId, subTaskId),
+    [toggleSubTask],
+  );
+
+  // 白板卡片的狀態下拉：選「已完成」才算整張卡片完成（發放完成獎勵）
+  const handleCanvasQuestStatus = useCallback(
+    (questId, status) => {
+      const q = quests.find((x) => x.id === questId);
+      if (!q) return;
+      const completed = status === "completed";
+      if (completed !== q.completed) {
+        setQuestCompletedWithReward(questId, completed);
+        if (q.huntBinding) setHuntTaskCompleted(q.huntBinding, completed);
+      }
+      if (!completed) setQuestStatus(questId, status);
+    },
+    [quests, setQuestCompletedWithReward, setHuntTaskCompleted, setQuestStatus],
+  );
+
   const handleBindQuestToActiveHuntTask = useCallback(
     (questId, huntTaskId) => {
       if (!activeHuntTarget) return;
@@ -901,6 +927,11 @@ function MainApp() {
 
   return (
     <>
+      {(!questsLoaded || !stagesLoaded) && (
+        <div className="fixed inset-x-0 bottom-0 top-[72px] z-40 flex items-center justify-center bg-white/85 backdrop-blur-sm">
+          <LoadingSpinner label="載入任務與角色資料…" />
+        </div>
+      )}
       <div className="mobile-page-surface flex min-h-screen items-stretch justify-center bg-[#fbfcfe] pb-20 md:min-h-[calc(100vh-72px)] md:bg-white md:pb-0">
         <div className="flex w-full max-w-[1440px]">
           <div className="w-full min-w-0 px-4 py-4 md:px-8 md:py-8 lg:px-10">
@@ -959,9 +990,14 @@ function MainApp() {
                 onToggleSubTask={handleToggleSubTask}
                 onSetSubTaskExp={updateQuestSubTaskExp}
                 onSetSchedule={updateQuestSchedule}
+                onToggleCanvasSubTask={handleToggleCanvasSubTask}
+                onSetCanvasQuestStatus={handleCanvasQuestStatus}
                 onDuplicateQuest={duplicateQuest}
                 onMoveQuestToBoard={moveQuestToBoard}
                 onSetQuestCollapsed={setQuestCollapsed}
+                onReorderSubTasks={reorderSubTasks}
+                onSetQuestSubTaskView={setQuestSubTaskView}
+                onToggleSubTaskPin={toggleSubTaskPin}
                 onRemoveSubTask={handleRemoveSubTask}
                 onUpdateSubTask={handleUpdateSubTask}
                 onAddSubTaskImage={addSubTaskImage}
@@ -1602,6 +1638,8 @@ function Layout({ user, signIn, logOut }) {
         </div>
       )}
       <ImageUploadFeedback />
+      <GlobalLoadingIndicator />
+      <GalleryAutoAdd />
     </div>
   )
 }
@@ -1612,11 +1650,7 @@ export default function App() {
   useImagePaste();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-        <div className="text-gray-400 text-sm">載入中...</div>
-      </div>
-    );
+    return <LoadingSpinner className="min-h-screen bg-stone-50" />;
   }
 
   if (!user) {
