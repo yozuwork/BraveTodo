@@ -29,6 +29,7 @@ import VocabularyInput from '../common/VocabularyInput'
 import QuestCanvasView from './QuestCanvasView'
 import { resolveCurrentStage } from '../../hooks/useStages'
 import useWorkspaces from '../../hooks/useWorkspaces'
+import useWorkFeatureVisibility from '../../hooks/useWorkFeatureVisibility'
 
 const LEGACY_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size'
 const DESKTOP_AVATAR_SIZE_KEY = 'brave-todo:work-avatar-size:desktop'
@@ -300,8 +301,9 @@ export default function QuestHub({
   levelingRules,
   rewardSettings, onUpdateRewardGold, onUpdateRewardColor,
   autoExpSettings, onAutoExpEnabled, onUpdateAutoExpThreshold,
+  tierUnlockSettings, onTierUnlockEnabled, onUpdateTierUnlockLevel, lockedExpLevels = {},
   atk,
-  onAddSubTask, onToggleSubTask, onSetSubTaskExp, onRemoveSubTask, onUpdateSubTask, onAddSubTaskImage, onQuestCanvasPositionChange, onAddCanvasQuest,
+  onAddSubTask, onToggleSubTask, onSetSubTaskExp, onSetSchedule, onDuplicateQuest, onMoveQuestToBoard, onSetQuestCollapsed, onRemoveSubTask, onUpdateSubTask, onAddSubTaskImage, onQuestCanvasPositionChange, onAddCanvasQuest,
   currentLevel, expProgress, currentExp, expToNextLevel, avatar, imagePosition, onAvatarChange, onImagePositionChange, onResetLevel,
   monsters, onAddMonster, onUpdateMonster, onRemoveMonster, onMonsterAvatarChange,
   onStartHunt, onStopHunt,
@@ -330,8 +332,11 @@ export default function QuestHub({
   const [questTemplateDialogOpen, setQuestTemplateDialogOpen] = useState(false)
   const [questTemplateSavedNotice, setQuestTemplateSavedNotice] = useState(false)
   const [taskFilter, setTaskFilter] = useState('all')
+  const { isVisible: isWorkFeatureVisible } = useWorkFeatureVisibility()
   const [questView, setQuestView] = useState(() => localStorage.getItem(QUEST_VIEW_KEY) === 'canvas' ? 'canvas' : 'list')
   const [selectedQuestId, setSelectedQuestId] = useState(null)
+  // 畫布剪下的卡片（Ctrl+X），切換到另一個畫布分頁後 Ctrl+V 貼上
+  const [canvasClipboard, setCanvasClipboard] = useState(null)
   const mobileInputRef = useRef(null)
   const desktopInputRef = useRef(null)
 
@@ -425,7 +430,13 @@ export default function QuestHub({
     if (activeTab === 'Stages' || activeTab === 'Leveling' || activeTab === 'Other') {
       onTabChange('Tasks')
     }
-  }, [hasActiveHunt, activeTab, onTabChange])
+    if (taskFilter === 'hunt' && !isWorkFeatureVisible('Hunt')) setTaskFilter('all')
+    // 討伐 now lives as a tab inside 任務
+    if (activeTab === 'Hunt') {
+      setTaskFilter('hunt')
+      onTabChange('Tasks')
+    }
+  }, [hasActiveHunt, activeTab, onTabChange, taskFilter, isWorkFeatureVisible])
 
   const isCollectionTab = collectionTabs.some((item) => item.tab === activeTab)
   useEffect(() => {
@@ -465,9 +476,12 @@ export default function QuestHub({
   const currentStage = resolveCurrentStage(stages, currentLevel)
   const { activeWorkspace } = useWorkspaces()
   const characterName = activeWorkspace.characterName
-  const hasCompleted = quests.some((q) => q.completed)
-  const activeQuestCount = quests.filter((quest) => !quest.completed).length
-  const visibleQuests = quests.filter((quest) => {
+  // 怪物分頁的卡片是獨立畫布，不出現在任務清單與狀態篩選
+  const taskQuests = quests.filter((quest) => !quest.board)
+  const monsterBoardQuests = quests.filter((quest) => quest.board === 'monster')
+  const hasCompleted = taskQuests.some((q) => q.completed)
+  const activeQuestCount = taskQuests.filter((quest) => !quest.completed).length
+  const visibleQuests = taskQuests.filter((quest) => {
     if (taskFilter === 'completed') return quest.completed
     if (taskFilter === 'progress') return !quest.completed && quest.status === 'progress'
     if (taskFilter === 'pending') return !quest.completed && quest.status !== 'progress'
@@ -520,8 +534,40 @@ export default function QuestHub({
       autoExpSettings={autoExpSettings}
       onAutoExpEnabled={onAutoExpEnabled}
       onUpdateAutoExpThreshold={onUpdateAutoExpThreshold}
+      tierUnlockSettings={tierUnlockSettings}
+      onTierUnlockEnabled={onTierUnlockEnabled}
+      onUpdateTierUnlockLevel={onUpdateTierUnlockLevel}
       currentLevel={currentLevel}
       onResetLevel={onResetLevel}
+    />
+  )
+
+  const huntPanel = (
+    <HuntTab
+      monsters={monsters}
+      onAdd={onAddMonster}
+      onUpdate={onUpdateMonster}
+      onRemove={onRemoveMonster}
+      onAvatarChange={onMonsterAvatarChange}
+      currentLevel={currentLevel}
+      onStartHunt={(id) => {
+        onStartHunt(id)
+        onTabChange('HuntMission')
+      }}
+      onStopHunt={onStopHunt}
+      stages={stages}
+      onStartStageBossHunt={(id) => {
+        onStartStageBossHunt(id)
+        onTabChange('HuntMission')
+      }}
+      onStopStageBossHunt={onStopStageBossHunt}
+      onCompleteStageBossHunt={onCompleteStageBossHunt}
+      onStageBossNameChange={onStageBossNameChange}
+      onStageBossAvatarChange={onStageBossAvatarChange}
+      onStageLevelChange={onStageLevel}
+      onAddStage={onAddStage}
+      onRemoveStage={onRemoveStage}
+      onReorderStages={onReorderStages}
     />
   )
 
@@ -668,6 +714,8 @@ export default function QuestHub({
               ['progress', '進行中'],
               ['completed', '已完成'],
               ['stages', '角色階段'],
+              ...(isWorkFeatureVisible('Hunt') ? [['hunt', '討伐']] : []),
+              ['monster', '怪物'],
             ].map(([key, label]) => (
               <button
                 key={key}
@@ -681,7 +729,7 @@ export default function QuestHub({
                 {taskFilter === key && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-purple-500" />}
               </button>
             ))}
-            {taskFilter !== 'stages' && (
+            {!['stages', 'hunt', 'monster'].includes(taskFilter) && (
             <div className="ml-auto flex shrink-0 items-stretch">
               <button
                 type="button"
@@ -718,7 +766,35 @@ export default function QuestHub({
             )}
           </nav>
 
-          {taskFilter === 'stages' ? characterSettingsPanel : (
+          {taskFilter === 'stages' ? characterSettingsPanel : taskFilter === 'hunt' ? huntPanel : taskFilter === 'monster' ? (
+            <QuestCanvasView
+              key="monster"
+              board="monster"
+              quests={monsterBoardQuests}
+              onPositionChange={onQuestCanvasPositionChange}
+              onOpenDetails={setSelectedQuestId}
+              onToggleSubTask={onToggleSubTask}
+              onRemoveSubTask={onRemoveSubTask}
+              onAddSubTask={onAddSubTask}
+              onAddSubTaskImage={onAddSubTaskImage}
+              onUpdateQuest={onUpdate}
+              onSetExp={onSetExp}
+              lockedExpLevels={lockedExpLevels}
+              onSetSubTaskExp={onSetSubTaskExp}
+              onSetSchedule={onSetSchedule}
+              onDuplicateQuest={onDuplicateQuest}
+              questTemplates={questTemplates}
+              onAddFromTemplate={onAddFromTemplate}
+              onSaveQuestTemplate={onSaveQuestTemplate}
+              onRemoveQuestTemplate={onRemoveQuestTemplate}
+              onMoveQuestToBoard={onMoveQuestToBoard}
+              onSetQuestCollapsed={onSetQuestCollapsed}
+              clipboard={canvasClipboard}
+              onClipboardChange={setCanvasClipboard}
+              onAddCanvasQuest={onAddCanvasQuest}
+              onRemoveQuest={onRemove}
+            />
+          ) : (
           <>
           <div className="relative">
             <VocabularyInput
@@ -754,7 +830,18 @@ export default function QuestHub({
               onAddSubTaskImage={onAddSubTaskImage}
               onUpdateQuest={onUpdate}
               onSetExp={onSetExp}
+              lockedExpLevels={lockedExpLevels}
               onSetSubTaskExp={onSetSubTaskExp}
+              onSetSchedule={onSetSchedule}
+              onDuplicateQuest={onDuplicateQuest}
+              questTemplates={questTemplates}
+              onAddFromTemplate={onAddFromTemplate}
+              onSaveQuestTemplate={onSaveQuestTemplate}
+              onRemoveQuestTemplate={onRemoveQuestTemplate}
+              onMoveQuestToBoard={onMoveQuestToBoard}
+              onSetQuestCollapsed={onSetQuestCollapsed}
+              clipboard={canvasClipboard}
+              onClipboardChange={setCanvasClipboard}
               onAddCanvasQuest={onAddCanvasQuest}
               onRemoveQuest={onRemove}
             />
@@ -803,6 +890,7 @@ export default function QuestHub({
                         onSetPriority={onSetPriority}
                         onSetStatus={onSetStatus}
                         onSetExp={onSetExp}
+              lockedExpLevels={lockedExpLevels}
                         onUpdateRewardConfig={onUpdateRewardConfig}
                         onDemoteToInbox={onDemoteToInbox}
                         atk={atk}
@@ -1001,34 +1089,6 @@ export default function QuestHub({
         />
       )}
 
-      {activeTab === 'Hunt' && (
-        <HuntTab
-          monsters={monsters}
-          onAdd={onAddMonster}
-          onUpdate={onUpdateMonster}
-          onRemove={onRemoveMonster}
-          onAvatarChange={onMonsterAvatarChange}
-          currentLevel={currentLevel}
-          onStartHunt={(id) => {
-            onStartHunt(id)
-            onTabChange('HuntMission')
-          }}
-          onStopHunt={onStopHunt}
-          stages={stages}
-          onStartStageBossHunt={(id) => {
-            onStartStageBossHunt(id)
-            onTabChange('HuntMission')
-          }}
-          onStopStageBossHunt={onStopStageBossHunt}
-          onCompleteStageBossHunt={onCompleteStageBossHunt}
-          onStageBossNameChange={onStageBossNameChange}
-          onStageBossAvatarChange={onStageBossAvatarChange}
-          onStageLevelChange={onStageLevel}
-          onAddStage={onAddStage}
-          onRemoveStage={onRemoveStage}
-          onReorderStages={onReorderStages}
-        />
-      )}
 
       {activeTab === 'Story' && (
         <StoryTab
@@ -1192,6 +1252,7 @@ export default function QuestHub({
         onSetPriority={onSetPriority}
         onSetStatus={onSetStatus}
         onSetExp={onSetExp}
+              lockedExpLevels={lockedExpLevels}
         onAddSubTask={onAddSubTask}
         onToggleSubTask={onToggleSubTask}
         onRemoveSubTask={onRemoveSubTask}

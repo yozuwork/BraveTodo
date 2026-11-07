@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getDoc, setDoc } from 'firebase/firestore'
 import { wsDoc } from '../utils/workspace'
-import { DEFAULT_AUTO_EXP_SETTINGS, normalizeAutoExpSettings } from '../utils/questAutoExp'
+import { DEFAULT_AUTO_EXP_SETTINGS, normalizeAutoExpSettings, DEFAULT_TIER_UNLOCK_SETTINGS, normalizeTierUnlockSettings } from '../utils/questAutoExp'
 
 const REWARD_SETTINGS_DOC = wsDoc('rewardSettings')
 
@@ -15,6 +15,7 @@ export const DEFAULT_REWARD_SETTINGS = [
 
 let cachedRewardSettings = null
 let cachedAutoExpSettings = null
+let cachedTierUnlockSettings = null
 
 const normalizeSettings = (saved) => {
   if (!Array.isArray(saved)) return DEFAULT_REWARD_SETTINGS
@@ -36,6 +37,7 @@ const normalizeSettings = (saved) => {
 export default function useRewardSettings() {
   const [rewardSettings, setRewardSettings] = useState(() => cachedRewardSettings ?? DEFAULT_REWARD_SETTINGS)
   const [autoExpSettings, setAutoExpSettings] = useState(() => cachedAutoExpSettings ?? DEFAULT_AUTO_EXP_SETTINGS)
+  const [tierUnlockSettings, setTierUnlockSettings] = useState(() => cachedTierUnlockSettings ?? DEFAULT_TIER_UNLOCK_SETTINGS)
   const [loaded, setLoaded] = useState(() => cachedRewardSettings !== null)
   const skipWriteRef = useRef(true)
 
@@ -46,16 +48,21 @@ export default function useRewardSettings() {
       if (snap.exists()) {
         nextSettings = normalizeSettings(snap.data().items ?? [])
         cachedAutoExpSettings = normalizeAutoExpSettings(snap.data().autoExp)
+        cachedTierUnlockSettings = normalizeTierUnlockSettings(snap.data().tierUnlock)
       }
       cachedRewardSettings = nextSettings
       cachedAutoExpSettings = cachedAutoExpSettings ?? DEFAULT_AUTO_EXP_SETTINGS
+      cachedTierUnlockSettings = cachedTierUnlockSettings ?? DEFAULT_TIER_UNLOCK_SETTINGS
       setRewardSettings(nextSettings)
       setAutoExpSettings(cachedAutoExpSettings)
+      setTierUnlockSettings(cachedTierUnlockSettings)
       setLoaded(true)
     }).catch(() => {
       cachedRewardSettings = cachedRewardSettings ?? DEFAULT_REWARD_SETTINGS
       cachedAutoExpSettings = cachedAutoExpSettings ?? DEFAULT_AUTO_EXP_SETTINGS
+      cachedTierUnlockSettings = cachedTierUnlockSettings ?? DEFAULT_TIER_UNLOCK_SETTINGS
       setAutoExpSettings(cachedAutoExpSettings)
+      setTierUnlockSettings(cachedTierUnlockSettings)
       setLoaded(true)
     })
   }, [])
@@ -68,6 +75,7 @@ export default function useRewardSettings() {
     }
     cachedRewardSettings = rewardSettings
     cachedAutoExpSettings = autoExpSettings
+    cachedTierUnlockSettings = tierUnlockSettings
     const toSave = rewardSettings.map(({ key, label, expValue, gold, color }) => ({
       key,
       label,
@@ -75,8 +83,8 @@ export default function useRewardSettings() {
       gold,
       color,
     }))
-    setDoc(REWARD_SETTINGS_DOC, { items: toSave, autoExp: autoExpSettings }).catch(console.error)
-  }, [autoExpSettings, rewardSettings, loaded])
+    setDoc(REWARD_SETTINGS_DOC, { items: toSave, autoExp: autoExpSettings, tierUnlock: tierUnlockSettings }).catch(console.error)
+  }, [autoExpSettings, tierUnlockSettings, rewardSettings, loaded])
 
   const updateRewardGold = useCallback((expValue, value) => {
     const parsed = parseInt(value, 10)
@@ -106,6 +114,19 @@ export default function useRewardSettings() {
     }))
   }, [])
 
+  const setTierUnlockEnabled = useCallback((enabled) => {
+    setTierUnlockSettings((prev) => ({ ...prev, enabled: Boolean(enabled) }))
+  }, [])
+
+  const updateTierUnlockLevel = useCallback((expValue, value) => {
+    const parsed = parseInt(value, 10)
+    const nextLevel = Number.isNaN(parsed) ? 1 : Math.max(1, parsed)
+    setTierUnlockSettings((prev) => ({
+      ...prev,
+      levels: { ...prev.levels, [String(expValue)]: nextLevel },
+    }))
+  }, [])
+
   return {
     rewardSettings,
     updateRewardGold,
@@ -113,6 +134,9 @@ export default function useRewardSettings() {
     autoExpSettings,
     setAutoExpEnabled,
     updateAutoExpThreshold,
+    tierUnlockSettings,
+    setTierUnlockEnabled,
+    updateTierUnlockLevel,
     loaded,
   }
 }

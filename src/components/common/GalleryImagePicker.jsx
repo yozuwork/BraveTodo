@@ -6,17 +6,13 @@ import Button from '@mui/material/Button'
 import CollectionsIcon from '@mui/icons-material/Collections'
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import PetsIcon from '@mui/icons-material/Pets'
+import LabelOutlinedIcon from '@mui/icons-material/LabelOutlined'
+import PushPinIcon from '@mui/icons-material/PushPin'
 import CheckIcon from '@mui/icons-material/Check'
 import useGallery from '../../hooks/useGallery'
 import { resolveImg } from '../../utils/imageSrc'
 
-const TABS = [
-  { id: 'all', label: '全部', icon: <CollectionsIcon sx={{ fontSize: 16 }} /> },
-  { id: 'character', label: '角色', icon: <PersonOutlineIcon sx={{ fontSize: 16 }} /> },
-  { id: 'monster', label: '怪物', icon: <PetsIcon sx={{ fontSize: 16 }} /> },
-]
-
-const TAG_IDS = ['character', 'monster']
+const CATEGORY_ICONS = { all: CollectionsIcon, character: PersonOutlineIcon, monster: PetsIcon }
 
 export default function GalleryImagePicker({
   open,
@@ -25,22 +21,21 @@ export default function GalleryImagePicker({
   initialTab = 'character',
   multiple = false,
 }) {
-  const { images } = useGallery()
+  const { images, categories } = useGallery()
   const [activeTab, setActiveTab] = useState(initialTab)
   const [selectedIds, setSelectedIds] = useState([])
+  const tabs = [{ id: 'all', name: '全部' }, ...categories]
 
   useEffect(() => {
     if (!open) return
-    setActiveTab(initialTab)
+    setActiveTab(categories.some((c) => c.id === initialTab) ? initialTab : 'all')
     setSelectedIds([])
-  }, [open, initialTab])
+  }, [open, initialTab, categories])
 
-  const allImages = TAG_IDS.flatMap((tag) => (
-    (images[tag] ?? []).map((img) => ({ ...img, tag, key: `${tag}:${img.id}` }))
-  ))
+  const allImages = images.map((img) => ({ ...img, key: img.id }))
   const currentImages = activeTab === 'all'
     ? allImages
-    : (images[activeTab] ?? []).map((img) => ({ ...img, tag: activeTab, key: `${activeTab}:${img.id}` }))
+    : allImages.filter((img) => img.tags.includes(activeTab))
   const selectedImages = useMemo(
     () => currentImages.filter((img) => selectedIds.includes(img.key)),
     [currentImages, selectedIds],
@@ -57,7 +52,7 @@ export default function GalleryImagePicker({
   }
 
   const getTabCount = (tabId) => (
-    tabId === 'all' ? allImages.length : (images[tabId]?.length ?? 0)
+    tabId === 'all' ? allImages.length : allImages.filter((img) => img.tags.includes(tabId)).length
   )
 
   const confirm = () => {
@@ -78,8 +73,10 @@ export default function GalleryImagePicker({
         從圖庫選擇圖片
       </DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
-        <div className="flex gap-0 border-b border-gray-200 mb-4">
-          {TABS.map((tab) => (
+        <div className="flex gap-0 overflow-x-auto border-b border-gray-200 mb-4">
+          {tabs.map((tab) => {
+            const Icon = CATEGORY_ICONS[tab.id] ?? LabelOutlinedIcon
+            return (
             <button
               key={tab.id}
               type="button"
@@ -87,21 +84,22 @@ export default function GalleryImagePicker({
                 setActiveTab(tab.id)
                 setSelectedIds([])
               }}
-              className={`flex items-center gap-1.5 px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px cursor-pointer bg-transparent border-x-0 border-t-0 ${
+              className={`flex shrink-0 items-center gap-1.5 px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px cursor-pointer bg-transparent border-x-0 border-t-0 ${
                 activeTab === tab.id
                   ? 'text-purple-600 border-b-purple-500'
                   : 'text-gray-500 border-b-transparent hover:text-gray-800'
               }`}
             >
-              {tab.icon}
-              {tab.label}
+              <Icon sx={{ fontSize: 16 }} />
+              {tab.name}
               {getTabCount(tab.id) > 0 && (
                 <span className="ml-1 text-xs bg-purple-100 text-purple-600 font-bold px-1.5 py-0.5 rounded-full">
                   {getTabCount(tab.id)}
                 </span>
               )}
             </button>
-          ))}
+            )
+          })}
         </div>
 
         {currentImages.length === 0 ? (
@@ -133,6 +131,11 @@ export default function GalleryImagePicker({
                     className="w-full h-full object-contain"
                     draggable={false}
                   />
+                  {img.pinned && !selected && (
+                    <span className="absolute top-1 left-1 w-5 h-5 rounded-full bg-black/60 text-amber-300 flex items-center justify-center">
+                      <PushPinIcon sx={{ fontSize: 12 }} />
+                    </span>
+                  )}
                   {selected && (
                     <span className="absolute top-1 right-1 w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center">
                       <CheckIcon sx={{ fontSize: 15 }} />

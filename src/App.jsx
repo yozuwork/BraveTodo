@@ -7,7 +7,6 @@ import TuneIcon from "@mui/icons-material/Tune";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import TaskAltIcon from "@mui/icons-material/TaskAlt";
-import SportsMartialArtsIcon from "@mui/icons-material/SportsMartialArts";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import CollectionsBookmarkOutlinedIcon from "@mui/icons-material/CollectionsBookmarkOutlined";
@@ -48,7 +47,7 @@ import WorldGallery from "./pages/WorldGallery";
 import SystemSettingsPage from "./pages/SystemSettingsPage";
 import WorkspaceSettingsPage from "./pages/WorkspaceSettingsPage";
 import { applyFaviconUrl, getCachedFaviconUrl, loadFaviconUrl } from "./utils/faviconSettings";
-import { resolveAutoExpValue } from "./utils/questAutoExp";
+import { resolveAutoExpValue, getLockedExpLevels, clampExpToUnlocked } from "./utils/questAutoExp";
 import useImagePaste from "./hooks/useImagePaste";
 
 function GoldDisplay({ gold, className = "" }) {
@@ -165,6 +164,10 @@ function MainApp() {
     addSubTask,
     toggleSubTask,
     updateQuestSubTaskExp,
+    updateQuestSchedule,
+    duplicateQuest,
+    moveQuestToBoard,
+    setQuestCollapsed,
     removeSubTask,
     updateSubTask,
     addSubTaskImage,
@@ -279,6 +282,9 @@ function MainApp() {
     autoExpSettings,
     setAutoExpEnabled,
     updateAutoExpThreshold,
+    tierUnlockSettings,
+    setTierUnlockEnabled,
+    updateTierUnlockLevel,
   } = useRewardSettings();
   const {
     skills,
@@ -395,10 +401,18 @@ function MainApp() {
     [adjustGold, getQuestRewardGold, quests, setQuestCompleted],
   );
 
+  const lockedExpLevels = useMemo(
+    () => getLockedExpLevels(tierUnlockSettings, level),
+    [tierUnlockSettings, level],
+  );
+
   const handleQuestExpChange = useCallback(
-    (questId, expValue) => {
+    (questId, requestedExp) => {
       const target = quests.find((quest) => quest.id === questId);
       if (!target) return;
+      // 角色等級未達門檻的級別不可選，自動退回最高的已解鎖級別
+      const expValue = clampExpToUnlocked(Number(requestedExp), lockedExpLevels);
+      if (expValue === target.expValue) return;
       const nextQuest = {
         ...target,
         expValue,
@@ -415,7 +429,7 @@ function MainApp() {
       const goldDelta = nextGold - previousGold;
       if (goldDelta !== 0) adjustGold(goldDelta);
     },
-    [adjustGold, getQuestRewardGold, quests, updateQuestExp, updateQuestRewardConfig],
+    [adjustGold, getQuestRewardGold, lockedExpLevels, quests, updateQuestExp, updateQuestRewardConfig],
   );
 
   const handleQuestRewardConfigChange = useCallback(
@@ -936,10 +950,18 @@ function MainApp() {
                 autoExpSettings={autoExpSettings}
                 onAutoExpEnabled={setAutoExpEnabled}
                 onUpdateAutoExpThreshold={updateAutoExpThreshold}
+                tierUnlockSettings={tierUnlockSettings}
+                onTierUnlockEnabled={setTierUnlockEnabled}
+                onUpdateTierUnlockLevel={updateTierUnlockLevel}
+                lockedExpLevels={lockedExpLevels}
                 atk={stats.atk.value}
                 onAddSubTask={handleAddSubTask}
                 onToggleSubTask={handleToggleSubTask}
                 onSetSubTaskExp={updateQuestSubTaskExp}
+                onSetSchedule={updateQuestSchedule}
+                onDuplicateQuest={duplicateQuest}
+                onMoveQuestToBoard={moveQuestToBoard}
+                onSetQuestCollapsed={setQuestCollapsed}
                 onRemoveSubTask={handleRemoveSubTask}
                 onUpdateSubTask={handleUpdateSubTask}
                 onAddSubTaskImage={addSubTaskImage}
@@ -1130,7 +1152,6 @@ const mobileNavItemClass = (isActive) =>
 
 const WORK_TABS = [
   { tab: "Tasks", label: "任務", icon: <TaskAltIcon sx={{ fontSize: 18 }} /> },
-  { tab: "Hunt", label: "討伐", icon: <SportsMartialArtsIcon sx={{ fontSize: 18 }} /> },
   { tab: "RewardShop", label: "獎勵商店", icon: <RedeemOutlinedIcon sx={{ fontSize: 18 }} /> },
   { tab: "Story", label: "故事", icon: <AutoStoriesOutlinedIcon sx={{ fontSize: 18 }} /> },
   { tab: "Npc", label: "NPC", icon: <PersonOutlineIcon sx={{ fontSize: 18 }} /> },
@@ -1141,13 +1162,13 @@ const WORK_TABS = [
 const COLLECTION_TAB_IDS = ["RewardShop", "Story", "Npc", "Map", "Skills", "Inbox"]
 const COLLECTION_TAB_KEY = wsKey("work-collection-tab")
 const LAST_SEEN_LEVEL_KEY = wsKey("_lastSeenLevel")
+// 討伐 lives as a tab inside 任務 (QuestHub), so it has no menu entry of its own
 const WORK_MENU_ITEMS = [
   WORK_TABS[0],
-  WORK_TABS[1],
   { tab: "Collection", label: "冒險手冊", icon: <CollectionsBookmarkOutlinedIcon sx={{ fontSize: 18 }} /> },
 ]
 const WORK_MORE_TABS = WORK_TABS.filter((item) => item.tab !== "Tasks")
-const WORK_MOBILE_TABS = WORK_TABS.filter((item) => ["Tasks", "Hunt", "Map", "Skills", "Inbox"].includes(item.tab))
+const WORK_MOBILE_TABS = WORK_TABS.filter((item) => ["Tasks", "Map", "Skills", "Inbox"].includes(item.tab))
 
 const LIFE_SECTION_PATHS = ["/character", "/work", "/character-settings", "/workspace-settings"]
 const LIFE_SUB_NAV_ITEMS = [
@@ -1242,11 +1263,39 @@ function Layout({ user, signIn, logOut }) {
     <div className="app-shell min-h-screen bg-stone-50 relative overflow-x-hidden pb-24 md:pb-0">
       <header className="hidden md:block sticky top-0 z-50 bg-white border-b border-gray-100">
         <div className="max-w-[1440px] mx-auto px-8 h-[72px] flex items-center gap-12">
-          <div className="app-brand flex items-center gap-3 shrink-0">
-            <div className="app-brand-mark flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-600 text-lg font-black">
-              米
+          <div className="group/brand relative shrink-0">
+            <button
+              type="button"
+              className="app-brand flex items-center gap-3 rounded-xl border-0 bg-transparent p-0 text-left"
+              aria-haspopup="menu"
+              aria-label="切換工作區"
+            >
+              <div className="app-brand-mark flex h-9 w-9 items-center justify-center rounded-xl bg-purple-100 text-purple-600 text-lg font-black">
+                {Array.from(activeWorkspace.name)[0] ?? "米"}
+              </div>
+              <span className="app-brand-title max-w-[200px] truncate text-xl font-extrabold tracking-wide text-slate-700">{activeWorkspace.name}</span>
+              <KeyboardArrowDownIcon sx={{ fontSize: 20 }} className="text-slate-400 transition-transform group-hover/brand:rotate-180" />
+            </button>
+            <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition-opacity group-hover/brand:visible group-hover/brand:opacity-100 group-focus-within/brand:visible group-focus-within/brand:opacity-100">
+              <div className="flex w-56 flex-col gap-0.5 rounded-xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
+                <WorkspaceSwitcher
+                  workspaces={workspaces}
+                  activeWorkspace={activeWorkspace}
+                  onSwitch={switchWorkspace}
+                  onAdd={addWorkspace}
+                />
+                <div className="my-1 border-t border-slate-100" />
+                <Link
+                  to="/workspace-settings"
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold no-underline transition-colors ${
+                    location.pathname === "/workspace-settings" ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  <SettingsIcon sx={{ fontSize: 18 }} />
+                  工作區設定
+                </Link>
+              </div>
             </div>
-            <span className="app-brand-title text-xl font-extrabold tracking-wide text-slate-700">米莉亞</span>
           </div>
           <nav className="flex flex-1 items-center gap-3">
             <div className="group/life relative">
@@ -1260,13 +1309,6 @@ function Layout({ user, signIn, logOut }) {
               </TopLevelNavLink>
               <div className="invisible absolute left-0 top-full z-50 pt-2 opacity-0 transition-opacity group-hover/life:visible group-hover/life:opacity-100 group-focus-within/life:visible group-focus-within/life:opacity-100">
                 <div className="flex w-52 flex-col gap-0.5 rounded-xl border border-slate-100 bg-white p-1.5 shadow-[0_12px_32px_rgba(15,23,42,0.12)]">
-                  <WorkspaceSwitcher
-                    workspaces={workspaces}
-                    activeWorkspace={activeWorkspace}
-                    onSwitch={switchWorkspace}
-                    onAdd={addWorkspace}
-                  />
-                  <div className="my-1 border-t border-slate-100" />
                   {WORK_MENU_ITEMS.filter((item) => item.tab === "Collection"
                     ? COLLECTION_TAB_IDS.some((tab) => isWorkFeatureVisible(tab))
                     : isWorkFeatureVisible(item.tab)
@@ -1274,7 +1316,7 @@ function Layout({ user, signIn, logOut }) {
                     const active = isWorkPage && (
                       item.tab === "Collection"
                         ? COLLECTION_TAB_IDS.includes(activeWorkTab)
-                        : activeWorkTab === item.tab || (item.tab === "Hunt" && activeWorkTab === "HuntMission")
+                        : activeWorkTab === item.tab || (item.tab === "Tasks" && activeWorkTab === "HuntMission")
                     )
                     const targetTab = item.tab === "Collection"
                       ? [localStorage.getItem(COLLECTION_TAB_KEY), ...COLLECTION_TAB_IDS].find((tab) => tab && COLLECTION_TAB_IDS.includes(tab) && isWorkFeatureVisible(tab))
@@ -1301,15 +1343,6 @@ function Layout({ user, signIn, logOut }) {
                   >
                     <TuneIcon sx={{ fontSize: 18 }} />
                     角色設定
-                  </Link>
-                  <Link
-                    to="/workspace-settings"
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold no-underline transition-colors ${
-                      location.pathname === "/workspace-settings" ? "bg-purple-50 text-purple-600" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-                    }`}
-                  >
-                    <SettingsIcon sx={{ fontSize: 18 }} />
-                    工作區設定
                   </Link>
                 </div>
               </div>
@@ -1405,7 +1438,7 @@ function Layout({ user, signIn, logOut }) {
               />
               <div className="mobile-more-menu mobile-work-overflow-menu fixed inset-x-3 bottom-[84px] z-[49] grid grid-cols-2 gap-2 rounded-2xl border border-gray-200 bg-white p-3 shadow-[0_12px_32px_rgba(15,23,42,0.18)] md:hidden">
                 {WORK_TABS.filter((item) => item.tab !== 'Tasks' && isWorkFeatureVisible(item.tab)).map((item) => {
-                  const active = activeWorkTab === item.tab || (item.tab === 'Hunt' && activeWorkTab === 'HuntMission')
+                  const active = activeWorkTab === item.tab || (item.tab === 'Tasks' && activeWorkTab === 'HuntMission')
                   return (
                     <Link
                       key={item.tab}
@@ -1432,7 +1465,7 @@ function Layout({ user, signIn, logOut }) {
           <nav className="mobile-bottom-nav mobile-work-bottom-nav fixed inset-x-0 bottom-0 z-50 flex h-[76px] overflow-hidden border-t border-slate-100 bg-white pb-2 pt-1 md:hidden">
             <div className="flex min-w-0 flex-1 overflow-hidden">
               {WORK_MOBILE_TABS.filter((item) => isWorkFeatureVisible(item.tab)).map((item) => {
-                const active = activeWorkTab === item.tab || (item.tab === 'Hunt' && activeWorkTab === 'HuntMission')
+                const active = activeWorkTab === item.tab || (item.tab === 'Tasks' && activeWorkTab === 'HuntMission')
                 return (
                   <Link
                     key={item.tab}

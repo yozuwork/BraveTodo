@@ -2,7 +2,7 @@ import Button from '@mui/material/Button'
 import AddIcon from '@mui/icons-material/Add'
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator'
 import StageBossCard from './StageBossCard'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export default function HuntTab({
   currentLevel,
@@ -13,6 +13,35 @@ export default function HuntTab({
   const dragIdRef = useRef(null)
   const [dragOverId, setDragOverId] = useState(null)
   const [insertBefore, setInsertBefore] = useState(true)
+  const [pasteTargetId, setPasteTargetId] = useState(null)
+
+  // 點卡片圖片選取 → Ctrl+V 貼到該 Boss；點其他地方取消選取
+  useEffect(() => {
+    if (pasteTargetId == null) return undefined
+    const handlePaste = (event) => {
+      const file = Array.from(event.clipboardData?.items ?? [])
+        .find((item) => item.kind === 'file' && item.type.startsWith('image/'))
+        ?.getAsFile()
+      if (!file) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      onStageBossAvatarChange(pasteTargetId, file)
+      setPasteTargetId(null)
+    }
+    const handlePointerDown = (event) => {
+      const card = event.target.closest?.('[data-boss-paste-target]')
+      if (!card) setPasteTargetId(null)
+    }
+    const handleKey = (event) => { if (event.key === 'Escape') setPasteTargetId(null) }
+    window.addEventListener('paste', handlePaste, true)
+    window.addEventListener('pointerdown', handlePointerDown, true)
+    window.addEventListener('keydown', handleKey)
+    return () => {
+      window.removeEventListener('paste', handlePaste, true)
+      window.removeEventListener('pointerdown', handlePointerDown, true)
+      window.removeEventListener('keydown', handleKey)
+    }
+  }, [pasteTargetId, onStageBossAvatarChange])
 
   const handleDragStart = (e, id) => {
     dragIdRef.current = id
@@ -98,6 +127,8 @@ export default function HuntTab({
                 onStageLevelChange={onStageLevelChange}
                 onRemove={onRemoveStage}
                 canDelete={stages.length > 1}
+                pasteSelected={pasteTargetId === stage.id}
+                onSelectPaste={setPasteTargetId}
               />
               {dragOverId === stage.id && !insertBefore && (
                 <div className="absolute left-0 right-0 -bottom-2 h-1 rounded-full bg-purple-400 z-20" />

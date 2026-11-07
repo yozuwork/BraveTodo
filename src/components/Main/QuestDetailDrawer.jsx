@@ -29,6 +29,7 @@ const EXP_OPTIONS = [
 ]
 
 export default function QuestDetailDrawer({
+  lockedExpLevels = {},
   open,
   quest,
   defaultCover,
@@ -272,7 +273,11 @@ export default function QuestDetailDrawer({
             <label className="col-span-2 flex flex-col gap-2 text-xs font-bold text-slate-500">
               經驗獎勵
               <select value={quest.expValue === 2 ? 3 : quest.expValue ?? 1} onChange={(event) => onSetExp(quest.id, Number(event.target.value))} className={fieldClass}>
-                {EXP_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                {EXP_OPTIONS.map(([value, label]) => (
+                  <option key={value} value={value} disabled={Boolean(lockedExpLevels[value])}>
+                    {lockedExpLevels[value] ? `🔒 ${label}（LV${lockedExpLevels[value]}）` : label}
+                  </option>
+                ))}
               </select>
             </label>
           </section>

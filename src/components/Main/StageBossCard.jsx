@@ -3,6 +3,8 @@ import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import CollectionsIcon from '@mui/icons-material/Collections'
+import ZoomOutMapIcon from '@mui/icons-material/ZoomOutMap'
+import CloseIcon from '@mui/icons-material/Close'
 import { resolveImg } from '../../utils/imageSrc'
 import GalleryImagePicker from '../common/GalleryImagePicker'
 
@@ -20,6 +22,8 @@ export default function StageBossCard({
   onStageLevelChange,
   onRemove,
   canDelete,
+  pasteSelected = false,  // 點一下選取後顯示黃色框，Ctrl+V 由 HuntTab 貼到這張
+  onSelectPaste,
 }) {
   const {
     id, minLevel, maxLevel, className,
@@ -40,6 +44,7 @@ export default function StageBossCard({
   const [editingName, setEditingName] = useState(false)
   const [nameDraft,   setNameDraft]   = useState(bossName)
   const [galleryOpen, setGalleryOpen] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const nameInputRef  = useRef(null)
   const fileInputRef  = useRef(null)
 
@@ -51,6 +56,19 @@ export default function StageBossCard({
     }
   }, [editingName])
 
+  useEffect(() => {
+    if (!previewOpen) return
+    const handleKey = (event) => { if (event.key === 'Escape') setPreviewOpen(false) }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [previewOpen])
+
+  // 第一次點選取（可貼上），已選取時再點一下開啟本地上傳
+  const handleImageClick = () => {
+    if (pasteSelected) fileInputRef.current?.click()
+    else onSelectPaste?.(id)
+  }
+
   const commitName = () => {
     const t = nameDraft.trim()
     if (t) onBossNameChange(id, t)
@@ -60,15 +78,18 @@ export default function StageBossCard({
 
   return (
     <div
-      className="flex flex-col rounded-2xl overflow-hidden shadow-md select-none border"
+      data-boss-paste-target
+      className="group/boss flex flex-col rounded-2xl overflow-hidden shadow-md select-none border"
       style={{
         width: 160,
         height: 290,
         flexShrink: 0,
-        borderColor: isDefeated ? `${accent}cc`
+        borderColor: pasteSelected ? '#fbbf24'
+          : isDefeated ? `${accent}cc`
           : isHunting  ? `${accent}88`
           : '#e5e7eb',
-        boxShadow: isDefeated ? `0 0 20px ${accent}55`
+        boxShadow: pasteSelected ? '0 0 0 4px #fde68a'
+          : isDefeated ? `0 0 20px ${accent}55`
           : isHunting  ? `0 0 16px ${accent}44, 0 0 6px rgba(239,68,68,0.3)`
           : undefined,
       }}
@@ -77,6 +98,7 @@ export default function StageBossCard({
       <div
         className="relative overflow-hidden"
         style={{ height: 186, background: '#111827', flexShrink: 0 }}
+        title={pasteSelected ? 'Ctrl+V 貼上替換，或再點一下上傳' : '點一下選取（可貼上圖片）'}
       >
         {bossAvatar ? (
           <img
@@ -84,14 +106,14 @@ export default function StageBossCard({
             alt={bossName}
             className="w-full h-full object-contain"
             draggable={false}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={handleImageClick}
             style={{ cursor: 'pointer' }}
           />
         ) : (
           <div
             className="w-full h-full flex flex-col items-center justify-center gap-2 cursor-pointer"
             style={{ background: `linear-gradient(135deg, ${accent}33 0%, #111827 100%)` }}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={handleImageClick}
           >
             <div
               className="w-12 h-12 rounded-full flex items-center justify-center"
@@ -101,7 +123,7 @@ export default function StageBossCard({
             </div>
             {true && (
               <span className="text-[10px] font-medium" style={{ color: `${accent}99` }}>
-                點擊上傳圖片
+                點一下選取後 Ctrl+V 貼上
               </span>
             )}
           </div>
@@ -137,8 +159,24 @@ export default function StageBossCard({
           </div>
         )}
 
+        {pasteSelected && (
+          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center gap-1 bg-amber-300/45 text-xs font-bold text-amber-950">
+            <span>Ctrl+V 貼上替換</span>
+            <span className="text-[10px]">再點一下開啟上傳</span>
+          </div>
+        )}
+
         {/* Edit-mode camera overlay */}
         <div className="absolute bottom-2 right-2 flex gap-1 z-10">
+          {bossAvatar && (
+            <button
+              onClick={() => setPreviewOpen(true)}
+              className="w-6 h-6 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20"
+              title="查看全圖"
+            >
+              <ZoomOutMapIcon sx={{ fontSize: 13, color: 'white' }} />
+            </button>
+          )}
           <button
             onClick={() => fileInputRef.current?.click()}
             className="w-6 h-6 rounded-full flex items-center justify-center bg-black/60 hover:bg-black/80 transition-colors border border-white/20"
@@ -281,6 +319,31 @@ export default function StageBossCard({
         className="hidden"
         onChange={(e) => { onBossAvatarChange(id, e.target.files[0]); e.target.value = '' }}
       />
+      {previewOpen && bossAvatar && (
+        <div
+          className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/90 p-4 md:p-10"
+          onClick={() => setPreviewOpen(false)}
+        >
+          <img
+            src={resolveImg(bossAvatar)}
+            alt={bossName}
+            className="max-h-full max-w-full select-none object-contain"
+            draggable={false}
+            onClick={(e) => e.stopPropagation()}
+          />
+          <span className="absolute left-4 top-4 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+            第{stageIndex + 1}階段・{bossName}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(false)}
+            className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+            aria-label="關閉"
+          >
+            <CloseIcon sx={{ fontSize: 19 }} />
+          </button>
+        </div>
+      )}
       <GalleryImagePicker
         open={galleryOpen}
         onClose={() => setGalleryOpen(false)}

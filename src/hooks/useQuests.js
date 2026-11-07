@@ -4,7 +4,7 @@ import { wsDoc } from '../utils/workspace'
 import coinSfxUrl from '../assets/music/Heavy object Hit and body thud sound effect.mp3'
 import { isSoundEnabled } from '../utils/soundSettings'
 import { compressImage } from '../utils/compressImage'
-import { storeImage, removeStoredImage } from '../utils/imageStorage'
+import { storeImage, fetchImageSrcs, removeStoredImage } from '../utils/imageStorage'
 
 const QUESTS_DOC = wsDoc('quests')
 
@@ -59,7 +59,13 @@ function normalizeCanvasPosition(position) {
   const x = Number(position?.x)
   const y = Number(position?.y)
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-  return { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)) }
+  const next = { x: Math.max(0, Math.round(x)), y: Math.max(0, Math.round(y)) }
+  // Optional card size set by dragging the resize handle on the canvas
+  const w = Number(position?.w)
+  const h = Number(position?.h)
+  if (Number.isFinite(w) && w > 0) next.w = Math.round(w)
+  if (Number.isFinite(h) && h > 0) next.h = Math.round(h)
+  return next
 }
 
 function normalizeCoverPosition(position) {
@@ -102,8 +108,17 @@ function normalizeQuest(quest = {}) {
     huntBinding: quest.huntBinding ?? null,
     canvasPosition: normalizeCanvasPosition(quest.canvasPosition),
     subTaskExp: normalizeNonNegativeInt(quest.subTaskExp, 1),
+    scheduledAt: normalizeScheduledAt(quest.scheduledAt),
+    // Cards on a standalone canvas tab (e.g. 'monster'); null = regular task
+    board: typeof quest.board === 'string' && quest.board ? quest.board : null,
+    collapsed: Boolean(quest.collapsed),
     subTasks: Array.isArray(quest.subTasks) ? quest.subTasks.map(normalizeSubTask) : [],
   }
+}
+
+// Local date-time string from <input type="datetime-local">, e.g. "2026-11-08T14:00"
+function normalizeScheduledAt(value) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value) ? value.slice(0, 16) : null
 }
 
 function normalizeQuestTemplate(template = {}) {
@@ -126,6 +141,7 @@ function normalizeQuestTemplate(template = {}) {
       text: subTask.text ?? '',
       completed: false,
     })) : [],
+    subTaskExp: normalizeNonNegativeInt(template.subTaskExp, 1),
     createdAt: template.createdAt ?? Date.now(),
     updatedAt: template.updatedAt ?? Date.now(),
   }
@@ -255,17 +271,56 @@ export default function useQuests() {
   }, [])
 
   // 白板新增卡片：指定位置，可選擇直接帶一張圖片待辦
-  const addCanvasQuest = useCallback(async (text, position, imageFile = null) => {
+  const addCanvasQuest = useCallback(async (text, position, imageFile = null, board = null) => {
     let subTasks = []
     if (imageFile) {
       const src = await compressImage(imageFile, 1000, 0.82, true)
       const imageId = await storeImage(src)
       subTasks = [{ id: Date.now(), text: '', completed: false, imageId }]
     }
-    addQuest(text, { canvasPosition: position, subTasks })
+    addQuest(text, { canvasPosition: position, subTasks, board })
   }, [addQuest])
 
-  const addQuestFromTemplate = useCallback((templateId) => {
+  // 複製卡片：內容、獎勵、排程與大小都沿用，勾選狀態歸零；圖片另存一份，刪除其中一張不會影響另一張
+  const duplicateQuest = useCallback(async (id, position) => {
+    const source = quests.find((q) => q.id === id)
+    if (!source) return
+    const imageIds = source.subTasks.filter((sub) => sub.imageId).map((sub) => sub.imageId)
+    const srcs = imageIds.length > 0 ? await fetchImageSrcs(imageIds) : {}
+    const now = Date.now()
+    const subTasks = await Promise.all(source.subTasks.map(async (sub, index) => {
+      const copy = { id: now + index + 1, text: sub.text, completed: false }
+      if (!sub.imageId) return copy
+      const src = srcs[sub.imageId]
+      return src ? { ...copy, imageId: await storeImage(src) } : null
+    }))
+    addQuest(source.text, {
+      id: now,
+      canvasPosition: position,
+      subTasks: subTasks.filter(Boolean),
+      subTaskExp: source.subTaskExp,
+      scheduledAt: source.scheduledAt,
+      board: source.board,
+      cover: source.cover,
+      coverPosition: source.coverPosition,
+      coverFit: source.coverFit,
+      coverRatio: source.coverRatio,
+      coverRatioMode: source.coverRatioMode,
+    })
+    // addQuest resets reward fields, so copy them back on afterwards
+    setQuests((prev) => prev.map((q) => (q.id === now ? normalizeQuest({
+      ...q,
+      priority: source.priority,
+      expValue: source.expValue,
+      rewardMode: source.rewardMode,
+      customExp: source.customExp,
+      customGold: source.customGold,
+    }) : q)))
+    return now
+  }, [quests, addQuest])
+
+  // extra: { canvasPosition, board } when placing the template on a canvas
+  const addQuestFromTemplate = useCallback((templateId, extra = {}) => {
     const source = (cachedQuestTemplates ?? questTemplates).find((template) => template.id === templateId)
     if (!source) return null
     const now = Date.now()
@@ -287,6 +342,9 @@ export default function useQuests() {
       coverRatio: source.coverRatio,
       coverRatioMode: source.coverRatioMode,
       huntBinding: null,
+      subTaskExp: source.subTaskExp,
+      canvasPosition: extra.canvasPosition,
+      board: extra.board,
       subTasks: (source.subTasks ?? []).map((subTask, index) => ({
         id: now + index + 1,
         text: subTask.text,
@@ -316,6 +374,7 @@ export default function useQuests() {
       subTasks: Array.isArray(questLike.subTasks)
         ? questLike.subTasks.filter((subTask) => !subTask.imageId).map((subTask) => ({ text: subTask.text ?? '', completed: false }))
         : [],
+      subTaskExp: questLike.subTaskExp,
       createdAt: now,
       updatedAt: now,
     })
@@ -543,6 +602,11 @@ export default function useQuests() {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, subTaskExp } : q)))
   }, [])
 
+  const updateQuestSchedule = useCallback((id, value) => {
+    const scheduledAt = normalizeScheduledAt(value)
+    setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, scheduledAt } : q)))
+  }, [])
+
   const addSubTaskImage = useCallback(async (questId, file) => {
     if (!file) return
     const src = await compressImage(file, 1000, 0.82, true)
@@ -573,6 +637,17 @@ export default function useQuests() {
     setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, canvasPosition: next } : q)))
   }, [])
 
+  const setQuestCollapsed = useCallback((id, collapsed) => {
+    setQuests((prev) => prev.map((q) => (q.id === id ? { ...q, collapsed: Boolean(collapsed) } : q)))
+  }, [])
+
+  // 剪下貼上到另一個畫布：換 board 並放到新位置（保留卡片大小）
+  const moveQuestToBoard = useCallback((id, board, position) => {
+    setQuests((prev) => prev.map((q) => (q.id === id
+      ? { ...q, board: board || null, canvasPosition: normalizeCanvasPosition({ ...q.canvasPosition, ...position }) }
+      : q)))
+  }, [])
+
   const updateSubTask = useCallback((questId, subTaskId, text) => {
     const trimmed = text.trim()
     if (!trimmed) return
@@ -598,10 +673,11 @@ export default function useQuests() {
     })
   }, [])
 
+  // Only regular tasks; cards on standalone canvases are left alone
   const clearCompleted = useCallback(() => {
     setQuests((prev) => {
-      prev.filter((q) => q.completed).forEach(removeQuestImages)
-      return prev.filter((q) => !q.completed)
+      prev.filter((q) => q.completed && !q.board).forEach(removeQuestImages)
+      return prev.filter((q) => !q.completed || q.board)
     })
   }, [])
 
@@ -641,11 +717,15 @@ export default function useQuests() {
     addSubTask,
     toggleSubTask,
     updateQuestSubTaskExp,
+    updateQuestSchedule,
     removeSubTask,
     updateSubTask,
     addSubTaskImage,
     updateQuestCanvasPosition,
     addCanvasQuest,
+    duplicateQuest,
+    moveQuestToBoard,
+    setQuestCollapsed,
     lifetimeCompletions,
     resetLifetimeCompletions,
     coreTaskCompleted,

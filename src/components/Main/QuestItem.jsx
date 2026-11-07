@@ -143,6 +143,13 @@ const EXP_STYLE  = {
   20: 'bg-rose-50 text-rose-500 hover:bg-rose-100',
 }
 
+// Badge click cycles through tiers, skipping ones the character has not unlocked
+function nextUnlockedExp(current, lockedExpLevels) {
+  let next = EXP_CYCLE[current]
+  while (lockedExpLevels[next]) next = EXP_CYCLE[next]
+  return next
+}
+
 function normalizeExpValue(expValue) {
   // legacy support: old "中等" used 2
   if (expValue === 2) return 3
@@ -160,6 +167,7 @@ export default function QuestItem({
   quest, expColor, onSaveTemplate, onToggle, onUpdate, onRemove, onTogglePin, onToggleCore, atk,
   onAddSubTask, onToggleSubTask, onRemoveSubTask, onUpdateSubTask, onSetPriority, onSetStatus, onSetExp,
   onUpdateRewardConfig,
+  lockedExpLevels = {},
   onDemoteToInbox,
   activeHuntTarget,
   monsters,
@@ -439,7 +447,7 @@ export default function QuestItem({
           {/* EXP badge */}
           {!editing && (
             <button
-              onClick={() => onSetExp(quest.id, EXP_CYCLE[effectiveExp])}
+              onClick={() => onSetExp(quest.id, nextUnlockedExp(effectiveExp, lockedExpLevels))}
               title={isSpecialQuest && rewardMode === 'custom' ? `目前使用自訂獎勵：EXP ${customExp} / ${customGold} 金` : `經驗值：${EXP_LABEL[effectiveExp]}（點擊切換）`}
               className={`quest-exp-badge order-3 sm:order-none shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full transition-colors cursor-pointer border-none ${mobileEditOnlyInline} ${
                 isSpecialQuest && rewardMode === 'custom' ? 'bg-purple-50 text-purple-600 hover:bg-purple-100' : EXP_STYLE[effectiveExp]
@@ -732,8 +740,8 @@ export default function QuestItem({
             }}
           >
             {[1, 3, 5, 10, 20].map((value) => (
-              <MenuItem key={value} value={value}>
-                {EXP_LABEL[value]} {EXP_POINTS[value]}
+              <MenuItem key={value} value={value} disabled={Boolean(lockedExpLevels[value])}>
+                {lockedExpLevels[value] ? `🔒 ${EXP_LABEL[value]}（LV${lockedExpLevels[value]}）` : `${EXP_LABEL[value]} ${EXP_POINTS[value]}`}
               </MenuItem>
             ))}
           </Select>
@@ -916,8 +924,8 @@ export default function QuestItem({
                 sx={mobileDetailSelectSx}
               >
                 {[1, 3, 5, 10, 20].map((value) => (
-                  <MenuItem key={value} value={value}>
-                    {EXP_LABEL[value]} {EXP_POINTS[value]}
+                  <MenuItem key={value} value={value} disabled={Boolean(lockedExpLevels[value])}>
+                    {lockedExpLevels[value] ? `🔒 ${EXP_LABEL[value]}（LV${lockedExpLevels[value]}）` : `${EXP_LABEL[value]} ${EXP_POINTS[value]}`}
                   </MenuItem>
                 ))}
               </Select>

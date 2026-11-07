@@ -34,3 +34,39 @@ export function resolveAutoExpValue(subTaskCount, settings) {
     return count >= threshold ? Math.max(resolved, expValue) : resolved
   }, 1)
 }
+
+// 任務級別解鎖：開啟後，角色等級未達門檻的級別無法選取
+export const DEFAULT_TIER_UNLOCK_SETTINGS = {
+  enabled: false,
+  levels: { '3': 5, '5': 10, '10': 20, '20': 30 },
+}
+
+export function normalizeTierUnlockSettings(settings) {
+  const savedLevels = settings?.levels ?? {}
+  return {
+    enabled: settings?.enabled === true,
+    levels: Object.fromEntries(AUTO_EXP_TIERS.map(({ expValue }) => {
+      const parsed = Number(savedLevels[String(expValue)])
+      const fallback = DEFAULT_TIER_UNLOCK_SETTINGS.levels[String(expValue)]
+      return [String(expValue), Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : fallback]
+    })),
+  }
+}
+
+// { [expValue]: requiredLevel } for tiers the character has not unlocked yet
+export function getLockedExpLevels(settings, level) {
+  if (!settings?.enabled) return {}
+  return Object.fromEntries(
+    Object.entries(settings.levels ?? {})
+      .filter(([, required]) => Number(level) < required)
+      .map(([expValue, required]) => [Number(expValue), required])
+  )
+}
+
+// Highest unlocked tier not above the requested one (一般 +1 is always open)
+export function clampExpToUnlocked(expValue, lockedExpLevels) {
+  if (!lockedExpLevels?.[expValue]) return expValue
+  const open = [1, ...AUTO_EXP_TIERS.map((tier) => tier.expValue)]
+    .filter((value) => value <= expValue && !lockedExpLevels[value])
+  return Math.max(...open)
+}

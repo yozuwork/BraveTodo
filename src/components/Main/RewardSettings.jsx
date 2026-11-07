@@ -55,6 +55,10 @@ export default function RewardSettings({
   autoExpSettings,
   onAutoExpEnabled,
   onUpdateAutoExpThreshold,
+  tierUnlockSettings,
+  onTierUnlockEnabled,
+  onUpdateTierUnlockLevel,
+  currentLevel,
 }) {
   const [draftValues, setDraftValues] = useState(() =>
     Object.fromEntries(rewardSettings.map((item) => [item.expValue, String(item.gold)]))
@@ -122,6 +126,58 @@ export default function RewardSettings({
           ))}
         </div>
         <p className="m-0 mt-3 text-[11px] text-gray-400">未達第一個門檻時維持「一般 +1」；手動選擇仍可使用，下次增減子任務時會重新套用。</p>
+      </div>
+
+      <div className="rounded-xl border border-gray-100 bg-white px-5 py-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="m-0 text-sm font-semibold text-black">依角色等級解鎖任務級別</p>
+            <p className="m-0 mt-1 text-xs leading-5 text-gray-400">
+              開啟後，角色等級未達門檻的任務級別無法選取（自動調整 EXP 也會停在已解鎖的級別）。目前角色 LV{currentLevel}。
+            </p>
+          </div>
+          <Switch
+            checked={tierUnlockSettings?.enabled === true}
+            onChange={(event) => onTierUnlockEnabled(event.target.checked)}
+            sx={{
+              '& .MuiSwitch-switchBase.Mui-checked': { color: '#a855f7' },
+              '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { bgcolor: '#a855f7' },
+            }}
+            inputProps={{ 'aria-label': '依角色等級解鎖任務級別' }}
+          />
+        </div>
+
+        <div className={`mt-4 grid gap-2 sm:grid-cols-2 ${tierUnlockSettings?.enabled ? '' : 'opacity-45'}`}>
+          {AUTO_EXP_TIERS.map((tier) => {
+            const required = tierUnlockSettings?.levels?.[String(tier.expValue)] ?? 1
+            const unlocked = currentLevel >= required
+            return (
+              <label key={tier.expValue} className="flex items-center justify-between gap-3 rounded-lg bg-stone-50 px-3 py-2.5">
+                <span className="flex items-center gap-2 text-xs font-semibold text-gray-600">
+                  {tier.label} +{tier.expValue}
+                  {tierUnlockSettings?.enabled && (
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${unlocked ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-200 text-gray-500'}`}>
+                      {unlocked ? '已解鎖' : '🔒 未解鎖'}
+                    </span>
+                  )}
+                </span>
+                <span className="flex items-center gap-2 text-xs text-gray-400">
+                  LV
+                  <input
+                    type="number"
+                    min="1"
+                    disabled={!tierUnlockSettings?.enabled}
+                    value={required}
+                    onChange={(event) => onUpdateTierUnlockLevel(tier.expValue, event.target.value)}
+                    className="w-16 rounded-md border border-gray-200 bg-white px-2 py-1 text-center font-bold text-black outline-none focus:border-purple-400 disabled:cursor-not-allowed"
+                  />
+                  開放
+                </span>
+              </label>
+            )
+          })}
+        </div>
+        <p className="m-0 mt-3 text-[11px] text-gray-400">「一般 +1」永遠可選；已經設定好級別的任務不會被改動。</p>
       </div>
 
       <div className="grid gap-3">

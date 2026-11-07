@@ -10,8 +10,16 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import StickyNote2OutlinedIcon from '@mui/icons-material/StickyNote2Outlined'
 import PaletteOutlinedIcon from '@mui/icons-material/PaletteOutlined'
 import SportsMartialArtsIcon from '@mui/icons-material/SportsMartialArts'
+import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined'
+import EventOutlinedIcon from '@mui/icons-material/EventOutlined'
+import ContentCutOutlinedIcon from '@mui/icons-material/ContentCutOutlined'
+import BookmarkAddOutlinedIcon from '@mui/icons-material/BookmarkAddOutlined'
+import BookmarksOutlinedIcon from '@mui/icons-material/BookmarksOutlined'
+import SearchIcon from '@mui/icons-material/Search'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import ApprovalOutlinedIcon from '@mui/icons-material/ApprovalOutlined'
 import StoredImage from '../common/StoredImage'
-import useCanvasNotes, { NOTE_COLORS } from '../../hooks/useCanvasNotes'
+import useCanvasNotes, { NOTE_COLORS, NOTE_STAMPS } from '../../hooks/useCanvasNotes'
 import { wsKey } from '../../utils/workspace'
 
 const CARD_WIDTH = 260
@@ -25,6 +33,9 @@ const MAX_ZOOM = 2
 const VIEWPORT_KEY = wsKey('brave-todo:canvas-viewport')
 const DRAG_THRESHOLD = 4
 const INTERACTIVE_SELECTOR = 'input, textarea, button, a, select, label'
+const MIN_CARD_WIDTH = 180
+const MAX_CARD_WIDTH = 900
+const MIN_CARD_HEIGHT = 80
 
 const QUEST_EXP_OPTIONS = [
   [1, '一般 +1'],
@@ -34,11 +45,34 @@ const QUEST_EXP_OPTIONS = [
   [20, '特殊 +20'],
 ]
 
+const DAY_MS = 24 * 60 * 60 * 1000
+const DUPLICATE_OFFSET = 30
+
+const pad2 = (n) => String(n).padStart(2, '0')
+const formatTime = (date) => `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+const formatSchedule = (date) => `${date.getMonth() + 1}/${date.getDate()} ${formatTime(date)}`
+
+// 排程狀態 tag：依排程時間與現在時間決定文字和顏色
+function getScheduleStatus(scheduledAt, completed, now) {
+  const date = new Date(scheduledAt)
+  if (Number.isNaN(date.getTime())) return null
+  if (completed) return { label: '已完成', className: 'bg-emerald-500 text-white' }
+  if (date.getTime() < now) return { label: '已逾期', className: 'bg-red-500 text-white' }
+  const startOfToday = new Date(now)
+  startOfToday.setHours(0, 0, 0, 0)
+  const days = Math.floor((date.getTime() - startOfToday.getTime()) / DAY_MS)
+  if (days === 0) return { label: `今天 ${formatTime(date)}`, className: 'bg-amber-400 text-amber-950' }
+  if (days === 1) return { label: `明天 ${formatTime(date)}`, className: 'bg-sky-500 text-white' }
+  return { label: `${days} 天後`, className: 'bg-purple-500 text-white' }
+}
+
 const isTypingTarget = (el) => el instanceof HTMLElement && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName))
 
-function readViewport() {
+const viewportKey = (board) => (board ? `${VIEWPORT_KEY}:${board}` : VIEWPORT_KEY)
+
+function readViewport(board) {
   try {
-    const stored = JSON.parse(localStorage.getItem(VIEWPORT_KEY) || 'null')
+    const stored = JSON.parse(localStorage.getItem(viewportKey(board)) || 'null')
     if (Number.isFinite(stored?.x) && Number.isFinite(stored?.y) && Number.isFinite(stored?.zoom)) return stored
   } catch {
     // Start from the default viewport if the saved value is malformed.
@@ -47,6 +81,41 @@ function readViewport() {
 }
 
 const clampZoom = (zoom) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
+
+// Saved size lives on the position object; height is a minimum so content is never cut off
+const cardSizeStyle = (position, defaultWidth, collapsed = false) => ({
+  width: position.w ?? defaultWidth,
+  ...(position.h && !collapsed ? { minHeight: position.h } : {}),
+})
+
+// 收合／展開按鈕：常駐顯示，收合時箭頭朝右
+function CollapseToggle({ collapsed, onToggle, className = '' }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded bg-transparent text-slate-400 hover:bg-black/5 hover:text-slate-800 ${className}`}
+      title={collapsed ? '展開' : '收合'}
+      aria-label={collapsed ? '展開卡片' : '收合卡片'}
+      aria-expanded={!collapsed}
+    >
+      <ExpandMoreIcon sx={{ fontSize: 18 }} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
+    </button>
+  )
+}
+
+function ResizeHandle({ onResizeStart }) {
+  return (
+    <div
+      onPointerDown={onResizeStart}
+      onDoubleClick={(e) => e.stopPropagation()}
+      className="absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-nwse-resize items-end justify-end p-1 opacity-0 transition-opacity group-hover/resize:opacity-100"
+      title="拖曳調整大小"
+    >
+      <span className="block h-2.5 w-2.5 border-b-2 border-r-2 border-slate-400" />
+    </div>
+  )
+}
 
 // 沒有存過位置的卡片，依序排成三欄，高度用項目數粗估
 function buildDefaultPositions(quests) {
@@ -63,12 +132,24 @@ function buildDefaultPositions(quests) {
   return positions
 }
 
-function CanvasCard({ quest, position, zIndex, selected, dragging, onDragStart, onDelete, onOpenDetails, onUpdateQuest, onSetExp, onSetSubTaskExp, onToggleSubTask, onRemoveSubTask, onAddSubTask, onAddSubTaskImage }) {
+function CanvasCard({ quest, position, now, lockedExpLevels = {}, zIndex, selected, dragging, onDragStart, onResizeStart, onDelete, onDuplicate, onCut, onSaveTemplate, onToggleCollapsed, onSetSchedule, onOpenDetails, onUpdateQuest, onSetExp, onSetSubTaskExp, onToggleSubTask, onRemoveSubTask, onAddSubTask, onAddSubTaskImage }) {
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const fileInputRef = useRef(null)
+  const scheduleInputRef = useRef(null)
   const subTasks = quest.subTasks ?? []
+  const scheduleStatus = quest.scheduledAt ? getScheduleStatus(quest.scheduledAt, quest.completed, now) : null
+
+  const openSchedulePicker = () => {
+    const input = scheduleInputRef.current
+    if (!input) return
+    try {
+      input.showPicker()
+    } catch {
+      input.focus()
+    }
+  }
   const doneCount = subTasks.filter((sub) => sub.completed).length
   const earnedItemExp = subTasks.reduce((sum, sub) => sum + (sub.completed ? sub.awardedExp ?? 0 : 0), 0)
   const [subTaskExpDraft, setSubTaskExpDraft] = useState(String(quest.subTaskExp ?? 1))
@@ -86,16 +167,25 @@ function CanvasCard({ quest, position, zIndex, selected, dragging, onDragStart, 
   return (
     <div
       data-canvas-card
-      className={`group/card absolute flex touch-none select-none flex-col overflow-hidden rounded-lg border bg-white transition-shadow ${
+      className={`group/card group/resize absolute flex touch-none select-none flex-col overflow-hidden rounded-lg border bg-white transition-shadow ${
         dragging ? 'cursor-grabbing shadow-[0_12px_32px_rgba(15,23,42,0.18)]' : 'cursor-grab shadow-[0_2px_10px_rgba(15,23,42,0.08)]'
       } ${selected ? 'border-purple-400 ring-2 ring-purple-300' : 'border-slate-200'}`}
-      style={{ width: CARD_WIDTH, left: position.x, top: position.y, zIndex }}
+      style={{ ...cardSizeStyle(position, CARD_WIDTH, quest.collapsed), left: position.x, top: position.y, zIndex }}
       onPointerDown={onDragStart}
     >
-      {quest.cover && (
+      {scheduleStatus && (
+        <span
+          className={`absolute right-3 top-0 z-10 rounded-b-md px-2 py-0.5 text-[11px] font-bold shadow-sm ${scheduleStatus.className}`}
+          title={`排程：${formatSchedule(new Date(quest.scheduledAt))}`}
+        >
+          {scheduleStatus.label}
+        </span>
+      )}
+      {quest.cover && !quest.collapsed && (
         <img src={quest.cover} alt="" className="block max-h-56 w-full bg-slate-900 object-contain" draggable={false} />
       )}
-      <div className="flex items-start gap-1 px-4 pb-2 pt-3">
+      <div className={`flex items-start gap-1 pb-2 pl-2 pr-4 ${scheduleStatus && (!quest.cover || quest.collapsed) ? 'pt-6' : 'pt-3'}`}>
+        <CollapseToggle collapsed={quest.collapsed} onToggle={onToggleCollapsed} />
         {editingTitle ? (
           <input
             autoFocus
@@ -131,6 +221,33 @@ function CanvasCard({ quest, position, zIndex, selected, dragging, onDragStart, 
         </button>
         <button
           type="button"
+          onClick={onSaveTemplate}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-transparent text-slate-300 opacity-0 transition-opacity hover:text-purple-600 group-hover/card:opacity-100"
+          title="加入常用待辦（之後可從左側「常用」選取）"
+          aria-label="加入常用待辦"
+        >
+          <BookmarkAddOutlinedIcon sx={{ fontSize: 15 }} />
+        </button>
+        <button
+          type="button"
+          onClick={onCut}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-transparent text-slate-300 opacity-0 transition-opacity hover:text-slate-700 group-hover/card:opacity-100"
+          title="剪下卡片，到另一個畫布按 Ctrl+V 貼上（選取後也可按 Ctrl+X）"
+          aria-label="剪下卡片"
+        >
+          <ContentCutOutlinedIcon sx={{ fontSize: 14 }} />
+        </button>
+        <button
+          type="button"
+          onClick={onDuplicate}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-transparent text-slate-300 opacity-0 transition-opacity hover:text-slate-700 group-hover/card:opacity-100"
+          title="複製卡片（選取後也可按 Ctrl+D）"
+          aria-label="複製卡片"
+        >
+          <ContentCopyOutlinedIcon sx={{ fontSize: 14 }} />
+        </button>
+        <button
+          type="button"
           onClick={onDelete}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-transparent text-slate-300 opacity-0 transition-opacity hover:text-red-500 group-hover/card:opacity-100"
           title="刪除卡片（選取後也可按 Delete）"
@@ -140,6 +257,13 @@ function CanvasCard({ quest, position, zIndex, selected, dragging, onDragStart, 
         </button>
       </div>
 
+      {quest.collapsed ? (
+        <div className="flex items-center gap-2 px-4 pb-2.5 pl-10 text-xs text-slate-400">
+          <span>{doneCount} / {subTasks.length} 完成</span>
+          {quest.scheduledAt && <span>・{formatSchedule(new Date(quest.scheduledAt))}</span>}
+        </div>
+      ) : (
+      <>
       <div className="flex flex-col gap-1 px-4">
         {subTasks.map((sub) => (
           <div key={sub.id} className={`group/item flex gap-2.5 ${sub.imageId ? 'flex-col py-1' : 'items-center py-0.5'}`}>
@@ -221,14 +345,47 @@ function CanvasCard({ quest, position, zIndex, selected, dragging, onDragStart, 
         />
       </div>
 
-      <div className="flex flex-col gap-1.5 border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
-        <div className="flex items-center justify-between gap-2">
+      <div className="mt-auto flex flex-col gap-1.5 border-t border-slate-100 px-4 py-2 text-xs text-slate-500">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span>{doneCount} / {subTasks.length} 完成</span>
           {quest.completed ? (
             <span className="font-semibold text-emerald-600">✓ 已獲得完成獎勵</span>
           ) : earnedItemExp > 0 && (
             <span className="font-semibold text-purple-600">已獲得 {earnedItemExp} EXP</span>
           )}
+          <div className="relative ml-auto flex items-center gap-0.5">
+            <button
+              type="button"
+              onClick={openSchedulePicker}
+              className={`flex items-center gap-1 rounded border px-1.5 py-0.5 text-xs font-semibold transition-colors ${
+                quest.scheduledAt ? 'border-purple-200 bg-purple-50 text-purple-700 hover:border-purple-400' : 'border-slate-200 bg-white text-slate-500 hover:border-purple-400 hover:text-slate-800'
+              }`}
+              title={quest.scheduledAt ? '修改排程時間' : '設定排程時間'}
+            >
+              <EventOutlinedIcon sx={{ fontSize: 14 }} />
+              {quest.scheduledAt ? formatSchedule(new Date(quest.scheduledAt)) : '排程'}
+            </button>
+            {quest.scheduledAt && (
+              <button
+                type="button"
+                onClick={() => onSetSchedule?.(quest.id, null)}
+                className="flex h-5 w-5 items-center justify-center rounded bg-transparent text-slate-300 hover:text-red-500"
+                title="清除排程"
+                aria-label="清除排程"
+              >
+                <CloseIcon sx={{ fontSize: 13 }} />
+              </button>
+            )}
+            <input
+              ref={scheduleInputRef}
+              type="datetime-local"
+              value={quest.scheduledAt ?? ''}
+              onChange={(e) => onSetSchedule?.(quest.id, e.target.value || null)}
+              className="pointer-events-none absolute bottom-0 left-0 h-px w-px opacity-0"
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <label className="flex items-center gap-1">
@@ -261,11 +418,18 @@ function CanvasCard({ quest, position, zIndex, selected, dragging, onDragStart, 
               className="rounded border border-slate-200 bg-white px-1 py-0.5 text-xs font-semibold text-slate-800 outline-none focus:border-purple-400"
               title="全部項目完成時的任務獎勵"
             >
-              {QUEST_EXP_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {QUEST_EXP_OPTIONS.map(([value, label]) => (
+                <option key={value} value={value} disabled={Boolean(lockedExpLevels[value])}>
+                  {lockedExpLevels[value] ? `🔒 ${label}（LV${lockedExpLevels[value]}）` : label}
+                </option>
+              ))}
             </select>
           </label>
         </div>
       </div>
+      </>
+      )}
+      <ResizeHandle onResizeStart={onResizeStart} />
     </div>
   )
 }
@@ -281,7 +445,7 @@ function readHuntPosition() {
 }
 
 // 目前討伐中的怪物／Boss 與討伐待辦；勾選與新增都沿用討伐頁的處理
-function HuntCanvasCard({ target, handlers, position, zIndex, selected, dragging, onDragStart, onOpenHunt }) {
+function HuntCanvasCard({ target, handlers, position, zIndex, selected, dragging, onDragStart, onResizeStart, onOpenHunt }) {
   const [adding, setAdding] = useState(false)
   const [draft, setDraft] = useState('')
   const tasks = target.huntTasks ?? []
@@ -297,10 +461,10 @@ function HuntCanvasCard({ target, handlers, position, zIndex, selected, dragging
   return (
     <div
       data-canvas-card
-      className={`group/hunt absolute flex touch-none select-none flex-col overflow-hidden rounded-lg border-2 bg-white transition-shadow ${
+      className={`group/hunt group/resize absolute flex touch-none select-none flex-col overflow-hidden rounded-lg border-2 bg-white transition-shadow ${
         dragging ? 'cursor-grabbing shadow-[0_12px_32px_rgba(15,23,42,0.22)]' : 'cursor-grab shadow-[0_2px_12px_rgba(239,68,68,0.18)]'
       } ${selected ? 'border-red-500 ring-2 ring-red-300' : 'border-red-400'}`}
-      style={{ width: HUNT_WIDTH, left: position.x, top: position.y, zIndex }}
+      style={{ ...cardSizeStyle(position, HUNT_WIDTH), left: position.x, top: position.y, zIndex }}
       onPointerDown={onDragStart}
     >
       <div className="relative bg-slate-900">
@@ -392,14 +556,16 @@ function HuntCanvasCard({ target, handlers, position, zIndex, selected, dragging
           前往討伐頁
         </button>
       </div>
+      <ResizeHandle onResizeStart={onResizeStart} />
     </div>
   )
 }
 
 // 便利貼筆記：雙擊編輯，可放圖片（滑鼠移到筆記上 Ctrl+V 也能貼上）
-function NoteCard({ note, position, zIndex, selected, dragging, editing, onStartEdit, onStopEdit, onDragStart, onDelete, onUpdate, onAddImage, onRemoveImage }) {
+function NoteCard({ note, position, zIndex, selected, dragging, editing, onStartEdit, onStopEdit, onDragStart, onResizeStart, onDelete, onSaveTemplate, onToggleCollapsed, onUpdate, onAddImage, onRemoveImage }) {
   const fileInputRef = useRef(null)
   const [showColors, setShowColors] = useState(false)
+  const [showStamps, setShowStamps] = useState(false)
   const [titleDraft, setTitleDraft] = useState(note.title)
   const [textDraft, setTextDraft] = useState(note.text)
 
@@ -410,7 +576,9 @@ function NoteCard({ note, position, zIndex, selected, dragging, editing, onStart
   }, [editing, note.title, note.text])
 
   useEffect(() => {
-    if (!selected) setShowColors(false)
+    if (selected) return
+    setShowColors(false)
+    setShowStamps(false)
   }, [selected])
 
   const commit = () => {
@@ -420,15 +588,16 @@ function NoteCard({ note, position, zIndex, selected, dragging, editing, onStart
 
   const background = NOTE_COLORS[note.color]?.[0] ?? NOTE_COLORS.yellow[0]
   const isEmpty = !note.title && !note.text && note.imageIds.length === 0
+  const stamp = note.stamp ? NOTE_STAMPS[note.stamp] : null
 
   return (
     <div
       data-canvas-card
-      className={`group/note absolute touch-none select-none rounded-sm ${
+      className={`group/note group/resize absolute flex touch-none select-none flex-col rounded-sm ${
         dragging ? 'cursor-grabbing' : editing ? 'cursor-default' : 'cursor-grab'
       } ${selected ? 'outline outline-2 outline-offset-2 outline-purple-400' : ''}`}
       style={{
-        width: NOTE_WIDTH,
+        ...cardSizeStyle(position, NOTE_WIDTH, note.collapsed && !editing),
         left: position.x,
         top: position.y,
         zIndex,
@@ -443,10 +612,10 @@ function NoteCard({ note, position, zIndex, selected, dragging, editing, onStart
       }}
     >
       <div
-        className="relative text-[#2b2b2b]"
-        style={{ background, clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%)' }}
+        className="relative flex-1 text-[#2b2b2b] transition-opacity"
+        style={{ opacity: stamp ? 0.45 : 1, background, clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%)' }}
       >
-        {note.imageIds.length > 0 && (
+        {note.imageIds.length > 0 && !(note.collapsed && !editing) && (
           <div className="flex flex-col">
             {note.imageIds.map((imageId) => (
               <div key={imageId} className="group/img relative">
@@ -488,6 +657,14 @@ function NoteCard({ note, position, zIndex, selected, dragging, editing, onStart
               className="mt-1.5 w-full resize-none select-text border-0 bg-transparent p-0 text-sm leading-6 text-inherit outline-none placeholder:text-black/35"
             />
           </div>
+        ) : note.collapsed ? (
+          <div className="flex items-center gap-1 pb-5 pl-1.5 pr-4 pt-2" title="已收合，雙擊編輯筆記">
+            <CollapseToggle collapsed onToggle={onToggleCollapsed} className="text-black/45 hover:text-black" />
+            <p className="m-0 min-w-0 flex-1 truncate text-[15px] font-bold leading-snug">
+              {note.title || note.text.split('\n')[0] || '筆記'}
+            </p>
+            {note.imageIds.length > 0 && <span className="shrink-0 text-[11px] text-black/45">{note.imageIds.length} 張圖</span>}
+          </div>
         ) : (
           <div className="px-4 pb-6 pt-3" title="雙擊編輯筆記">
             {note.title && <p className="m-0 break-words text-[15px] font-bold leading-snug">{note.title}</p>}
@@ -504,16 +681,63 @@ function NoteCard({ note, position, zIndex, selected, dragging, editing, onStart
           className="pointer-events-none absolute bottom-0 right-0 h-[18px] w-[18px]"
           style={{ background: `linear-gradient(to top left, transparent 50%, color-mix(in srgb, ${background} 72%, #000) 50%)` }}
         />
+      </div>
 
-        <div className={`absolute right-1.5 top-1.5 flex gap-0.5 rounded-md bg-white/75 p-0.5 transition-opacity ${selected || showColors ? 'opacity-100' : 'opacity-0 group-hover/note:opacity-100'}`}>
+      {stamp && (
+        <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center overflow-hidden">
+          <span
+            className={`-rotate-12 whitespace-nowrap rounded-lg border-double bg-white/40 font-black tracking-[0.2em] ${note.collapsed && !editing ? 'border-[3px] px-2 text-base' : 'border-[5px] px-4 py-1 text-[34px]'}`}
+            style={{ color: stamp.color, borderColor: stamp.color, textShadow: '0 0 1px rgba(255,255,255,0.6)' }}
+          >
+            {stamp.label}
+          </span>
+        </div>
+      )}
+
+        <div className={`absolute right-1.5 top-1.5 z-[2] flex gap-0.5 rounded-md bg-white/75 p-0.5 transition-opacity ${selected || showColors || showStamps ? 'opacity-100' : 'opacity-0 group-hover/note:opacity-100'}`}>
+          {!note.collapsed && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              className="flex h-6 w-6 items-center justify-center rounded bg-transparent text-slate-500 hover:text-slate-900"
+              title="收合"
+              aria-label="收合筆記"
+            >
+              <ExpandMoreIcon sx={{ fontSize: 17 }} />
+            </button>
+          )}
           <button
             type="button"
-            onClick={() => setShowColors((prev) => !prev)}
+            onClick={() => {
+              setShowColors(false)
+              setShowStamps((prev) => !prev)
+            }}
+            className={`flex h-6 w-6 items-center justify-center rounded bg-transparent hover:text-red-600 ${stamp ? 'text-red-600' : 'text-slate-500'}`}
+            title="印章"
+            aria-label="印章"
+          >
+            <ApprovalOutlinedIcon sx={{ fontSize: 15 }} />
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setShowStamps(false)
+              setShowColors((prev) => !prev)
+            }}
             className="flex h-6 w-6 items-center justify-center rounded bg-transparent text-slate-500 hover:text-slate-900"
             title="顏色"
             aria-label="筆記顏色"
           >
             <PaletteOutlinedIcon sx={{ fontSize: 15 }} />
+          </button>
+          <button
+            type="button"
+            onClick={onSaveTemplate}
+            className="flex h-6 w-6 items-center justify-center rounded bg-transparent text-slate-500 hover:text-purple-700"
+            title="加入常用筆記（之後可從左側「常用」選取）"
+            aria-label="加入常用筆記"
+          >
+            <BookmarkAddOutlinedIcon sx={{ fontSize: 15 }} />
           </button>
           <button
             type="button"
@@ -534,7 +758,32 @@ function NoteCard({ note, position, zIndex, selected, dragging, editing, onStart
             <DeleteOutlineIcon sx={{ fontSize: 15 }} />
           </button>
         </div>
-      </div>
+
+      {showStamps && (
+        <div className="absolute right-0 top-9 z-10 flex w-[150px] flex-col gap-0.5 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg">
+          <p className="m-0 px-1.5 pb-0.5 text-[11px] font-bold text-slate-400">印章</p>
+          {Object.entries(NOTE_STAMPS).map(([key, item]) => {
+            const active = note.stamp === key
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  onUpdate(note.id, { stamp: active ? null : key })
+                  setShowStamps(false)
+                }}
+                className={`flex items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-sm font-bold hover:bg-slate-50 ${active ? 'bg-red-50' : 'bg-transparent'}`}
+                style={{ color: item.color }}
+              >
+                <span className="flex h-4 w-4 items-center justify-center rounded border" style={{ borderColor: item.color, background: active ? item.color : 'transparent' }}>
+                  {active && <span className="text-[10px] leading-none text-white">✓</span>}
+                </span>
+                {item.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {showColors && (
         <div className="absolute right-0 top-9 z-10 flex w-[150px] flex-wrap gap-1.5 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
@@ -567,67 +816,285 @@ function NoteCard({ note, position, zIndex, selected, dragging, editing, onStart
           files.forEach((file) => onAddImage(note.id, file))
         }}
       />
+      <ResizeHandle onResizeStart={onResizeStart} />
     </div>
   )
 }
 
-export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHandlers = {}, onOpenHunt, onPositionChange, onOpenDetails, onUpdateQuest, onSetExp, onSetSubTaskExp, onRemoveQuest, onToggleSubTask, onRemoveSubTask, onAddSubTask, onAddSubTaskImage, onAddCanvasQuest }) {
+// 常用待辦／筆記清單：可搜尋，點一下就新增到畫布
+function FavoritesPanel({ query, onQueryChange, questTemplates, noteTemplates, onPick, onRemoveQuestTemplate, onRemoveNoteTemplate }) {
+  const keyword = query.trim().toLowerCase()
+  const matches = (...fields) => !keyword || fields.some((field) => field?.toLowerCase().includes(keyword))
+  const quests = questTemplates.filter((template) => matches(template.name, template.text, ...(template.subTasks ?? []).map((sub) => sub.text)))
+  const notes = noteTemplates.filter((template) => matches(template.title, template.text))
+
+  const row = (kind, template, title, subtitle, swatch, onRemove) => (
+    <div key={`${kind}:${template.id}`} className="group/fav flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50">
+      <button type="button" onClick={() => onPick(kind, template)} className="flex min-w-0 flex-1 items-center gap-2 bg-transparent p-0 text-left">
+        {swatch}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-slate-800">{title}</span>
+          {subtitle && <span className="block truncate text-[11px] text-slate-400">{subtitle}</span>}
+        </span>
+      </button>
+      <button
+        type="button"
+        onClick={() => onRemove(template.id)}
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-transparent text-slate-300 opacity-0 hover:text-red-500 group-hover/fav:opacity-100"
+        title="從常用移除"
+        aria-label="從常用移除"
+      >
+        <CloseIcon sx={{ fontSize: 14 }} />
+      </button>
+    </div>
+  )
+
+  return (
+    <div data-canvas-ui className="absolute left-[84px] top-3 z-[1100] flex max-h-[calc(100%-24px)] w-72 flex-col rounded-xl border border-slate-200 bg-white shadow-lg">
+      <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
+        <SearchIcon sx={{ fontSize: 18 }} className="text-slate-400" />
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => onQueryChange(e.target.value)}
+          placeholder="搜尋常用待辦、筆記"
+          className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none placeholder:text-slate-400"
+        />
+      </div>
+      <div className="min-h-0 overflow-y-auto p-1.5">
+        <p className="m-0 px-2 pb-1 pt-1 text-[11px] font-bold text-slate-400">常用待辦</p>
+        {quests.length === 0 ? (
+          <p className="m-0 px-2 py-1.5 text-xs text-slate-400">{keyword ? '沒有符合的待辦' : '在待辦卡片上點書籤圖示即可加入'}</p>
+        ) : quests.map((template) => row(
+          'q',
+          template,
+          template.name || template.text,
+          template.subTasks?.length ? `${template.subTasks.length} 個項目：${template.subTasks.map((sub) => sub.text).join('、')}` : null,
+          <ChecklistOutlinedIcon sx={{ fontSize: 17 }} className="shrink-0 text-slate-400" />,
+          (id) => onRemoveQuestTemplate?.(id),
+        ))}
+        <p className="m-0 px-2 pb-1 pt-3 text-[11px] font-bold text-slate-400">常用筆記</p>
+        {notes.length === 0 ? (
+          <p className="m-0 px-2 py-1.5 text-xs text-slate-400">{keyword ? '沒有符合的筆記' : '在筆記上點書籤圖示即可加入'}</p>
+        ) : notes.map((template) => row(
+          'n',
+          template,
+          template.title || template.text.split('\n')[0] || '未命名筆記',
+          template.title ? template.text.split('\n')[0] : null,
+          <span className="h-4 w-4 shrink-0 rounded-sm border border-black/10" style={{ background: NOTE_COLORS[template.color]?.[0] }} />,
+          onRemoveNoteTemplate,
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHandlers = {}, onOpenHunt, onPositionChange, onOpenDetails, onUpdateQuest, onSetExp, onSetSubTaskExp, onRemoveQuest, onToggleSubTask, onRemoveSubTask, onAddSubTask, onAddSubTaskImage, onAddCanvasQuest, onSetSchedule, onDuplicateQuest, lockedExpLevels = {}, board = null, onMoveQuestToBoard, clipboard = null, onClipboardChange, onSetQuestCollapsed, questTemplates = [], onAddFromTemplate, onSaveQuestTemplate, onRemoveQuestTemplate }) {
   const boardRef = useRef(null)
   const imageInputRef = useRef(null)
   const pointerRef = useRef(null)
-  const [viewport, setViewport] = useState(readViewport)
+  const [viewport, setViewport] = useState(() => readViewport(board))
   const [cardDrag, setCardDrag] = useState(null)
+  const [cardResize, setCardResize] = useState(null)
+  const [now, setNow] = useState(() => Date.now())
   const [panDrag, setPanDrag] = useState(null)
   const [stackOrder, setStackOrder] = useState([])
   // Selection, stacking and drag use keys: `q:<questId>` for task cards, `n:<noteId>` for notes
-  const [selectedKey, setSelectedKey] = useState(null)
+  // Ctrl/⌘ + 點擊可多選；拖曳、刪除、複製、剪下都作用在所有選取的卡片
+  const [selectedKeys, setSelectedKeys] = useState([])
+  const setSelectedKey = (key) => setSelectedKeys(key == null ? [] : [key])
+  const isSelected = (key) => selectedKeys.includes(key)
   const [editingNoteId, setEditingNoteId] = useState(null)
   const [huntPosition, setHuntPosition] = useState(readHuntPosition)
-  const { notes, addNote, updateNote, addNoteImage, removeNoteImage, removeNote } = useCanvasNotes()
+  const { notes: allNotes, addNote, updateNote, addNoteImage, removeNoteImage, removeNote, noteTemplates, saveNoteTemplate, removeNoteTemplate } = useCanvasNotes()
+  const [favoritesOpen, setFavoritesOpen] = useState(false)
+  const [favoriteQuery, setFavoriteQuery] = useState('')
+  const [savedNotice, setSavedNotice] = useState(null)
+  const notes = allNotes.filter((note) => note.board === board)
   const defaults = buildDefaultPositions(quests)
 
   useEffect(() => {
     try {
-      localStorage.setItem(VIEWPORT_KEY, JSON.stringify(viewport))
+      localStorage.setItem(viewportKey(board), JSON.stringify(viewport))
     } catch {
       // Viewport persistence is optional.
     }
-  }, [viewport])
+  }, [viewport, board])
 
   const deleteCard = (quest) => {
     const hasContent = (quest.subTasks ?? []).length > 0
     if (hasContent && !window.confirm(`確定要刪除「${quest.text}」？卡片內的項目和圖片也會一起刪除。`)) return
     onRemoveQuest(quest.id)
-    setSelectedKey((prev) => (prev === `q:${quest.id}` ? null : prev))
+    setSelectedKeys((prev) => prev.filter((key) => key !== `q:${quest.id}`))
+  }
+
+  // 排程 tag 需要隨時間更新（今天 → 已逾期）
+  useEffect(() => {
+    if (!quests.some((quest) => quest.scheduledAt)) return undefined
+    const timer = window.setInterval(() => setNow(Date.now()), 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [quests])
+
+  const duplicateCard = async (quest) => {
+    const stored = quest.canvasPosition ?? defaults[quest.id] ?? { x: GAP, y: GAP }
+    const newId = await onDuplicateQuest?.(quest.id, { ...stored, x: stored.x + DUPLICATE_OFFSET, y: stored.y + DUPLICATE_OFFSET })
+    if (newId == null) return
+    setSelectedKey(`q:${newId}`)
+    setStackOrder((prev) => [...prev, `q:${newId}`])
   }
 
   const deleteNote = (note) => {
     const hasContent = note.title || note.text || note.imageIds.length > 0
     if (hasContent && !window.confirm(`確定要刪除這張筆記${note.title ? `「${note.title}」` : ''}？筆記內的圖片也會一起刪除。`)) return
     removeNote(note.id)
-    setSelectedKey((prev) => (prev === `n:${note.id}` ? null : prev))
+    setSelectedKeys((prev) => prev.filter((key) => key !== `n:${note.id}`))
+  }
+
+  const selectedQuests = () => quests.filter((quest) => isSelected(`q:${quest.id}`))
+  const selectedNotes = () => notes.filter((note) => isSelected(`n:${note.id}`))
+
+  const deleteSelected = () => {
+    const targetQuests = selectedQuests()
+    const targetNotes = selectedNotes()
+    const total = targetQuests.length + targetNotes.length
+    if (total === 0) return
+    if (total === 1) {
+      if (targetQuests[0]) deleteCard(targetQuests[0])
+      else deleteNote(targetNotes[0])
+      return
+    }
+    if (!window.confirm(`確定要刪除選取的 ${total} 張卡片？卡片內的項目和圖片也會一起刪除。`)) return
+    targetQuests.forEach((quest) => onRemoveQuest(quest.id))
+    targetNotes.forEach((note) => removeNote(note.id))
+    setSelectedKeys([])
+  }
+
+  const duplicateSelected = async () => {
+    const targets = selectedQuests()
+    if (targets.length === 0) return
+    const newKeys = []
+    for (const quest of targets) {
+      const stored = quest.canvasPosition ?? defaults[quest.id] ?? { x: GAP, y: GAP }
+      const newId = await onDuplicateQuest?.(quest.id, { ...stored, x: stored.x + DUPLICATE_OFFSET, y: stored.y + DUPLICATE_OFFSET })
+      if (newId != null) newKeys.push(`q:${newId}`)
+    }
+    setSelectedKeys(newKeys)
+    setStackOrder((prev) => [...prev, ...newKeys])
   }
 
   useEffect(() => {
-    if (selectedKey === null) return undefined
     const handleKey = (event) => {
       if (isTypingTarget(document.activeElement)) return
-      if (event.key === 'Escape') setSelectedKey(null)
+      // Ctrl+A 全選畫布上的卡片
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+        if (!boardRef.current?.isConnected) return
+        event.preventDefault()
+        setSelectedKeys([...quests.map((quest) => `q:${quest.id}`), ...notes.map((note) => `n:${note.id}`)])
+        return
+      }
+      if (selectedKeys.length === 0) return
+      if (event.key === 'Escape') setSelectedKeys([])
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'd') {
+        if (selectedQuests().length === 0) return
+        event.preventDefault()
+        duplicateSelected()
+        return
+      }
       if (event.key !== 'Delete' && event.key !== 'Backspace') return
-      const quest = quests.find((item) => `q:${item.id}` === selectedKey)
-      const note = notes.find((item) => `n:${item.id}` === selectedKey)
-      if (!quest && !note) return
+      if (selectedQuests().length === 0 && selectedNotes().length === 0) return
       event.preventDefault()
-      if (quest) deleteCard(quest)
-      else deleteNote(note)
+      deleteSelected()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  })
+
+  // 剪下：被點的卡片若在多選裡就剪下整組，否則只剪這張
+  const cutCard = (key) => {
+    const keys = isSelected(key) ? selectedKeys : [key]
+    const items = []
+    keys.forEach((itemKey) => {
+      const quest = quests.find((item) => `q:${item.id}` === itemKey)
+      const note = notes.find((item) => `n:${item.id}` === itemKey)
+      if (quest) items.push({ kind: 'q', id: quest.id, label: quest.text, position: quest.canvasPosition ?? defaults[quest.id] ?? { x: GAP, y: GAP } })
+      else if (note) items.push({ kind: 'n', id: note.id, label: note.title || '筆記', position: note.position })
+    })
+    if (items.length === 0) return
+    onClipboardChange?.({ items, label: items.length > 1 ? `${items.length} 張卡片` : items[0].label })
+  }
+
+  const isCut = (key) => Boolean(clipboard?.items?.some((item) => `${item.kind}:${item.id}` === key))
+
+  // 貼到滑鼠所在位置；滑鼠不在畫布上就貼到畫面中央
+  const pasteClipboard = () => {
+    if (!clipboard) return
+    const pointer = pointerRef.current
+    const hovered = pointer ? document.elementFromPoint(pointer.x, pointer.y) : null
+    const target = hovered && boardRef.current.contains(hovered) ? toWorld(pointer.x, pointer.y) : viewportCenter()
+    const items = clipboard.items ?? []
+    // 整組的左上角對齊貼上位置，卡片之間的相對位置不變
+    const minX = Math.min(...items.map((item) => item.position?.x ?? 0))
+    const minY = Math.min(...items.map((item) => item.position?.y ?? 0))
+    const keys = []
+    items.forEach((item) => {
+      const position = {
+        x: Math.max(0, Math.round(target.x + (item.position?.x ?? 0) - minX)),
+        y: Math.max(0, Math.round(target.y + (item.position?.y ?? 0) - minY)),
+      }
+      if (item.kind === 'q') {
+        onMoveQuestToBoard?.(item.id, board, position)
+      } else {
+        const note = allNotes.find((entry) => entry.id === item.id)
+        if (!note) return
+        updateNote(note.id, { board, position: { ...note.position, ...position } })
+      }
+      keys.push(`${item.kind}:${item.id}`)
+    })
+    setSelectedKeys(keys)
+    setStackOrder((prev) => [...prev.filter((item) => !keys.includes(item)), ...keys])
+    onClipboardChange?.(null)
+  }
+
+  // Ctrl+X 剪下選取的卡片、Ctrl+V 貼上（有剪下的卡片時優先於貼圖片）、Esc 取消
+  useEffect(() => {
+    const handleKey = (event) => {
+      if (isTypingTarget(document.activeElement)) return
+      if (event.key === 'Escape' && clipboard) {
+        onClipboardChange?.(null)
+        return
+      }
+      if (!(event.ctrlKey || event.metaKey)) return
+      const key = event.key.toLowerCase()
+      const cuttable = selectedKeys.filter((item) => !item.startsWith('h:'))
+      if (key === 'x' && cuttable.length > 0) {
+        event.preventDefault()
+        cutCard(cuttable[cuttable.length - 1])
+      } else if (key === 'v' && clipboard) {
+        event.preventDefault()
+        pasteClipboard()
+      }
     }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   })
 
   const getPosition = (key, storedPosition) => {
-    if (cardDrag?.key === key && cardDrag.moved) return { x: cardDrag.x, y: cardDrag.y }
+    const dragItem = cardDrag?.moved ? cardDrag.items.find((item) => item.key === key) : null
+    if (dragItem) return { ...storedPosition, x: Math.max(0, dragItem.originX + cardDrag.dx), y: Math.max(0, dragItem.originY + cardDrag.dy) }
+    if (cardResize?.key === key) return { ...storedPosition, w: cardResize.w, h: cardResize.h }
     return storedPosition
+  }
+
+  const savePosition = (kind, id, position) => {
+    if (kind === 'n') updateNote(id, { position })
+    else if (kind === 'h') {
+      setHuntPosition(position)
+      try {
+        localStorage.setItem(HUNT_POSITION_KEY, JSON.stringify(position))
+      } catch {
+        // Card position persistence is optional.
+      }
+    } else onPositionChange(id, position)
   }
 
   // 螢幕座標 → 畫布座標
@@ -646,13 +1113,74 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
   }
 
   const createCard = (position, imageFile = null) => {
-    onAddCanvasQuest(imageFile ? '圖片' : '新卡片', { x: Math.max(0, position.x), y: Math.max(0, position.y) }, imageFile)
+    onAddCanvasQuest(imageFile ? '圖片' : '新卡片', { x: Math.max(0, position.x), y: Math.max(0, position.y) }, imageFile, board)
+  }
+
+  useEffect(() => {
+    if (!savedNotice) return undefined
+    const timer = window.setTimeout(() => setSavedNotice(null), 1800)
+    return () => window.clearTimeout(timer)
+  }, [savedNotice])
+
+  // 收合／展開；點的卡片在多選裡時整組一起切換
+  const toggleCollapsed = (key) => {
+    const isCollapsed = (itemKey) => {
+      const quest = quests.find((item) => `q:${item.id}` === itemKey)
+      if (quest) return quest.collapsed
+      return notes.find((item) => `n:${item.id}` === itemKey)?.collapsed ?? false
+    }
+    const next = !isCollapsed(key)
+    const keys = isSelected(key) && selectedKeys.length > 1 ? selectedKeys : [key]
+    keys.forEach((itemKey) => {
+      const [kind, ...rest] = itemKey.split(':')
+      const rawId = rest.join(':')
+      if (kind === 'q') {
+        const quest = quests.find((item) => String(item.id) === rawId)
+        if (quest) onSetQuestCollapsed?.(quest.id, next)
+      } else if (kind === 'n') {
+        const note = notes.find((item) => String(item.id) === rawId)
+        if (note) updateNote(note.id, { collapsed: next })
+      }
+    })
+  }
+
+  const saveNoteAsTemplate = (note) => {
+    saveNoteTemplate(note)
+    setSavedNotice('已加入常用筆記')
+  }
+
+  const saveQuestAsTemplate = (quest) => {
+    onSaveQuestTemplate?.(quest)
+    setSavedNotice('已加入常用待辦')
+  }
+
+  // 從常用清單新增：放在畫面中央
+  const addFromFavorite = async (kind, template) => {
+    const center = viewportCenter()
+    if (kind === 'q') {
+      const id = onAddFromTemplate?.(template.id, { canvasPosition: { x: Math.max(0, center.x), y: Math.max(0, center.y) }, board })
+      if (id != null) {
+        setSelectedKey(`q:${id}`)
+        setStackOrder((prev) => [...prev, `q:${id}`])
+      }
+    } else {
+      const id = await addNote(
+        { x: Math.max(0, center.x + (CARD_WIDTH - NOTE_WIDTH) / 2), y: Math.max(0, center.y) },
+        null,
+        board,
+        { title: template.title, text: template.text, color: template.color },
+      )
+      setSelectedKey(`n:${id}`)
+      setStackOrder((prev) => [...prev, `n:${id}`])
+    }
+    setFavoritesOpen(false)
+    setFavoriteQuery('')
   }
 
   const createNote = async () => {
     const rect = boardRef.current.getBoundingClientRect()
     const center = toWorld(rect.left + rect.width / 2, rect.top + rect.height / 3)
-    const id = await addNote({ x: Math.max(0, center.x - NOTE_WIDTH / 2), y: Math.max(0, center.y) })
+    const id = await addNote({ x: Math.max(0, center.x - NOTE_WIDTH / 2), y: Math.max(0, center.y) }, null, board)
     setSelectedKey(`n:${id}`)
     setStackOrder((prev) => [...prev, `n:${id}`])
     setEditingNoteId(id)
@@ -716,36 +1244,82 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
   const handlePointerDown = (event) => {
     if (event.button !== 0 && event.button !== 1) return
     event.currentTarget.setPointerCapture(event.pointerId)
-    setSelectedKey(null)
+    if (!(event.ctrlKey || event.metaKey)) setSelectedKeys([])
     setPanDrag({ startX: event.clientX, startY: event.clientY, originX: viewport.x, originY: viewport.y })
   }
 
   // 卡片任何地方都能拖；按在輸入框、按鈕、勾選框上則照常操作
-  const startCardDrag = (event, kind, id, storedPosition) => {
+  const storedPositionOf = (key) => {
+    if (key === 'h:hunt') return huntPosition
+    const quest = quests.find((item) => `q:${item.id}` === key)
+    if (quest) return quest.canvasPosition ?? defaults[quest.id]
+    return notes.find((item) => `n:${item.id}` === key)?.position ?? null
+  }
+
+  const startCardDrag = (event, kind, id) => {
     event.stopPropagation()
+    const key = `${kind}:${id}`
+    const interactive = event.target.closest(INTERACTIVE_SELECTOR)
+    // Ctrl/⌘ + 點擊：加入或移出多選，不拖曳
+    if ((event.ctrlKey || event.metaKey) && event.button === 0 && !interactive) {
+      setSelectedKeys((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]))
+      setStackOrder((prev) => [...prev.filter((item) => item !== key), key])
+      return
+    }
+    const groupKeys = isSelected(key) && selectedKeys.length > 1 ? selectedKeys : [key]
+    if (!isSelected(key) || selectedKeys.length <= 1) setSelectedKey(key)
+    setStackOrder((prev) => [...prev.filter((item) => !groupKeys.includes(item)), ...groupKeys])
+    if (event.button !== 0 || interactive) return
+    if (isTypingTarget(document.activeElement)) document.activeElement.blur()
+    const items = groupKeys
+      .map((itemKey) => {
+        const stored = storedPositionOf(itemKey)
+        if (!stored) return null
+        const [itemKind, ...rest] = itemKey.split(':')
+        const rawId = rest.join(':')
+        const itemId = itemKind === 'h' ? rawId : (quests.find((q) => String(q.id) === rawId)?.id ?? notes.find((n) => String(n.id) === rawId)?.id)
+        return { key: itemKey, kind: itemKind, id: itemId, stored, originX: stored.x, originY: stored.y }
+      })
+      .filter(Boolean)
+    setCardDrag({ key, items, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, dx: 0, dy: 0, moved: false })
+  }
+
+  // 拖右下角調整卡片寬高（高度是最小高度，內容多時卡片仍會自動長高）
+  const startCardResize = (event, kind, id, storedPosition) => {
+    if (event.button !== 0) return
+    event.stopPropagation()
+    event.preventDefault()
     const key = `${kind}:${id}`
     setSelectedKey(key)
     setStackOrder((prev) => [...prev.filter((item) => item !== key), key])
-    if (event.button !== 0 || event.target.closest(INTERACTIVE_SELECTOR)) return
     if (isTypingTarget(document.activeElement)) document.activeElement.blur()
-    const origin = getPosition(key, storedPosition)
-    setCardDrag({ key, kind, id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: origin.x, originY: origin.y, x: origin.x, y: origin.y, moved: false })
+    const card = event.currentTarget.closest('[data-canvas-card]')
+    boardRef.current.setPointerCapture(event.pointerId)
+    setCardResize({
+      key, kind, id, stored: storedPosition,
+      startX: event.clientX, startY: event.clientY,
+      originW: card.offsetWidth, originH: card.offsetHeight,
+      w: card.offsetWidth, h: card.offsetHeight,
+    })
   }
 
   const handlePointerMove = (event) => {
     pointerRef.current = { x: event.clientX, y: event.clientY }
-    if (cardDrag) {
+    if (cardResize) {
+      const w = cardResize.originW + (event.clientX - cardResize.startX) / viewport.zoom
+      const h = cardResize.originH + (event.clientY - cardResize.startY) / viewport.zoom
+      setCardResize({
+        ...cardResize,
+        w: Math.round(Math.min(MAX_CARD_WIDTH, Math.max(MIN_CARD_WIDTH, w))),
+        h: Math.round(Math.max(MIN_CARD_HEIGHT, h)),
+      })
+    } else if (cardDrag) {
       const dx = event.clientX - cardDrag.startX
       const dy = event.clientY - cardDrag.startY
       if (!cardDrag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return
       // 超過門檻才 capture，雙擊標題等點擊事件才不會被導到畫布上
       if (!cardDrag.moved) boardRef.current.setPointerCapture(cardDrag.pointerId)
-      setCardDrag({
-        ...cardDrag,
-        moved: true,
-        x: Math.max(0, cardDrag.originX + dx / viewport.zoom),
-        y: Math.max(0, cardDrag.originY + dy / viewport.zoom),
-      })
+      setCardDrag({ ...cardDrag, moved: true, dx: dx / viewport.zoom, dy: dy / viewport.zoom })
     } else if (panDrag) {
       setViewport((prev) => ({
         ...prev,
@@ -756,18 +1330,21 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
   }
 
   const handlePointerUp = () => {
-    if (cardDrag?.moved && (cardDrag.x !== cardDrag.originX || cardDrag.y !== cardDrag.originY)) {
-      const position = { x: cardDrag.x, y: cardDrag.y }
-      if (cardDrag.kind === 'n') updateNote(cardDrag.id, { position })
-      else if (cardDrag.kind === 'h') {
-        setHuntPosition(position)
-        try {
-          localStorage.setItem(HUNT_POSITION_KEY, JSON.stringify(position))
-        } catch {
-          // Card position persistence is optional.
-        }
-      } else onPositionChange(cardDrag.id, position)
+    if (cardResize && (cardResize.w !== cardResize.originW || cardResize.h !== cardResize.originH)) {
+      savePosition(cardResize.kind, cardResize.id, { ...cardResize.stored, w: cardResize.w, h: cardResize.h })
     }
+    // 在多選中單純點一下（沒拖動）→ 只選這張
+    if (cardDrag && !cardDrag.moved && cardDrag.items.length > 1) setSelectedKey(cardDrag.key)
+    if (cardDrag?.moved && (cardDrag.dx !== 0 || cardDrag.dy !== 0)) {
+      cardDrag.items.forEach((item) => {
+        savePosition(item.kind, item.id, {
+          ...item.stored,
+          x: Math.max(0, item.originX + cardDrag.dx),
+          y: Math.max(0, item.originY + cardDrag.dy),
+        })
+      })
+    }
+    setCardResize(null)
     setCardDrag(null)
     setPanDrag(null)
   }
@@ -786,7 +1363,7 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
     <div className="relative h-[calc(100vh-260px)] min-h-[520px] overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
       <div
         ref={boardRef}
-        className={`absolute inset-0 touch-none ${panDrag ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`absolute inset-0 touch-none ${cardResize ? 'cursor-nwse-resize' : panDrag ? 'cursor-grabbing' : 'cursor-grab'}`}
         style={{
           backgroundImage: 'radial-gradient(circle, #cbd5e1 1px, transparent 1px)',
           backgroundSize: `${gridSize}px ${gridSize}px`,
@@ -811,15 +1388,23 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
             const storedPosition = quest.canvasPosition ?? defaults[quest.id]
             const stackIndex = stackOrder.indexOf(key)
             return (
-              <div key={key} className="pointer-events-auto">
+              <div key={key} className={`pointer-events-auto ${isCut(key) ? 'opacity-40' : ''}`}>
                 <CanvasCard
                   quest={quest}
                   position={getPosition(key, storedPosition)}
-                  zIndex={cardDrag?.key === key ? 1000 : stackIndex + 1}
-                  selected={selectedKey === key}
-                  dragging={cardDrag?.key === key && cardDrag.moved}
-                  onDragStart={(event) => startCardDrag(event, 'q', quest.id, storedPosition)}
+                  zIndex={cardDrag?.moved && cardDrag.items.some((item) => item.key === key) ? 1000 + stackIndex : stackIndex + 1}
+                  selected={isSelected(key)}
+                  dragging={Boolean(cardDrag?.moved && cardDrag.items.some((item) => item.key === key))}
+                  onDragStart={(event) => startCardDrag(event, 'q', quest.id)}
+                  onResizeStart={(event) => startCardResize(event, 'q', quest.id, storedPosition)}
                   onDelete={() => deleteCard(quest)}
+                  onDuplicate={() => duplicateCard(quest)}
+                  onCut={() => cutCard(key)}
+                  onSaveTemplate={() => saveQuestAsTemplate(quest)}
+                  onToggleCollapsed={() => toggleCollapsed(key)}
+                  onSetSchedule={onSetSchedule}
+                  now={now}
+                  lockedExpLevels={lockedExpLevels}
                   onOpenDetails={onOpenDetails}
                   onUpdateQuest={onUpdateQuest}
                   onToggleSubTask={onToggleSubTask}
@@ -838,10 +1423,11 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
                 target={huntTarget}
                 handlers={huntTaskHandlers}
                 position={getPosition('h:hunt', huntPosition)}
-                zIndex={cardDrag?.key === 'h:hunt' ? 1000 : stackOrder.indexOf('h:hunt') + 1}
-                selected={selectedKey === 'h:hunt'}
-                dragging={cardDrag?.key === 'h:hunt' && cardDrag.moved}
-                onDragStart={(event) => startCardDrag(event, 'h', 'hunt', huntPosition)}
+                zIndex={cardDrag?.moved && cardDrag.items.some((item) => item.key === 'h:hunt') ? 1000 : stackOrder.indexOf('h:hunt') + 1}
+                selected={isSelected('h:hunt')}
+                dragging={Boolean(cardDrag?.moved && cardDrag.items.some((item) => item.key === 'h:hunt'))}
+                onDragStart={(event) => startCardDrag(event, 'h', 'hunt')}
+                onResizeStart={(event) => startCardResize(event, 'h', 'hunt', huntPosition)}
                 onOpenHunt={onOpenHunt}
               />
             </div>
@@ -850,18 +1436,21 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
             const key = `n:${note.id}`
             const stackIndex = stackOrder.indexOf(key)
             return (
-              <div key={key} className="pointer-events-auto">
+              <div key={key} className={`pointer-events-auto ${isCut(key) ? 'opacity-40' : ''}`}>
                 <NoteCard
                   note={note}
                   position={getPosition(key, note.position)}
-                  zIndex={cardDrag?.key === key ? 1000 : stackIndex + 1}
-                  selected={selectedKey === key}
-                  dragging={cardDrag?.key === key && cardDrag.moved}
+                  zIndex={cardDrag?.moved && cardDrag.items.some((item) => item.key === key) ? 1000 + stackIndex : stackIndex + 1}
+                  selected={isSelected(key)}
+                  dragging={Boolean(cardDrag?.moved && cardDrag.items.some((item) => item.key === key))}
                   editing={editingNoteId === note.id}
                   onStartEdit={() => setEditingNoteId(note.id)}
                   onStopEdit={() => setEditingNoteId((prev) => (prev === note.id ? null : prev))}
-                  onDragStart={(event) => startCardDrag(event, 'n', note.id, note.position)}
+                  onDragStart={(event) => startCardDrag(event, 'n', note.id)}
+                  onResizeStart={(event) => startCardResize(event, 'n', note.id, note.position)}
                   onDelete={() => deleteNote(note)}
+                  onSaveTemplate={() => saveNoteAsTemplate(note)}
+                  onToggleCollapsed={() => toggleCollapsed(key)}
                   onUpdate={updateNote}
                   onAddImage={addNoteImage}
                   onRemoveImage={removeNoteImage}
@@ -905,6 +1494,15 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
         >
           <ImageOutlinedIcon sx={{ fontSize: 22 }} />圖片
         </button>
+        <button
+          type="button"
+          onClick={() => setFavoritesOpen((prev) => !prev)}
+          className={`flex w-14 flex-col items-center gap-0.5 rounded-lg py-2 text-[11px] font-semibold hover:bg-slate-100 ${favoritesOpen ? 'bg-purple-50 text-purple-600' : 'bg-transparent text-slate-600'}`}
+          title="從常用待辦／筆記新增"
+          aria-expanded={favoritesOpen}
+        >
+          <BookmarksOutlinedIcon sx={{ fontSize: 21 }} />常用
+        </button>
         <input
           ref={imageInputRef}
           type="file"
@@ -919,6 +1517,38 @@ export default function QuestCanvasView({ quests, huntTarget = null, huntTaskHan
           }}
         />
       </div>
+
+      {clipboard && (
+        <div data-canvas-ui className="absolute left-1/2 top-3 z-[1100] flex max-w-[90%] -translate-x-1/2 items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-lg">
+          <ContentCutOutlinedIcon sx={{ fontSize: 15 }} />
+          <span className="truncate">已剪下「{clipboard.label}」，到要放的畫布按 Ctrl+V 貼上</span>
+          <button type="button" onClick={pasteClipboard} className="shrink-0 rounded-full bg-white/15 px-2.5 py-0.5 text-white hover:bg-white/25">貼到這裡</button>
+          <button type="button" onClick={() => onClipboardChange?.(null)} className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-transparent text-white/60 hover:text-white" aria-label="取消剪下">
+            <CloseIcon sx={{ fontSize: 14 }} />
+          </button>
+        </div>
+      )}
+
+      {favoritesOpen && (
+        <>
+          <div data-canvas-ui className="absolute inset-0 z-[1090]" onPointerDown={() => setFavoritesOpen(false)} />
+          <FavoritesPanel
+            query={favoriteQuery}
+            onQueryChange={setFavoriteQuery}
+            questTemplates={questTemplates}
+            noteTemplates={noteTemplates}
+            onPick={addFromFavorite}
+            onRemoveQuestTemplate={onRemoveQuestTemplate}
+            onRemoveNoteTemplate={removeNoteTemplate}
+          />
+        </>
+      )}
+
+      {savedNotice && (
+        <div data-canvas-ui className="pointer-events-none absolute bottom-3 left-1/2 z-[1100] -translate-x-1/2 rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg">
+          {savedNotice}
+        </div>
+      )}
 
       {/* 右下縮放控制 */}
       <div data-canvas-ui className="absolute bottom-3 right-3 z-[1100] flex items-center rounded-lg border border-slate-200 bg-white shadow-sm">

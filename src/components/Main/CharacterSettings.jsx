@@ -28,6 +28,9 @@ export default function CharacterSettings({
   autoExpSettings,
   onAutoExpEnabled,
   onUpdateAutoExpThreshold,
+  tierUnlockSettings,
+  onTierUnlockEnabled,
+  onUpdateTierUnlockLevel,
   currentLevel,
   onResetLevel,
 }) {
@@ -92,6 +95,10 @@ export default function CharacterSettings({
           autoExpSettings={autoExpSettings}
           onAutoExpEnabled={onAutoExpEnabled}
           onUpdateAutoExpThreshold={onUpdateAutoExpThreshold}
+          tierUnlockSettings={tierUnlockSettings}
+          onTierUnlockEnabled={onTierUnlockEnabled}
+          onUpdateTierUnlockLevel={onUpdateTierUnlockLevel}
+          currentLevel={currentLevel}
         />
       )}
     </div>
